@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { usePos } from '../../store/PosContext';
+import { APP_VERSION, BUILD_DATE, RELEASE_NAME } from '../../config/version';
+import { exportPosBackup } from '../../utils/storageMigrator';
 import {
   Store,
   CreditCard,
@@ -12,7 +14,9 @@ import {
   AlertTriangle,
   UploadCloud,
   X,
-  Code
+  Code,
+  Download,
+  ShieldCheck
 } from 'lucide-react';
 
 const SQL_SCHEMA_CODE = `-- ==============================================================================
@@ -364,10 +368,50 @@ export default function SettingsView() {
         </button>
       </form>
 
+      {/* Safe Backup & Version Card */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="w-7 h-7 rounded-lg bg-forest-50 text-forest-800 flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900 text-xs">Phiên bản & Sao lưu Dự phòng</h4>
+              <p className="text-[10px] text-gray-400">
+                Phiên bản: <span className="font-mono font-bold text-forest-800">v{APP_VERSION}</span> • Ngày build: {BUILD_DATE}
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-forest-50 text-forest-800 border border-forest-200">
+            {RELEASE_NAME}
+          </span>
+        </div>
+
+        <p className="text-gray-500 text-[11px] leading-relaxed">
+          Xuất toàn bộ dữ liệu bàn, thực đơn, cài đặt và lịch sử đơn hàng thành file dự phòng định dạng JSON để lưu trữ an toàn trên máy tính.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => {
+            const res = exportPosBackup();
+            if (res.success) {
+              showToast(res.message, 'success');
+            } else {
+              showToast(res.message, 'error');
+            }
+          }}
+          className="w-full py-2 bg-gray-50 hover:bg-forest-50 text-forest-900 border border-gray-200 hover:border-forest-200 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+        >
+          <Download className="w-3.5 h-3.5 text-forest-700" />
+          <span>Tải file dự phòng toàn bộ dữ liệu (.json)</span>
+        </button>
+      </div>
+
       {/* Contact & Copyright Information */}
       <div className="bg-forest-50/70 p-4 rounded-2xl border border-forest-200/60 text-center space-y-1.5">
         <h4 className="font-extrabold text-forest-900 text-sm">GÓC – Phê & Trà POS</h4>
-        <p className="text-gray-500 text-[11px]">Phiên bản 1.1.0 (Supabase Realtime Cloud Sync)</p>
+        <p className="text-gray-500 text-[11px]">Phiên bản v{APP_VERSION} ({RELEASE_NAME})</p>
         <p className="text-[11px] text-gray-600">
           Thiết kế chuẩn hóa Glassmorphism tối giản theo bộ nhận diện #214E34 & #FFFFFF
         </p>
