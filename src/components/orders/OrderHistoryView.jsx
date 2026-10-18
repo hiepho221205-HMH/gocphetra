@@ -161,13 +161,13 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
   };
 
   return (
-    <div className="px-3.5 py-3 pb-24 text-stone-800">
+    <div className="px-4 pt-3.5 pb-24 text-stone-800">
       {/* ================= 1. HEADER ================= */}
       <div className="mb-2.5">
-        <h2 className="text-base font-black text-forest-900 leading-tight">
-          Quản lý Đơn hàng
+        <h2 className="text-lg font-black text-forest-900 tracking-tight leading-none">
+          Đơn hàng
         </h2>
-        <p className="text-[11px] text-gray-500">
+        <p className="text-[11px] text-gray-500 mt-0.5">
           Theo dõi đơn đang phục vụ và hóa đơn đã hoàn tất theo ngày
         </p>
       </div>

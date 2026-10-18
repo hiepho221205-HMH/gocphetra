@@ -149,14 +149,14 @@ export default function ReportsView() {
   }, [dailySeries, inspectedDayIndex]);
 
   return (
-    <div className="px-3.5 py-3 pb-24 space-y-3.5 text-stone-800">
+    <div className="px-4 pt-3.5 pb-24 space-y-3.5 text-stone-800">
       {/* ================= 1. HEADER ================= */}
       <div>
-        <h2 className="text-base font-black text-forest-900 leading-tight">
-          Báo cáo & Doanh thu
+        <h2 className="text-lg font-black text-forest-900 tracking-tight leading-none">
+          Báo cáo
         </h2>
-        <p className="text-[11px] text-gray-500">
-          Theo dõi doanh thu bán hàng
+        <p className="text-[11px] text-gray-500 mt-0.5">
+          Theo dõi doanh thu bán hàng & phương thức thanh toán
         </p>
       </div>
 

@@ -214,7 +214,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-135px)] sm:h-[720px] bg-[#F8FAF8] overflow-hidden select-none relative">
+    <div className="flex flex-col h-[calc(100dvh-64px)] sm:h-[780px] bg-[#F8FAF8] overflow-hidden select-none relative">
       {/* ================= 1. HEADER TRANG GỌI MÓN ================= */}
       <header className="px-3.5 py-2.5 bg-white/95 backdrop-blur-md border-b border-stone-200/80 flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2.5">

@@ -41,7 +41,7 @@ export default function TableGrid({
   });
 
   return (
-    <div className="px-4 py-3 pb-24">
+    <div className="px-4 pt-3.5 pb-24">
       {/* 1. Header gọn: Tiêu đề trang Sơ đồ bàn */}
       <div className="mb-2.5">
         <h2 className="text-lg font-black text-forest-900 tracking-tight leading-none">

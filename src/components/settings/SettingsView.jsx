@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { usePos } from '../../store/PosContext';
+import { useVersionChecker } from '../../hooks/useVersionChecker';
 import { APP_VERSION, BUILD_DATE, RELEASE_NAME } from '../../config/version';
 import { exportPosBackup } from '../../utils/storageMigrator';
 import {
@@ -16,7 +17,12 @@ import {
   X,
   Code,
   Download,
-  ShieldCheck
+  ShieldCheck,
+  Smartphone,
+  Monitor,
+  RotateCcw,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 
 const SQL_SCHEMA_CODE = `-- ==============================================================================
@@ -135,8 +141,14 @@ export default function SettingsView() {
     isSyncing,
     syncFromCloud,
     seedToCloud,
-    refreshCloudHealth
+    refreshCloudHealth,
+    deviceMode,
+    toggleDeviceMode,
+    resetAllData
   } = usePos();
+
+  const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
+  const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
   const [branchName, setBranchName] = useState(settings.branchName);
   const [shiftName, setShiftName] = useState(settings.shiftName);
@@ -177,10 +189,52 @@ export default function SettingsView() {
   };
 
   return (
-    <div className="px-4 py-3 pb-28 space-y-4 text-xs">
+    <div className="px-4 pt-3.5 pb-28 space-y-4 text-xs">
       <div>
-        <h2 className="text-base font-extrabold text-forest-900">Cài đặt Hệ thống</h2>
-        <p className="text-[11px] text-gray-500">Cấu hình ca làm, tài khoản VietQR & đồng bộ Supabase Cloud</p>
+        <h2 className="text-lg font-black text-forest-900 tracking-tight leading-none">
+          Cài đặt
+        </h2>
+        <p className="text-[11px] text-gray-500 mt-1">
+          Cấu hình hiển thị, ca làm, dữ liệu & đồng bộ Supabase Cloud
+        </p>
+      </div>
+
+      {/* Chế độ hiển thị POS */}
+      <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-xs space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="w-7 h-7 rounded-lg bg-forest-50 text-forest-800 flex items-center justify-center">
+              {deviceMode === 'mobile' ? (
+                <Smartphone className="w-4 h-4 text-forest-700" />
+              ) : (
+                <Monitor className="w-4 h-4 text-forest-700" />
+              )}
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900 text-xs">Chế độ hiển thị POS</h4>
+              <p className="text-[10px] text-gray-400">
+                {deviceMode === 'mobile' ? 'Khung chuẩn Mobile 390px' : 'Toàn màn hình (Desktop/Tablet)'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={toggleDeviceMode}
+            className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-forest-800/20 bg-forest-50/70 text-forest-900 hover:bg-forest-100 transition-colors flex items-center gap-1.5 shadow-2xs"
+          >
+            {deviceMode === 'mobile' ? (
+              <>
+                <Monitor className="w-3.5 h-3.5 text-forest-700" />
+                <span>Mở rộng Desktop</span>
+              </>
+            ) : (
+              <>
+                <Smartphone className="w-3.5 h-3.5 text-forest-700" />
+                <span>Khung Mobile (390px)</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Backend Integration & Supabase Status Card */}
@@ -376,9 +430,9 @@ export default function SettingsView() {
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="font-bold text-gray-900 text-xs">Phiên bản & Sao lưu Dự phòng</h4>
+              <h4 className="font-bold text-gray-900 text-xs">Phiên bản & Quản trị Dữ liệu</h4>
               <p className="text-[10px] text-gray-400">
-                Phiên bản: <span className="font-mono font-bold text-forest-800">v{APP_VERSION}</span> • Ngày build: {BUILD_DATE}
+                Phiên bản: <span className="font-mono font-bold text-forest-800">v{APP_VERSION}</span> • {BUILD_DATE}
               </p>
             </div>
           </div>
@@ -387,25 +441,65 @@ export default function SettingsView() {
           </span>
         </div>
 
+        {/* Update Checker Status */}
+        {hasUpdate ? (
+          <div className="bg-gradient-to-r from-emerald-700 to-forest-800 text-white p-3 rounded-xl flex items-center justify-between text-xs shadow-sm animate-fadeIn">
+            <div className="flex items-center gap-1.5 font-bold text-[11.5px]">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+              <span>Có bản cập nhật mới (v{newVersion})</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowUpdateConfirm(true)}
+              className="px-2.5 py-1 bg-white text-forest-900 rounded-lg font-extrabold text-[11px] hover:bg-emerald-50 transition-colors flex items-center gap-1 shadow-2xs"
+            >
+              <span>Cập nhật ngay</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[10.5px] text-emerald-700 bg-emerald-50/70 px-2.5 py-1.5 rounded-xl border border-emerald-200/50 font-medium">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Đang sử dụng phiên bản POS mới nhất</span>
+          </div>
+        )}
+
         <p className="text-gray-500 text-[11px] leading-relaxed">
-          Xuất toàn bộ dữ liệu bàn, thực đơn, cài đặt và lịch sử đơn hàng thành file dự phòng định dạng JSON để lưu trữ an toàn trên máy tính.
+          Quản lý dữ liệu lưu trữ POS, xuất file dự phòng an toàn hoặc khôi phục dữ liệu mẫu ban đầu.
         </p>
 
-        <button
-          type="button"
-          onClick={() => {
-            const res = exportPosBackup();
-            if (res.success) {
-              showToast(res.message, 'success');
-            } else {
-              showToast(res.message, 'error');
-            }
-          }}
-          className="w-full py-2 bg-gray-50 hover:bg-forest-50 text-forest-900 border border-gray-200 hover:border-forest-200 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-2xs"
-        >
-          <Download className="w-3.5 h-3.5 text-forest-700" />
-          <span>Tải file dự phòng toàn bộ dữ liệu (.json)</span>
-        </button>
+        {/* Action Buttons: Backup & Reset */}
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-50">
+          <button
+            type="button"
+            onClick={() => {
+              const res = exportPosBackup();
+              if (res.success) {
+                showToast(res.message, 'success');
+              } else {
+                showToast(res.message, 'error');
+              }
+            }}
+            className="py-2 px-2.5 bg-gray-50 hover:bg-forest-50 text-forest-900 border border-gray-200 hover:border-forest-200 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+          >
+            <Download className="w-3.5 h-3.5 text-forest-700" />
+            <span>Tải backup (.json)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Khôi phục dữ liệu mẫu ban đầu của GÓC POS? Thao tác này sẽ đặt lại các bàn và thực đơn mặc định.')) {
+                resetAllData();
+                showToast('Đã khôi phục dữ liệu mẫu ban đầu!', 'success');
+              }
+            }}
+            className="py-2 px-2.5 bg-rose-50/70 hover:bg-rose-100 text-rose-800 border border-rose-200/70 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-rose-700" />
+            <span>Khôi phục mẫu</span>
+          </button>
+        </div>
       </div>
 
       {/* Contact & Copyright Information */}
@@ -419,6 +513,39 @@ export default function SettingsView() {
           Bản quyền © 2026 Quán Cà Phê GÓC. Bảo lưu mọi quyền.
         </div>
       </div>
+
+      {/* Safe Update Confirmation Modal */}
+      {showUpdateConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 space-y-3.5 shadow-2xl text-center border border-gray-100">
+            <div className="w-12 h-12 rounded-2xl bg-forest-100 text-forest-800 flex items-center justify-center mx-auto">
+              <Sparkles className="w-6 h-6 text-forest-700" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-forest-900 text-sm">Cập nhật ứng dụng lên v{newVersion}</h3>
+              <p className="text-gray-500 text-xs mt-1 leading-relaxed">
+                Ứng dụng sẽ tải lại để nạp các tính năng và bản vá mới nhất. Vui lòng đảm bảo các hóa đơn đang mở đã được lưu trước khi cập nhật.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowUpdateConfirm(false)}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors"
+              >
+                Để sau
+              </button>
+              <button
+                type="button"
+                onClick={applyUpdate}
+                className="flex-1 py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-xl font-bold text-xs transition-colors shadow-xs"
+              >
+                Tải lại ngay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SQL Schema Modal */}
       {showSchemaModal && (
