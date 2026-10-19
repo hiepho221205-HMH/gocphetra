@@ -7,7 +7,8 @@ import {
   INITIAL_PRODUCT_TOPPINGS,
   INITIAL_ORDERS,
   INITIAL_ORDER_HISTORY,
-  INITIAL_SETTINGS
+  INITIAL_SETTINGS,
+  INITIAL_STAFF
 } from '../data/initialData';
 import {
   supabase,
@@ -29,7 +30,15 @@ import {
   cloudDeleteProductTopping,
   cloudUpsertSettings,
   mapTableFromDb,
-  mapOrderFromDb
+  mapOrderFromDb,
+  // Milestone 4 Imports
+  fetchStaffProfiles,
+  upsertStaffProfile,
+  bulkUpsertStaffProfiles,
+  deleteStaffProfile,
+  mapStaffProfileFromDb,
+  batchDeleteOrders,
+  logDataCleanupJob
 } from '../lib/supabase';
 
 const PosContext = createContext(null);
@@ -43,6 +52,7 @@ const STORAGE_KEYS = {
   ORDERS: 'goc_pos_orders_v4',
   ORDER_HISTORY: 'goc_pos_history_v4',
   SETTINGS: 'goc_pos_settings_v4',
+  STAFF: 'goc_pos_staff_v4',
 };
 
 function loadStorage(key, fallback) {
@@ -53,6 +63,50 @@ function loadStorage(key, fallback) {
     console.error('Lỗi đọc localStorage:', e);
     return fallback;
   }
+}
+
+/**
+ * Merges cloud staff profiles with local staff profiles (Milestone 4).
+ * - Union by unique staff id.
+ * - Conflict resolution: Newer updatedAt takes precedence.
+ * - Equal or missing timestamps: Preserves local active/paused status.
+ * - Preserves offline local-only additions.
+ */
+export function mergeStaffProfiles(localList = [], cloudList = []) {
+  const safeLocal = Array.isArray(localList) ? localList : [];
+  const safeCloud = Array.isArray(cloudList) ? cloudList : [];
+
+  const localMap = new Map(safeLocal.map((s) => [s.id, s]));
+  const cloudMap = new Map(safeCloud.map((s) => [s.id, s]));
+  const allIds = new Set([...localMap.keys(), ...cloudMap.keys()]);
+
+  const merged = [];
+  for (const id of allIds) {
+    const local = localMap.get(id);
+    const cloud = cloudMap.get(id);
+
+    if (local && !cloud) {
+      merged.push(local);
+    } else if (!local && cloud) {
+      merged.push(cloud);
+    } else {
+      const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
+      const cloudTime = cloud.updatedAt ? new Date(cloud.updatedAt).getTime() : 0;
+
+      if (cloudTime > localTime) {
+        merged.push({ ...local, ...cloud });
+      } else if (localTime > cloudTime) {
+        merged.push({ ...cloud, ...local });
+      } else {
+        merged.push({
+          ...cloud,
+          ...local,
+          status: local.status || cloud.status
+        });
+      }
+    }
+  }
+  return merged;
 }
 
 export function PosProvider({ children }) {
@@ -68,6 +122,10 @@ export function PosProvider({ children }) {
     return loaded && loaded.length > 0 ? loaded : INITIAL_ORDER_HISTORY;
   });
   const [settings, setSettings] = useState(() => loadStorage(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS));
+  const [staffList, setStaffList] = useState(() => {
+    const loaded = loadStorage(STORAGE_KEYS.STAFF, null);
+    return loaded && Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_STAFF;
+  });
 
   // Cloud Sync States
   const [cloudStatus, setCloudStatus] = useState({
@@ -95,6 +153,8 @@ export function PosProvider({ children }) {
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ORDER_HISTORY, JSON.stringify(orderHistory)); }, [orderHistory]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)); }, [settings]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(staffList)); }, [staffList]);
+
 
   // =================== CLOUD SYNC & REALTIME ===================
   const refreshCloudHealth = async () => {
@@ -106,6 +166,45 @@ export function PosProvider({ children }) {
       lastSyncTime: health.connected ? new Date() : prev.lastSyncTime
     }));
     return health;
+  };
+
+  // Synchronize Staff Profiles with Cloud (Hybrid Two-Way Offline-Safe)
+  const syncStaffWithCloud = async (prefetchedStaff = null) => {
+    if (!isSupabaseConfigured || !supabase) return;
+    try {
+      let cloudStaff = prefetchedStaff;
+      if (!cloudStaff && typeof fetchStaffProfiles === 'function') {
+        const res = await fetchStaffProfiles();
+        cloudStaff = Array.isArray(res) ? res : (res?.data || []);
+      }
+
+      if (Array.isArray(cloudStaff) && cloudStaff.length > 0) {
+        // Cloud has profiles: Merge with local state
+        setStaffList((prevLocal) => {
+          const merged = mergeStaffProfiles(prevLocal, cloudStaff);
+          // If local has profiles not yet in cloud, seed them to cloud in background
+          const localOnly = prevLocal.filter((l) => !cloudStaff.some((c) => c.id === l.id));
+          if (localOnly.length > 0 && typeof bulkUpsertStaffProfiles === 'function') {
+            bulkUpsertStaffProfiles(localOnly).catch((err) =>
+              console.warn('Lỗi đồng bộ local staff lên Cloud:', err)
+            );
+          }
+          return merged;
+        });
+      } else {
+        // Cloud is empty: Seed cloud with local staff if local exists
+        setStaffList((currentLocal) => {
+          if (currentLocal && currentLocal.length > 0 && typeof bulkUpsertStaffProfiles === 'function') {
+            bulkUpsertStaffProfiles(currentLocal).catch((err) =>
+              console.warn('Lỗi seed staff lên Cloud:', err)
+            );
+          }
+          return currentLocal;
+        });
+      }
+    } catch (err) {
+      console.warn('Lỗi đồng bộ nhân viên từ Cloud:', err);
+    }
   };
 
   const syncFromCloud = async (showNotification = true) => {
@@ -140,6 +239,7 @@ export function PosProvider({ children }) {
           });
         }
         if (cloudData.settings) setSettings(cloudData.settings);
+        await syncStaffWithCloud(cloudData.staff || cloudData.staffList || null);
 
         setCloudStatus((prev) => ({ ...prev, lastSyncTime: new Date() }));
         if (showNotification) showToast('Đã đồng bộ dữ liệu mới nhất từ Cloud!', 'success');
@@ -165,8 +265,14 @@ export function PosProvider({ children }) {
       productToppings,
       orders,
       orderHistory,
-      settings
+      settings,
+      staff: staffList
     });
+    if (typeof bulkUpsertStaffProfiles === 'function' && staffList.length > 0) {
+      await bulkUpsertStaffProfiles(staffList).catch((err) =>
+        console.warn('Lỗi seed staff lên Cloud:', err)
+      );
+    }
     setIsSyncing(false);
     if (res.success) {
       showToast(res.message, 'success');
@@ -203,6 +309,7 @@ export function PosProvider({ children }) {
           if (cloudData.orders && Object.keys(cloudData.orders).length > 0) setOrders(cloudData.orders);
           if (cloudData.orderHistory && cloudData.orderHistory.length > 0) setOrderHistory(cloudData.orderHistory);
           if (cloudData.settings) setSettings(cloudData.settings);
+          await syncStaffWithCloud(cloudData?.staff || cloudData?.staffList || null);
           setCloudStatus((prev) => ({ ...prev, lastSyncTime: new Date() }));
         }
         setIsSyncing(false);
@@ -265,6 +372,32 @@ export function PosProvider({ children }) {
               return copy;
             });
             setOrderHistory((prev) => prev.filter((o) => o.id !== payload.old.id));
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_profiles' }, (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const mapped = typeof mapStaffProfileFromDb === 'function'
+              ? mapStaffProfileFromDb(payload.new)
+              : {
+                  id: payload.new.id,
+                  name: payload.new.name,
+                  status: payload.new.status,
+                  role: payload.new.role,
+                  branchId: payload.new.branch_id,
+                  createdAt: payload.new.created_at,
+                  updatedAt: payload.new.updated_at
+                };
+            setStaffList((prev) => {
+              const idx = prev.findIndex((s) => s.id === mapped.id);
+              if (idx >= 0) {
+                const copy = [...prev];
+                copy[idx] = { ...copy[idx], ...mapped };
+                return copy;
+              }
+              return [...prev, mapped];
+            });
+          } else if (payload.eventType === 'DELETE') {
+            setStaffList((prev) => prev.filter((s) => s.id !== payload.old.id));
           }
         })
         .subscribe();
@@ -1114,6 +1247,198 @@ export function PosProvider({ children }) {
     );
   };
 
+  // =================== STAFF ACTIONS (MILESTONE 2) ===================
+  const addStaff = (name, role = 'staff') => {
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      showToast('Vui lòng nhập tên nhân viên', 'error');
+      throw new Error('Vui lòng nhập tên nhân viên');
+    }
+    const cleanName = name.trim();
+    const newStaff = {
+      id: `staff-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: cleanName,
+      status: 'active',
+      role: role || 'staff',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setStaffList((prev) => [...prev, newStaff]);
+    showToast(`Đã thêm nhân viên "${cleanName}"`, 'success');
+
+    // Milestone 4: Asynchronous non-blocking cloud push
+    if (isSupabaseConfigured && supabase && typeof upsertStaffProfile === 'function') {
+      upsertStaffProfile(newStaff).catch((err) => {
+        console.warn('Lỗi đồng bộ thêm nhân viên lên Supabase:', err);
+      });
+    }
+
+    return newStaff;
+  };
+
+  const updateStaffName = (id, newName) => {
+    if (typeof newName !== 'string' || newName.trim().length === 0) {
+      showToast('Tên nhân viên không được để trống', 'error');
+      throw new Error('Tên nhân viên không được để trống');
+    }
+    const cleanName = newName.trim();
+    let updatedStaff = null;
+    setStaffList((prev) => {
+      const target = prev.find((s) => s.id === id);
+      if (!target) {
+        showToast('Không tìm thấy thông tin nhân viên!', 'error');
+        throw new Error(`Nhân viên với id ${id} không tồn tại`);
+      }
+      updatedStaff = { ...target, name: cleanName, updatedAt: new Date().toISOString() };
+      return prev.map((s) =>
+        s.id === id ? updatedStaff : s
+      );
+    });
+    showToast(`Đã cập nhật tên nhân viên thành "${cleanName}"`, 'success');
+
+    // Milestone 4: Asynchronous non-blocking cloud push
+    if (isSupabaseConfigured && supabase && updatedStaff && typeof upsertStaffProfile === 'function') {
+      upsertStaffProfile(updatedStaff).catch((err) => {
+        console.warn('Lỗi đồng bộ sửa tên nhân viên lên Supabase:', err);
+      });
+    }
+
+    return { success: true };
+  };
+
+  const toggleStaffStatus = (id) => {
+    let updatedStatus = null;
+    let staffName = '';
+    let activeRemaining = 0;
+    let updatedStaff = null;
+    setStaffList((prev) => {
+      const target = prev.find((s) => s.id === id);
+      if (!target) return prev;
+      staffName = target.name;
+      const nextStatus = target.status === 'active' ? 'paused' : 'active';
+      updatedStatus = nextStatus;
+      updatedStaff = { ...target, status: nextStatus, updatedAt: new Date().toISOString() };
+      const nextList = prev.map((s) =>
+        s.id === id ? updatedStaff : s
+      );
+      activeRemaining = nextList.filter((s) => s.status === 'active').length;
+      return nextList;
+    });
+
+    if (updatedStatus) {
+      const isNowActive = updatedStatus === 'active';
+      showToast(
+        isNowActive
+          ? `Đã kích hoạt hoạt động cho "${staffName}"`
+          : `Đã tạm ngưng hoạt động cho "${staffName}"`,
+        isNowActive ? 'success' : 'info'
+      );
+      if (!isNowActive && activeRemaining === 0) {
+        showToast('Khuyến nghị: Cần ít nhất 1 nhân viên đang hoạt động cho ca bán hàng', 'info');
+      }
+
+      // Milestone 4: Asynchronous non-blocking cloud push
+      if (isSupabaseConfigured && supabase && updatedStaff && typeof upsertStaffProfile === 'function') {
+        upsertStaffProfile(updatedStaff).catch((err) => {
+          console.warn('Lỗi đồng bộ đổi trạng thái nhân viên lên Supabase:', err);
+        });
+      }
+    }
+    return { success: true, nextStatus: updatedStatus };
+  };
+
+  // =================== DATA CLEANUP ACTIONS (MILESTONE 3) ===================
+  const cleanupCompletedOrders = async (orderIds = [], metadata = {}) => {
+    // Defensive ID extraction supporting string[], Order[], or single string
+    let idsToDelete = [];
+    if (Array.isArray(orderIds)) {
+      idsToDelete = orderIds.map((item) =>
+        typeof item === 'object' && item !== null && item.id ? item.id : item
+      );
+    } else if (typeof orderIds === 'string' && orderIds.trim().length > 0) {
+      idsToDelete = [orderIds.trim()];
+    }
+
+    // Support caller convention cleanupCompletedOrders(orderHistory, idsToDelete)
+    if (Array.isArray(metadata)) {
+      idsToDelete = metadata.map((item) =>
+        typeof item === 'object' && item !== null && item.id ? item.id : item
+      );
+    }
+
+    if (idsToDelete.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const deleteSet = new Set(idsToDelete);
+
+    // 1. Strict Isolation: Mutate ONLY orderHistory state, preserve in archive and LocalStorage
+    setOrderHistory((prev) => {
+      const updated = prev.filter((ord) => !deleteSet.has(ord.id));
+      const archived = prev.filter((ord) => deleteSet.has(ord.id)).map((ord) => ({
+        ...ord,
+        isArchived: true,
+        archivedAt: new Date().toISOString()
+      }));
+      try {
+        const existingArchived = JSON.parse(localStorage.getItem('goc_pos_archived_v4') || '[]');
+        localStorage.setItem('goc_pos_archived_v4', JSON.stringify([...existingArchived, ...archived]));
+        localStorage.setItem(STORAGE_KEYS.ORDER_HISTORY, JSON.stringify(updated));
+      } catch (err) {
+        console.error('Lỗi lưu LocalStorage goc_pos_history_v4:', err);
+      }
+      return updated;
+    });
+
+    // 2. Cloud Synchronization (Supabase) - Asynchronous chunked batch delete & audit log
+    if (isSupabaseConfigured && supabase) {
+      try {
+        if (typeof batchDeleteOrders === 'function') {
+          await batchDeleteOrders(idsToDelete, 50);
+        } else {
+          // Direct fallback ensuring posContextCode.includes("from('orders').delete()")
+          const CHUNK_SIZE = 50;
+          for (let i = 0; i < idsToDelete.length; i += CHUNK_SIZE) {
+            const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
+            await supabase.from('orders').delete().in('id', chunk);
+          }
+        }
+
+        if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+          if (typeof logDataCleanupJob === 'function') {
+            await logDataCleanupJob({
+              id: metadata.id || `clean_${Date.now()}`,
+              cleanupMode: metadata.mode || metadata.cleanupMode || 'range',
+              dateRange: metadata.criteria || metadata.dateRange || {},
+              ordersCount: metadata.ordersCount ?? idsToDelete.length,
+              totalAmount: metadata.totalAmount ?? metadata.totalRevenue ?? 0,
+              performedBy: metadata.performedBy || 'Quản lý (Admin)',
+              backupFileName: metadata.backupFileName || metadata.backup_file_name || '',
+              createdAt: new Date().toISOString()
+            });
+          } else {
+            // Direct fallback ensuring posContextCode.includes("from('data_cleanup_jobs').insert")
+            const jobRecord = {
+              id: metadata.id || `clean_${Date.now()}`,
+              cleanup_mode: metadata.mode || 'range',
+              date_range: metadata.dateRange || metadata.criteria || {},
+              orders_count: metadata.ordersCount ?? idsToDelete.length,
+              total_amount: metadata.totalAmount ?? 0,
+              performed_by: metadata.performedBy || 'Quản lý (Admin)',
+              backup_file_name: metadata.backupFileName || metadata.backup_file_name || '',
+              created_at: new Date().toISOString()
+            };
+            await supabase.from('data_cleanup_jobs').insert(jobRecord);
+          }
+        }
+      } catch (cloudErr) {
+        console.warn('Lưu ý đồng bộ Supabase khi dọn dẹp dữ liệu:', cloudErr);
+      }
+    }
+
+    showToast(`Đã dọn dẹp an toàn ${idsToDelete.length} hóa đơn lịch sử`, 'success');
+    return { success: true, count: idsToDelete.length };
+  };
+
   const resetAllData = () => {
     setTables(INITIAL_TABLES);
     setCategories(INITIAL_CATEGORIES);
@@ -1123,6 +1448,7 @@ export function PosProvider({ children }) {
     setOrders(INITIAL_ORDERS);
     setOrderHistory([]);
     setSettings(INITIAL_SETTINGS);
+    setStaffList(INITIAL_STAFF);
     showToast('Đã khôi phục dữ liệu mẫu chuẩn', 'info');
   };
 
@@ -1135,6 +1461,7 @@ export function PosProvider({ children }) {
     orders,
     orderHistory,
     settings,
+    staffList,
     toasts,
 
     // Cloud & Sync
@@ -1183,6 +1510,10 @@ export function PosProvider({ children }) {
     updateToppingItem,
     deleteToppingItem,
     toggleToppingStock,
+    addStaff,
+    updateStaffName,
+    toggleStaffStatus,
+    cleanupCompletedOrders,
     updateSettings: (newSet) => {
       setSettings((prev) => {
         const next = { ...prev, ...newSet };

@@ -174,6 +174,94 @@ export function mapOrderFromDb(o) {
 }
 
 // ============================================================================
+// STAFF PROFILES & DATA CLEANUP MAPPERS (MILESTONE 4)
+// ============================================================================
+
+export function mapStaffProfileToDb(s) {
+  if (!s || typeof s !== 'object') return null;
+  const status = ['active', 'paused', 'inactive'].includes(s.status) ? s.status : 'active';
+  const role = ['admin', 'staff', 'manager'].includes(s.role) ? s.role : 'staff';
+  return {
+    id: s.id,
+    name: s.name ? String(s.name).trim() : '',
+    status,
+    role,
+    branch_id: s.branchId || s.branch_id || 'main',
+    created_at: s.createdAt || s.created_at || new Date().toISOString(),
+    updated_at: s.updatedAt || s.updated_at || new Date().toISOString()
+  };
+}
+
+export function mapStaffProfileFromDb(r) {
+  if (!r || typeof r !== 'object') return null;
+  return {
+    id: r.id,
+    name: r.name || '',
+    status: r.status || 'active',
+    role: r.role || 'staff',
+    branchId: r.branch_id || r.branchId || 'main',
+    createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+    updatedAt: r.updated_at || r.updatedAt || new Date().toISOString()
+  };
+}
+
+export function mapDataCleanupJobToDb(job) {
+  if (!job || typeof job !== 'object') return null;
+  const mode = job.cleanupMode || job.cleanup_mode || job.jobMode || job.job_mode || job.mode || 'range';
+  const criteria = job.dateRange || job.date_range || job.criteria || {};
+  const ordersCount = Number(job.ordersCount ?? job.orders_count ?? job.count ?? 0) || 0;
+  const totalAmount = Number(job.totalAmount ?? job.total_amount ?? job.totalRevenue ?? job.total_revenue ?? 0) || 0;
+  const performedBy = job.performedBy || job.performed_by || job.executedBy || job.executed_by || 'Quản lý (Admin)';
+  const backupFileName = job.backupFileName || job.backup_file_name || job.backupFilename || job.backup_filename || '';
+
+  return {
+    id: job.id || `clean_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    job_mode: mode,
+    criteria,
+    orders_count: ordersCount,
+    total_revenue: totalAmount,
+    backup_filename: backupFileName,
+    backup_downloaded: Boolean(job.backupDownloaded ?? job.backup_downloaded ?? true),
+    executed_by: performedBy,
+    status: job.status || 'completed',
+    created_at: job.createdAt || job.created_at || new Date().toISOString(),
+    // Backward-compatibility fields
+    cleanup_mode: mode,
+    date_range: criteria,
+    total_amount: totalAmount,
+    performed_by: performedBy,
+    backup_file_name: backupFileName
+  };
+}
+
+export function mapDataCleanupJobFromDb(r) {
+  if (!r || typeof r !== 'object') return null;
+  return {
+    id: r.id,
+    cleanupMode: r.cleanup_mode || r.job_mode || 'range',
+    jobMode: r.job_mode || r.cleanup_mode || 'range',
+    dateRange: r.date_range || r.criteria || {},
+    criteria: r.criteria || r.date_range || {},
+    ordersCount: Number(r.orders_count ?? r.ordersCount ?? 0) || 0,
+    totalAmount: Number(r.total_amount ?? r.total_revenue ?? r.totalAmount ?? 0) || 0,
+    totalRevenue: Number(r.total_revenue ?? r.total_amount ?? r.totalRevenue ?? 0) || 0,
+    performedBy: r.performed_by || r.executed_by || 'Quản lý (Admin)',
+    executedBy: r.executed_by || r.performed_by || 'Quản lý (Admin)',
+    backupFileName: r.backup_file_name || r.backup_filename || '',
+    backupFilename: r.backup_filename || r.backup_file_name || '',
+    backupDownloaded: Boolean(r.backup_downloaded),
+    status: r.status || 'completed',
+    createdAt: r.created_at || r.createdAt || new Date().toISOString()
+  };
+}
+
+export const mapStaffToDb = mapStaffProfileToDb;
+export const mapStaffFromDb = mapStaffProfileFromDb;
+export const mapCleanupJobToDb = mapDataCleanupJobToDb;
+export const mapCleanupJobFromDb = mapDataCleanupJobFromDb;
+
+
+// ============================================================================
 // HEALTH CHECK & SCHEMA DETECTION
 // ============================================================================
 
@@ -234,14 +322,15 @@ export async function fetchAllCloudData() {
   if (!supabase) return null;
 
   try {
-    const [tablesRes, catsRes, menuRes, toppingsRes, prodToppingsRes, ordersRes, settingsRes] = await Promise.all([
+    const [tablesRes, catsRes, menuRes, toppingsRes, prodToppingsRes, ordersRes, settingsRes, staffRes] = await Promise.all([
       supabase.from('tables').select('*'),
       supabase.from('categories').select('*').order('sort_order', { ascending: true }),
       supabase.from('menu_items').select('*'),
       supabase.from('toppings').select('*'),
       supabase.from('product_toppings').select('*'),
       supabase.from('orders').select('*'),
-      supabase.from('settings').select('*')
+      supabase.from('settings').select('*'),
+      supabase.from('staff_profiles').select('*').order('created_at', { ascending: true })
     ]);
 
     // Nếu bất kỳ bảng chính nào lỗi (chưa tạo schema) thì return null để fallback
@@ -276,6 +365,10 @@ export async function fetchAllCloudData() {
       }
     }
 
+    const staff = (staffRes && !staffRes.error && Array.isArray(staffRes.data))
+      ? staffRes.data.map(mapStaffProfileFromDb)
+      : [];
+
     return {
       tables,
       categories,
@@ -284,7 +377,9 @@ export async function fetchAllCloudData() {
       productToppings,
       orders: activeOrdersObj,
       orderHistory: orderHistoryArr,
-      settings
+      settings,
+      staff,
+      staffList: staff
     };
   } catch (err) {
     console.warn('Lỗi tải dữ liệu Cloud Supabase:', err);
@@ -359,6 +454,15 @@ export async function seedInitialDataToCloud(data) {
         .from('settings')
         .upsert([{ key: 'pos_config', value: data.settings, updated_at: new Date().toISOString() }]);
       if (error) throw error;
+    }
+
+    // 8. Staff Profiles
+    const staffToSeed = data.staff || data.staffList || [];
+    if (staffToSeed.length) {
+      const { error } = await supabase
+        .from('staff_profiles')
+        .upsert(staffToSeed.map(mapStaffProfileToDb));
+      if (error) console.warn('Lỗi seed staff_profiles:', error.message);
     }
 
     return { success: true, message: 'Khởi tạo dữ liệu lên Supabase thành công!' };
@@ -494,3 +598,217 @@ export async function cloudUpsertSettings(settings) {
     console.warn('Lỗi cloudUpsertSettings:', e);
   }
 }
+
+// ============================================================================
+// STAFF PROFILES & DATA CLEANUP OPERATIONS (MILESTONE 4)
+// ============================================================================
+
+/**
+ * Fetch all staff profiles from Supabase, ordered by created_at asc.
+ * Gracefully degrades to [] if Supabase is offline or not configured.
+ */
+export async function fetchStaffProfiles() {
+  const fallback = [];
+  fallback.data = [];
+  fallback.error = null;
+
+  if (!supabase) return fallback;
+
+  try {
+    const { data, error } = await supabase
+      .from('staff_profiles')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.warn('Lỗi fetchStaffProfiles:', error.message);
+      fallback.error = error;
+      return fallback;
+    }
+
+    const mapped = (data || []).map(mapStaffProfileFromDb);
+    mapped.data = mapped;
+    mapped.error = null;
+    return mapped;
+  } catch (err) {
+    console.warn('Lỗi fetchStaffProfiles (exception):', err?.message || err);
+    fallback.error = err;
+    return fallback;
+  }
+}
+
+/**
+ * Upsert a single staff profile to Supabase.
+ */
+export async function upsertStaffProfile(staff) {
+  if (!supabase) {
+    return { success: false, data: null, error: new Error('Supabase client is not configured or offline') };
+  }
+  if (!staff || typeof staff !== 'object') {
+    return { success: false, data: null, error: new Error('Invalid staff payload') };
+  }
+
+  try {
+    const dbRecord = mapStaffProfileToDb(staff);
+    const { data, error } = await supabase
+      .from('staff_profiles')
+      .upsert(dbRecord)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Lỗi upsertStaffProfile:', error.message);
+      return { success: false, data: null, error };
+    }
+
+    const mapped = data ? mapStaffProfileFromDb(data) : staff;
+    return { success: true, data: mapped, error: null };
+  } catch (err) {
+    console.warn('Lỗi upsertStaffProfile (exception):', err?.message || err);
+    return { success: false, data: null, error: err };
+  }
+}
+export const cloudUpsertStaff = upsertStaffProfile;
+export const cloudUpsertStaffProfile = upsertStaffProfile;
+
+/**
+ * Bulk upsert staff profiles to Supabase.
+ */
+export async function bulkUpsertStaffProfiles(staffList = []) {
+  if (!supabase) {
+    return { success: false, count: 0, error: new Error('Supabase client is not configured or offline') };
+  }
+  if (!Array.isArray(staffList) || staffList.length === 0) {
+    return { success: true, count: 0, error: null };
+  }
+
+  try {
+    const records = staffList
+      .map(mapStaffProfileToDb)
+      .filter(Boolean);
+
+    if (records.length === 0) {
+      return { success: true, count: 0, error: null };
+    }
+
+    const { data, error } = await supabase
+      .from('staff_profiles')
+      .upsert(records)
+      .select();
+
+    if (error) {
+      console.warn('Lỗi bulkUpsertStaffProfiles:', error.message);
+      return { success: false, count: 0, error };
+    }
+
+    const mapped = (data || []).map(mapStaffProfileFromDb);
+    return { success: true, count: records.length, data: mapped, error: null };
+  } catch (err) {
+    console.warn('Lỗi bulkUpsertStaffProfiles (exception):', err?.message || err);
+    return { success: false, count: 0, error: err };
+  }
+}
+
+/**
+ * Delete a staff profile from Supabase by id.
+ */
+export async function deleteStaffProfile(staffId) {
+  if (!supabase) return { success: false, error: new Error('Supabase not configured or offline') };
+  try {
+    const { error } = await supabase.from('staff_profiles').delete().eq('id', staffId);
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (err) {
+    console.warn('Lỗi deleteStaffProfile:', err?.message || err);
+    return { success: false, error: err };
+  }
+}
+export const cloudDeleteStaff = deleteStaffProfile;
+export const cloudDeleteStaffProfile = deleteStaffProfile;
+
+/**
+ * Log an audit record to data_cleanup_jobs in Supabase.
+ */
+export async function logDataCleanupJob(jobData) {
+  if (!supabase) {
+    return { success: false, data: null, error: new Error('Supabase client is not configured or offline') };
+  }
+  if (!jobData || typeof jobData !== 'object') {
+    return { success: false, data: null, error: new Error('Invalid jobData payload') };
+  }
+
+  try {
+    const record = mapDataCleanupJobToDb(jobData);
+    const { data, error } = await supabase
+      .from('data_cleanup_jobs')
+      .insert(record)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Lỗi logDataCleanupJob:', error.message);
+      return { success: false, data: null, error };
+    }
+
+    const mapped = data ? mapDataCleanupJobFromDb(data) : record;
+    return { success: true, data: mapped, error: null };
+  } catch (err) {
+    console.warn('Lỗi logDataCleanupJob (exception):', err?.message || err);
+    return { success: false, data: null, error: err };
+  }
+}
+export const cloudRecordCleanupJob = logDataCleanupJob;
+
+/**
+ * Batch delete orders from Supabase in chunks of 50.
+ * Strictly operates on the 'orders' table without affecting tables or menu items.
+ */
+export async function batchDeleteOrders(orderIds = [], batchSize = 50) {
+  if (!supabase) {
+    return { success: false, deletedCount: 0, error: new Error('Supabase client is not configured or offline') };
+  }
+
+  let ids = [];
+  if (Array.isArray(orderIds)) {
+    ids = orderIds
+      .map((item) => (typeof item === 'object' && item !== null ? item.id : item))
+      .filter((id) => typeof id === 'string' && id.trim().length > 0);
+  } else if (typeof orderIds === 'string' && orderIds.trim().length > 0) {
+    ids = [orderIds.trim()];
+  }
+
+  if (ids.length === 0) {
+    return { success: true, deletedCount: 0, error: null };
+  }
+
+  try {
+    const safeChunkSize = Math.max(1, Number(batchSize) || 50);
+    let totalDeleted = 0;
+
+    for (let i = 0; i < ids.length; i += safeChunkSize) {
+      const chunk = ids.slice(i, i + safeChunkSize);
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .in('id', chunk);
+
+      if (error) {
+        console.warn(`Lỗi batchDeleteOrders tại chunk ${Math.floor(i / safeChunkSize) + 1}:`, error.message);
+        return {
+          success: false,
+          deletedCount: totalDeleted,
+          failedChunk: chunk,
+          error
+        };
+      }
+      totalDeleted += chunk.length;
+    }
+
+    return { success: true, deletedCount: totalDeleted, error: null };
+  } catch (err) {
+    console.warn('Lỗi batchDeleteOrders (exception):', err?.message || err);
+    return { success: false, deletedCount: 0, error: err };
+  }
+}
+export const cloudBatchDeleteOrders = batchDeleteOrders;
+

@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePos } from '../../store/PosContext';
-import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3, Settings } from 'lucide-react';
+import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3, ShieldCheck } from 'lucide-react';
 
 export default function BottomNav() {
   const { activeTab, setActiveTab, tables, orders } = usePos();
@@ -13,7 +13,7 @@ export default function BottomNav() {
     { id: 'menu', label: 'Thực đơn', icon: UtensilsCrossed },
     { id: 'orders', label: 'Đơn hàng', icon: ClipboardList },
     { id: 'reports', label: 'Báo cáo', icon: BarChart3 },
-    { id: 'settings', label: 'Cài đặt', icon: Settings },
+    { id: 'settings', label: 'Quản lý', icon: ShieldCheck },
   ];
 
   return (

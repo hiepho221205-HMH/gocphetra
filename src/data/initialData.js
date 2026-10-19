@@ -482,3 +482,34 @@ export const INITIAL_SETTINGS = {
     accountHolder: 'QUAN CA PHE GOC'
   }
 };
+
+// Danh sách nhân viên khởi tạo tối giản (Minimal Staff Roster)
+// Tuân thủ nghiêm ngặt nguyên tắc bảo mật tối giản: Chỉ lưu id, name, status, role, createdAt, updatedAt.
+// Tuyệt đối không lưu trữ dữ liệu cá nhân (SĐT, email, CCCD, địa chỉ, lương).
+export const INITIAL_STAFF = [
+  {
+    id: 'staff-01',
+    name: 'Trần Mai',
+    status: 'active',
+    role: 'admin',
+    createdAt: '2026-10-18T00:00:00.000Z',
+    updatedAt: '2026-10-18T00:00:00.000Z'
+  },
+  {
+    id: 'staff-02',
+    name: 'Nguyễn Văn Hùng',
+    status: 'active',
+    role: 'staff',
+    createdAt: '2026-10-18T00:00:00.000Z',
+    updatedAt: '2026-10-18T00:00:00.000Z'
+  },
+  {
+    id: 'staff-03',
+    name: 'Lê Hoàng Nam',
+    status: 'active',
+    role: 'staff',
+    createdAt: '2026-10-18T00:00:00.000Z',
+    updatedAt: '2026-10-18T00:00:00.000Z'
+  }
+];
+

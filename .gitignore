@@ -23,6 +23,7 @@ dist-ssr
 stitch-skills
 .DS_Store
 Thumbs.db
+.agents/
 
 # IDE & Editor configs
 .vscode/*
