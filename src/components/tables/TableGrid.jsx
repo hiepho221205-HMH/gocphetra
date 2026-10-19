@@ -12,10 +12,16 @@ export default function TableGrid({
   const [selectedStatus, setSelectedStatus] = useState('all'); // 'all' | 'empty' | 'occupied'
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Quy ước logic đơn giản:
+  // Quy ước logic an toàn:
   // Bàn nào có order với số món > 0 thì là "Có khách", còn lại là "Bàn trống"
   const isTableOccupied = (t) => {
-    const ord = t.activeOrderId ? orders[t.activeOrderId] : null;
+    const ord =
+      (t.activeOrderId && orders[t.activeOrderId]) ||
+      (t.status === 'occupied' &&
+        Object.values(orders).find(
+          (o) => o.tableId === t.id && o.status !== 'completed' && o.status !== 'cancelled'
+        )) ||
+      null;
     return Boolean(ord && ord.items && ord.items.length > 0);
   };
 

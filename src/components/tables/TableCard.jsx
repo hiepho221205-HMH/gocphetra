@@ -9,7 +9,13 @@ export default function TableCard({
   onOpenBill
 }) {
   const { orders } = usePos();
-  const activeOrder = table.activeOrderId ? orders[table.activeOrderId] : null;
+  const activeOrder =
+    (table.activeOrderId && orders[table.activeOrderId]) ||
+    (table.status === 'occupied' &&
+      Object.values(orders).find(
+        (o) => o.tableId === table.id && o.status !== 'completed' && o.status !== 'cancelled'
+      )) ||
+    null;
 
   // Logic đơn giản: Có order là "Có khách", chưa có là "Trống"
   const isOccupied = Boolean(activeOrder && activeOrder.items && activeOrder.items.length > 0);

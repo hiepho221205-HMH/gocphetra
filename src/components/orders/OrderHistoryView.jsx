@@ -67,6 +67,8 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
     if (newDateStr === selectedDate) return;
     setIsLoading(true);
     setSelectedDate(newDateStr);
+    // Đảm bảo Bottom Navigation trượt hiện ngay để người dùng thao tác
+    window.dispatchEvent(new CustomEvent('goc_pos_show_nav'));
     setTimeout(() => {
       setIsLoading(false);
     }, 180);
@@ -279,7 +281,10 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         <button
           type="button"
           disabled={isPast || isFuture}
-          onClick={() => setActiveHistoryTab('serving')}
+          onClick={() => {
+            setActiveHistoryTab('serving');
+            window.dispatchEvent(new CustomEvent('goc_pos_show_nav'));
+          }}
           className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs ${
             activeHistoryTab === 'serving'
               ? 'bg-[#214E34] text-white shadow-sm'
@@ -303,7 +308,10 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         {/* Tab 2: Đã hoàn thành */}
         <button
           type="button"
-          onClick={() => setActiveHistoryTab('completed')}
+          onClick={() => {
+            setActiveHistoryTab('completed');
+            window.dispatchEvent(new CustomEvent('goc_pos_show_nav'));
+          }}
           className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs ${
             activeHistoryTab === 'completed'
               ? 'bg-[#214E34] text-white shadow-sm'
@@ -580,10 +588,11 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
               onGoToOrder(tbl);
             }
           }}
-          onCheckout={(tbl) => {
+          onCheckout={(tbl, ord) => {
             setActiveDetailOrder(null);
             if (onGoToBill) {
-              onGoToBill(tbl);
+              const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
+              onGoToBill(freshTable, ord);
             }
           }}
         />

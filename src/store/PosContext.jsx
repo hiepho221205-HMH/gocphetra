@@ -109,18 +109,27 @@ export function mergeStaffProfiles(localList = [], cloudList = []) {
   return merged;
 }
 
+import { reconcileTablesAndOrders } from '../utils/reconciler';
+export { reconcileTablesAndOrders };
+
 export function PosProvider({ children }) {
+  // Compute initial reconciled state from storage/fallback
+  const [initialState] = useState(() => {
+    const rawTables = loadStorage(STORAGE_KEYS.TABLES, INITIAL_TABLES);
+    const rawOrders = loadStorage(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
+    const rawHistory = loadStorage(STORAGE_KEYS.ORDER_HISTORY, null);
+    const historyFallback = rawHistory && rawHistory.length > 0 ? rawHistory : INITIAL_ORDER_HISTORY;
+    return reconcileTablesAndOrders(rawTables, rawOrders, historyFallback);
+  });
+
   // State definitions
-  const [tables, setTables] = useState(() => loadStorage(STORAGE_KEYS.TABLES, INITIAL_TABLES));
+  const [tables, setTables] = useState(() => initialState.reconciledTables);
   const [categories, setCategories] = useState(() => loadStorage(STORAGE_KEYS.CATEGORIES, INITIAL_CATEGORIES));
   const [menu, setMenu] = useState(() => loadStorage(STORAGE_KEYS.MENU, INITIAL_MENU));
   const [toppings, setToppings] = useState(() => loadStorage(STORAGE_KEYS.TOPPINGS, INITIAL_TOPPINGS));
   const [productToppings, setProductToppings] = useState(() => loadStorage(STORAGE_KEYS.PRODUCT_TOPPINGS, INITIAL_PRODUCT_TOPPINGS));
-  const [orders, setOrders] = useState(() => loadStorage(STORAGE_KEYS.ORDERS, INITIAL_ORDERS));
-  const [orderHistory, setOrderHistory] = useState(() => {
-    const loaded = loadStorage(STORAGE_KEYS.ORDER_HISTORY, null);
-    return loaded && loaded.length > 0 ? loaded : INITIAL_ORDER_HISTORY;
-  });
+  const [orders, setOrders] = useState(() => initialState.reconciledOrders);
+  const [orderHistory, setOrderHistory] = useState(() => initialState.reconciledHistory);
   const [settings, setSettings] = useState(() => loadStorage(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS));
   const [staffList, setStaffList] = useState(() => {
     const loaded = loadStorage(STORAGE_KEYS.STAFF, null);
@@ -224,22 +233,26 @@ export function PosProvider({ children }) {
 
       const cloudData = await fetchAllCloudData();
       if (cloudData) {
-        if (cloudData.tables && cloudData.tables.length > 0) setTables(cloudData.tables);
         if (cloudData.categories && cloudData.categories.length > 0) setCategories(cloudData.categories);
         if (cloudData.menu && cloudData.menu.length > 0) setMenu(cloudData.menu);
         if (cloudData.toppings && cloudData.toppings.length > 0) setToppings(cloudData.toppings);
-        if (cloudData.orders) {
-          setOrders((prev) => ({ ...cloudData.orders, ...prev }));
-        }
-        if (cloudData.orderHistory && cloudData.orderHistory.length > 0) {
-          setOrderHistory((prev) => {
-            const cloudIds = new Set(cloudData.orderHistory.map((o) => o.id));
-            const localOnly = prev.filter((o) => !cloudIds.has(o.id));
-            return [...cloudData.orderHistory, ...localOnly];
-          });
-        }
         if (cloudData.settings) setSettings(cloudData.settings);
         await syncStaffWithCloud(cloudData.staff || cloudData.staffList || null);
+
+        // Reconcile tables, orders, and history atomically according to Table-First Rule
+        const fetchedTables = cloudData.tables && cloudData.tables.length > 0 ? cloudData.tables : tables;
+        const mergedOrders = cloudData.orders ? { ...cloudData.orders, ...orders } : orders;
+        let mergedHistory = orderHistory;
+        if (cloudData.orderHistory && cloudData.orderHistory.length > 0) {
+          const cloudIds = new Set(cloudData.orderHistory.map((o) => o.id));
+          const localOnly = orderHistory.filter((o) => !cloudIds.has(o.id));
+          mergedHistory = [...cloudData.orderHistory, ...localOnly];
+        }
+
+        const reconciled = reconcileTablesAndOrders(fetchedTables, mergedOrders, mergedHistory);
+        setTables(reconciled.reconciledTables);
+        setOrders(reconciled.reconciledOrders);
+        setOrderHistory(reconciled.reconciledHistory);
 
         setCloudStatus((prev) => ({ ...prev, lastSyncTime: new Date() }));
         if (showNotification) showToast('Đã đồng bộ dữ liệu mới nhất từ Cloud!', 'success');
@@ -301,15 +314,21 @@ export function PosProvider({ children }) {
         setIsSyncing(true);
         const cloudData = await fetchAllCloudData();
         if (isMounted && cloudData) {
-          if (cloudData.tables && cloudData.tables.length > 0) setTables(cloudData.tables);
           if (cloudData.categories && cloudData.categories.length > 0) setCategories(cloudData.categories);
           if (cloudData.menu && cloudData.menu.length > 0) setMenu(cloudData.menu);
           if (cloudData.toppings && cloudData.toppings.length > 0) setToppings(cloudData.toppings);
           if (cloudData.productToppings) setProductToppings(cloudData.productToppings);
-          if (cloudData.orders && Object.keys(cloudData.orders).length > 0) setOrders(cloudData.orders);
-          if (cloudData.orderHistory && cloudData.orderHistory.length > 0) setOrderHistory(cloudData.orderHistory);
           if (cloudData.settings) setSettings(cloudData.settings);
           await syncStaffWithCloud(cloudData?.staff || cloudData?.staffList || null);
+
+          const fetchedTables = cloudData.tables && cloudData.tables.length > 0 ? cloudData.tables : tables;
+          const fetchedOrders = cloudData.orders && Object.keys(cloudData.orders).length > 0 ? cloudData.orders : orders;
+          const fetchedHistory = cloudData.orderHistory && cloudData.orderHistory.length > 0 ? cloudData.orderHistory : orderHistory;
+          const reconciled = reconcileTablesAndOrders(fetchedTables, fetchedOrders, fetchedHistory);
+          setTables(reconciled.reconciledTables);
+          setOrders(reconciled.reconciledOrders);
+          setOrderHistory(reconciled.reconciledHistory);
+
           setCloudStatus((prev) => ({ ...prev, lastSyncTime: new Date() }));
         }
         setIsSyncing(false);
@@ -335,12 +354,25 @@ export function PosProvider({ children }) {
             const updated = mapTableFromDb(payload.new);
             setTables((prev) => {
               const idx = prev.findIndex((t) => t.id === updated.id);
+              let nextTables;
               if (idx >= 0) {
-                const copy = [...prev];
-                copy[idx] = updated;
-                return copy;
+                nextTables = [...prev];
+                nextTables[idx] = updated;
+              } else {
+                nextTables = [...prev, updated];
               }
-              return [...prev, updated];
+              // If table became empty, cancel any orphan order pointing to it
+              if (updated.status === 'empty' || !updated.activeOrderId) {
+                setOrders((curOrders) => {
+                  const reconciled = reconcileTablesAndOrders(nextTables, curOrders, orderHistory);
+                  if (reconciled.changed) {
+                    setOrderHistory(reconciled.reconciledHistory);
+                    return reconciled.reconciledOrders;
+                  }
+                  return curOrders;
+                });
+              }
+              return nextTables;
             });
           } else if (payload.eventType === 'DELETE') {
             setTables((prev) => prev.filter((t) => t.id !== payload.old.id));
@@ -362,8 +394,29 @@ export function PosProvider({ children }) {
                 delete copy[updated.id];
                 return copy;
               });
+              // Release matching table atomically
+              setTables((prev) =>
+                prev.map((t) =>
+                  t.activeOrderId === updated.id
+                    ? { ...t, status: 'empty', activeOrderId: null, seatedAt: null, customerCount: 0 }
+                    : t
+                )
+              );
             } else {
               setOrders((prev) => ({ ...prev, [updated.id]: updated }));
+              // Ensure table is linked to serving order
+              setTables((prev) =>
+                prev.map((t) =>
+                  t.id === updated.tableId
+                    ? {
+                        ...t,
+                        status: 'occupied',
+                        activeOrderId: updated.id,
+                        customerCount: updated.customerCount || t.customerCount
+                      }
+                    : t
+                )
+              );
             }
           } else if (payload.eventType === 'DELETE') {
             setOrders((prev) => {
@@ -901,7 +954,52 @@ export function PosProvider({ children }) {
     cloudUpsertTable(updatedTable);
 
     showToast(`Đã lưu đơn thành công cho ${table.name}!`, 'success');
-    return { success: true, order: updatedOrder };
+    return { success: true, order: updatedOrder, table: updatedTable };
+  };
+
+  // Hủy đơn hàng và giải phóng bàn (chuyển sang trạng thái cancelled, đưa vào lịch sử)
+  const cancelOrderForTable = (tableId, reason = 'Khách hủy đơn') => {
+    const table = tables.find((t) => t.id === tableId);
+    let order = table?.activeOrderId ? orders[table.activeOrderId] : null;
+    if (!order) {
+      order = Object.values(orders).find(
+        (o) => o.tableId === tableId && o.status !== 'completed' && o.status !== 'cancelled'
+      );
+    }
+    if (!order) {
+      showToast('Không tìm thấy đơn hàng cần hủy!', 'error');
+      return false;
+    }
+
+    const finishedAt = new Date().toISOString();
+    const cancelledOrder = {
+      ...order,
+      status: 'cancelled',
+      cancelReason: reason,
+      finishedAt
+    };
+
+    setOrderHistory((prev) => [cancelledOrder, ...prev]);
+    setOrders((prev) => {
+      const copy = { ...prev };
+      delete copy[order.id];
+      return copy;
+    });
+
+    const resetTable = {
+      ...(table || { id: tableId, name: order.tableName }),
+      status: 'empty',
+      activeOrderId: null,
+      seatedAt: null,
+      customerCount: 0
+    };
+
+    setTables((prev) => prev.map((t) => (t.id === tableId ? resetTable : t)));
+
+    cloudUpsertOrder(cancelledOrder);
+    cloudUpsertTable(resetTable);
+    showToast(`Đã hủy đơn ${resetTable.name} và giải phóng bàn!`, 'info');
+    return true;
   };
 
   // =================== BILLING & SETTLEMENT ===================
@@ -911,8 +1009,12 @@ export function PosProvider({ children }) {
 
   const processPartialPayment = (tableId, paymentRecord) => {
     const table = tables.find((t) => t.id === tableId);
-    if (!table || !table.activeOrderId) return { success: false, isFullyPaid: false };
-    const order = orders[table.activeOrderId];
+    let order = table?.activeOrderId ? orders[table.activeOrderId] : null;
+    if (!order) {
+      order = Object.values(orders).find(
+        (o) => o.tableId === tableId && o.status !== 'completed' && o.status !== 'cancelled'
+      );
+    }
     if (!order) return { success: false, isFullyPaid: false };
 
     const newPaidAmount = (order.paidAmount || 0) + paymentRecord.amount;
@@ -985,8 +1087,12 @@ export function PosProvider({ children }) {
 
   const fullCheckout = (tableId, paymentMethod = 'cash') => {
     const table = tables.find((t) => t.id === tableId);
-    if (!table || !table.activeOrderId) return false;
-    const order = orders[table.activeOrderId];
+    let order = table?.activeOrderId ? orders[table.activeOrderId] : null;
+    if (!order) {
+      order = Object.values(orders).find(
+        (o) => o.tableId === tableId && o.status !== 'completed' && o.status !== 'cancelled'
+      );
+    }
     if (!order) return false;
 
     const amount = order.remainingAmount > 0 ? order.remainingAmount : order.total;
@@ -1013,7 +1119,7 @@ export function PosProvider({ children }) {
     };
 
     finalizeOrder(tableId, finalOrder);
-    showToast(`Thanh toán thành công ${table.name}! Đã giải phóng bàn.`, 'success');
+    showToast(`Thanh toán thành công ${order.tableName || table?.name}! Đã giải phóng bàn.`, 'success');
     return true;
   };
 
@@ -1497,6 +1603,7 @@ export function PosProvider({ children }) {
     requestBillForTable,
     processPartialPayment,
     fullCheckout,
+    cancelOrderForTable,
     addCategory,
     updateCategory,
     deleteCategory,

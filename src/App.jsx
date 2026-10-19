@@ -86,34 +86,41 @@ function PosContent() {
             <>
               {activeOrderingTable ? (
                 <OrderView
-                  table={activeOrderingTable}
+                  table={tables.find((t) => t.id === activeOrderingTable.id) || activeOrderingTable}
                   onBack={() => setActiveOrderingTable(null)}
                   onGoToBill={(tbl) => {
-                    setBillingTable(tbl);
+                    const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
+                    setBillingTable(freshTable);
                   }}
                 />
               ) : (
                 <div className="animate-fadeIn">
                   <TableGrid
                     onSelectTable={(table) => {
-                      if (table.status === 'empty') {
-                        setActiveOrderingTable(table);
-                      } else if (table.status === 'awaiting_payment') {
-                        setBillingTable(table);
+                      const freshTable = tables.find((t) => t.id === table.id) || table;
+                      if (freshTable.status === 'empty') {
+                        setActiveOrderingTable(freshTable);
+                      } else if (freshTable.status === 'awaiting_payment') {
+                        setBillingTable(freshTable);
                       } else {
-                        setActiveOrderingTable(table);
+                        setActiveOrderingTable(freshTable);
                       }
                     }}
-                    onOpenActions={(table) => setActionTable(table)}
+                    onOpenActions={(table) => {
+                      const freshTable = tables.find((t) => t.id === table.id) || table;
+                      setActionTable(freshTable);
+                    }}
                     onAddNewTable={() => {
                       setEditingTable(null);
                       setIsAddTableOpen(true);
                     }}
                     onOpenOrder={(table) => {
-                      setActiveOrderingTable(table);
+                      const freshTable = tables.find((t) => t.id === table.id) || table;
+                      setActiveOrderingTable(freshTable);
                     }}
                     onOpenBill={(table) => {
-                      setBillingTable(table);
+                      const freshTable = tables.find((t) => t.id === table.id) || table;
+                      setBillingTable(freshTable);
                     }}
                   />
                 </div>
@@ -133,11 +140,13 @@ function PosContent() {
             <div className="animate-fadeIn">
               <OrderHistoryView
                 onGoToOrder={(tbl) => {
-                  setActiveOrderingTable(tbl);
+                  const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
+                  setActiveOrderingTable(freshTable);
                   setActiveTab('tables');
                 }}
                 onGoToBill={(tbl) => {
-                  setBillingTable(tbl);
+                  const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
+                  setBillingTable(freshTable);
                 }}
               />
             </div>
@@ -164,14 +173,16 @@ function PosContent() {
         {/* Modals */}
         <TableActionModal
           isOpen={Boolean(actionTable)}
-          table={actionTable}
+          table={actionTable ? (tables.find((t) => t.id === actionTable.id) || actionTable) : null}
           onClose={() => setActionTable(null)}
           onGoToOrder={(table) => {
-            setActiveOrderingTable(table);
+            const freshTable = tables.find((t) => t.id === table.id) || table;
+            setActiveOrderingTable(freshTable);
             setActiveTab('tables');
           }}
           onGoToBill={(table) => {
-            setBillingTable(table);
+            const freshTable = tables.find((t) => t.id === table.id) || table;
+            setBillingTable(freshTable);
           }}
           onEditTable={(table) => {
             setEditingTable(table);
@@ -187,12 +198,13 @@ function PosContent() {
 
         <BillCheckoutModal
           isOpen={Boolean(billingTable)}
-          table={billingTable}
+          table={billingTable ? (tables.find((t) => t.id === billingTable.id) || billingTable) : null}
           onClose={() => setBillingTable(null)}
           onPaymentSuccess={handlePaymentSuccess}
           onGoBackToOrder={(tbl) => {
             setBillingTable(null);
-            setActiveOrderingTable(tbl);
+            const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
+            setActiveOrderingTable(freshTable);
           }}
         />
 

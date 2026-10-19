@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { usePos } from '../../store/PosContext';
 import ItemCustomizerModal from './ItemCustomizerModal';
@@ -23,7 +23,8 @@ import {
   X,
   Receipt,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
 
@@ -57,23 +58,36 @@ export default function OrderView({ table, onBack, onGoToBill }) {
   // Draft Cart Items for this table
   const [cartItems, setCartItems] = useState([]);
   const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Modals & Panels
   const [customizingItem, setCustomizingItem] = useState(null);
   const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
 
+  // Track previous table ID to differentiate table switching vs state re-render
+  const prevTableIdRef = useRef(table?.id);
+
   // Initialize draft cart from active order if table is already occupied
   useEffect(() => {
+    const isNewTable = prevTableIdRef.current !== table?.id;
+    prevTableIdRef.current = table?.id;
+
     if (table && table.activeOrderId && orders[table.activeOrderId]) {
       const existingItems = orders[table.activeOrderId].items || [];
-      // Clone items into draft
-      setCartItems(JSON.parse(JSON.stringify(existingItems)));
+      // If table switched or not dirty, load from order
+      if (isNewTable || !isDirty) {
+        setCartItems(JSON.parse(JSON.stringify(existingItems)));
+        setIsDirty(false);
+      }
     } else {
-      setCartItems([]);
+      // If table switched or not dirty, clear cart
+      if (isNewTable || !isDirty) {
+        setCartItems([]);
+        setIsDirty(false);
+      }
     }
-    setIsDirty(false);
-  }, [table, orders]);
+  }, [table?.id, table?.activeOrderId, orders]);
 
   // Lock body scroll when confirm discard modal is open
   useEffect(() => {
@@ -189,18 +203,29 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     showToast('Đã xóa món khỏi đơn', 'info');
   };
 
-  // ================= COMMIT ORDER HANDLER =================
-  const handleSaveOrder = () => {
+  // ================= COMMIT ORDER HANDLER (LƯU NHANH) =================
+  const handleSaveOrder = async () => {
+    if (isSaving) return;
+
     if (cartItems.length === 0) {
       showToast('Đơn hàng chưa có món nào! Vui lòng chọn món trước khi lưu.', 'error');
       return;
     }
 
-    const result = saveOrderForTable(table.id, cartItems);
-    if (result && result.success) {
-      setIsDirty(false);
-      setIsOrderDetailsOpen(false);
-      onBack();
+    setIsSaving(true);
+    try {
+      const result = saveOrderForTable(table.id, cartItems);
+      if (result && result.success) {
+        setIsDirty(false);
+        setIsOrderDetailsOpen(false);
+        onBack();
+      } else {
+        setIsSaving(false);
+      }
+    } catch (err) {
+      console.error('Lỗi khi lưu đơn:', err);
+      showToast('Có lỗi xảy ra khi lưu đơn!', 'error');
+      setIsSaving(false);
     }
   };
 
@@ -466,9 +491,10 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       </div>
 
       {/* ================= 3. STICKY BOTTOM SUMMARY BAR ================= */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-stone-200 px-3.5 py-2.5 flex items-center justify-between shadow-float">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-[#214E34]/10 text-[#214E34] flex items-center justify-center relative">
+      <div className="absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-stone-200 px-3 py-2 flex items-center justify-between gap-2 shadow-float">
+        {/* Left: Cart items count & subtotal */}
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="w-9 h-9 rounded-xl bg-[#214E34]/10 text-[#214E34] flex items-center justify-center shrink-0 relative">
             <ShoppingBag className="w-4 h-4" />
             {totalItemCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#214E34] text-white text-[9.5px] font-bold flex items-center justify-center shadow-xs">
@@ -477,37 +503,67 @@ export default function OrderView({ table, onBack, onGoToBill }) {
             )}
           </div>
 
-          <div>
-            <div className="text-xs font-bold text-stone-800">
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-stone-800 truncate">
               {totalItemCount > 0 ? (
                 <>
                   <span>{totalItemCount} món</span>
                   <span className="text-stone-300 mx-1">•</span>
-                  <span className="text-sm font-black text-[#214E34]">{formatVND(subtotal)}</span>
+                  <span className="text-xs sm:text-sm font-black text-[#214E34]">{formatVND(subtotal)}</span>
                 </>
               ) : (
-                <span className="text-stone-400 text-xs">Chưa có món trong đơn</span>
+                <span className="text-stone-400 text-xs">Chưa có món</span>
               )}
             </div>
-            <p className="text-[10px] text-stone-400">
-              {table.name} • {isDirty ? 'Có thay đổi chưa lưu' : 'Đơn hiện tại'}
+            <p className="text-[10px] text-stone-400 truncate">
+              {table.name} • {isDirty ? 'Chưa lưu' : 'Đơn hiện tại'}
             </p>
           </div>
         </div>
 
-        {/* Nút Xem đơn */}
-        <button
-          onClick={() => setIsOrderDetailsOpen(true)}
-          disabled={cartItems.length === 0}
-          className={`px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-sm ${
-            cartItems.length > 0
-              ? 'bg-[#214E34] text-white hover:bg-[#1a3e29] active:scale-95'
-              : 'bg-stone-200 text-stone-400 cursor-not-allowed'
-          }`}
-        >
-          <Receipt className="w-3.5 h-3.5" />
-          <span>Xem đơn</span>
-        </button>
+        {/* Right: Action Buttons Group (Xem đơn + Lưu) */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Nút Xem đơn */}
+          <button
+            type="button"
+            onClick={() => setIsOrderDetailsOpen(true)}
+            disabled={cartItems.length === 0 || isSaving}
+            aria-label="Xem đơn chi tiết"
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all shadow-xs ${
+              cartItems.length > 0 && !isSaving
+                ? 'bg-[#214E34] text-white hover:bg-[#1a3e29] active:scale-95'
+                : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+            }`}
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>Xem đơn</span>
+          </button>
+
+          {/* Nút Lưu nhanh */}
+          <button
+            type="button"
+            onClick={handleSaveOrder}
+            disabled={cartItems.length === 0 || isSaving}
+            aria-label="Lưu nhanh đơn hàng"
+            className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-xs ${
+              cartItems.length > 0 && !isSaving
+                ? 'bg-[#009E78] text-white hover:bg-[#008766] active:scale-95'
+                : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+            }`}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Đang lưu...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                <span>Lưu</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* ================= 4. MODAL CHI TIẾT ĐƠN HÀNG (3 NÚT CÂN ĐỐI) ================= */}
@@ -539,8 +595,13 @@ export default function OrderView({ table, onBack, onGoToBill }) {
             if (res && res.success) {
               setIsDirty(false);
               setIsOrderDetailsOpen(false);
+              const freshTable = res.table || {
+                ...table,
+                activeOrderId: res.order?.id,
+                status: 'occupied'
+              };
               if (onGoToBill) {
-                onGoToBill(table);
+                onGoToBill(freshTable, res.order);
               }
             }
           }}
@@ -575,31 +636,37 @@ export default function OrderView({ table, onBack, onGoToBill }) {
               </span>
 
               <h4 className="font-black text-base text-stone-900 mb-2">
-                Hủy thay đổi chưa lưu?
+                Bạn có thay đổi chưa lưu!
               </h4>
 
               <p className="text-xs text-stone-600 mb-5 px-1 leading-relaxed">
-                Các món vừa chọn chưa được lưu vào đơn của bàn. Bạn muốn tiếp tục gọi món hay bỏ thay đổi?
+                Đơn hàng đang có món chưa lưu. Bạn muốn lưu vào đơn của bàn trước khi thoát hay hủy bỏ?
               </p>
 
               <div className="grid grid-cols-2 gap-3 w-full">
                 <button
                   type="button"
-                  onClick={() => setIsConfirmDiscardOpen(false)}
-                  className="w-full min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 active:scale-97 transition-all"
+                  onClick={async () => {
+                    setIsConfirmDiscardOpen(false);
+                    await handleSaveOrder();
+                  }}
+                  className="w-full min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-black text-white bg-[#009E78] hover:bg-[#008766] active:scale-97 shadow-md transition-all flex items-center justify-center gap-1.5"
                 >
-                  Ở lại gọi món
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Lưu đơn</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => {
                     setIsConfirmDiscardOpen(false);
                     setIsDirty(false);
+                    setCartItems([]);
                     onBack();
                   }}
-                  className="w-full min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-black text-white bg-rose-600 hover:bg-rose-700 active:scale-97 shadow-md transition-all"
+                  className="w-full min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-bold text-stone-700 bg-stone-100 hover:bg-stone-200 active:scale-97 transition-all flex items-center justify-center gap-1.5"
                 >
-                  Bỏ thay đổi
+                  <X className="w-3.5 h-3.5" />
+                  <span>Thoát</span>
                 </button>
               </div>
             </div>

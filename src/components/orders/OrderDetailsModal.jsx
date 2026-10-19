@@ -184,7 +184,7 @@ export default function OrderDetailsModal({
       // Đóng modal chi tiết đơn và mở modal thanh toán
       onClose();
       if (onCheckout) {
-        onCheckout(table, res.order || order);
+        onCheckout(res.table || table, res.order || order);
       }
     } catch (err) {
       console.error('Lỗi khi chuẩn bị thanh toán:', err);

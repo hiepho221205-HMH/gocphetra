@@ -32,7 +32,13 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
 
   if (!isOpen || !table) return null;
 
-  const order = table.activeOrderId ? orders[table.activeOrderId] : null;
+  // Resilient order lookup: check table.activeOrderId first, then search orders by tableId
+  const order =
+    (table.activeOrderId && orders[table.activeOrderId]) ||
+    Object.values(orders).find(
+      (o) => o.tableId === table.id && o.status !== 'completed' && o.status !== 'cancelled'
+    ) ||
+    null;
 
   if (!order || !order.items.length) {
     return (
