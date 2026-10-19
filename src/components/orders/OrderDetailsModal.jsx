@@ -16,6 +16,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
+import { formatShortDate } from '../../utils/dateTime';
 
 export default function OrderDetailsModal({
   isOpen,
@@ -26,7 +27,8 @@ export default function OrderDetailsModal({
   onItemsChange,
   onAddMoreItems,
   onCheckout,
-  onSave
+  onSave,
+  onHistoricalPay
 }) {
   const { saveOrderForTable, showToast } = usePos();
 
@@ -81,6 +83,7 @@ export default function OrderDetailsModal({
 
   if (!isOpen || !table) return null;
 
+  const isHistorical = order?.status === 'unpaid_carried_over';
   const currentOrderId = order?.id || table.activeOrderId || 'Đơn mới';
   const createdAtTime = order?.createdAt
     ? new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
@@ -246,6 +249,15 @@ export default function OrderDetailsModal({
 
         {/* ================= ITEMS LIST ================= */}
         <div className="p-3.5 space-y-2.5 overflow-y-auto no-scrollbar flex-1 divide-y divide-stone-100">
+          {isHistorical && (
+            <div className="mb-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="text-[11px] leading-tight">
+                Đơn chưa thanh toán của ngày cũ ({formatShortDate(order?.businessDate || order?.createdAt?.substring(0, 10))}). Không thể thêm/bớt món.
+              </span>
+            </div>
+          )}
+
           {items.length === 0 ? (
             <div className="text-center py-12 text-stone-400 text-xs flex flex-col items-center justify-center space-y-2">
               <Receipt className="w-8 h-8 text-stone-300" />
@@ -297,50 +309,56 @@ export default function OrderDetailsModal({
                     {formatVND(item.lineTotal)}
                   </span>
 
-                  <div className="flex items-center space-x-1 bg-stone-100 p-0.5 rounded-lg border border-stone-200">
-                    {item.quantity === 1 ? (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(item.cartItemId)}
-                        aria-label={`Xóa món ${item.name}`}
-                        className="w-6 h-6 rounded-md bg-white text-rose-600 flex items-center justify-center hover:bg-rose-50 shadow-2xs transition-colors"
-                        title="Xóa món"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateQuantity(item.cartItemId, -1)}
-                        aria-label={`Giảm số lượng ${item.name}`}
-                        className="w-6 h-6 rounded-md bg-white text-stone-700 flex items-center justify-center hover:bg-stone-50 shadow-2xs transition-colors"
-                        title="Giảm số lượng"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                    )}
-
-                    <span className="w-5 text-center font-extrabold text-xs text-stone-900">
-                      {item.quantity}
+                  {isHistorical ? (
+                    <span className="font-extrabold text-xs text-stone-700 px-2 py-0.5 bg-stone-100 rounded-md border border-stone-200">
+                      x{item.quantity}
                     </span>
+                  ) : (
+                    <div className="flex items-center space-x-1 bg-stone-100 p-0.5 rounded-lg border border-stone-200">
+                      {item.quantity === 1 ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(item.cartItemId)}
+                          aria-label={`Xóa món ${item.name}`}
+                          className="w-6 h-6 rounded-md bg-white text-rose-600 flex items-center justify-center hover:bg-rose-50 shadow-2xs transition-colors"
+                          title="Xóa món"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQuantity(item.cartItemId, -1)}
+                          aria-label={`Giảm số lượng ${item.name}`}
+                          className="w-6 h-6 rounded-md bg-white text-stone-700 flex items-center justify-center hover:bg-stone-50 shadow-2xs transition-colors"
+                          title="Giảm số lượng"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                      )}
 
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateQuantity(item.cartItemId, 1)}
-                      aria-label={`Tăng số lượng ${item.name}`}
-                      className="w-6 h-6 rounded-md bg-white text-stone-700 flex items-center justify-center hover:bg-stone-50 shadow-2xs transition-colors"
-                      title="Tăng số lượng"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
+                      <span className="w-5 text-center font-extrabold text-xs text-stone-900">
+                        {item.quantity}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateQuantity(item.cartItemId, 1)}
+                        aria-label={`Tăng số lượng ${item.name}`}
+                        className="w-6 h-6 rounded-md bg-white text-stone-700 flex items-center justify-center hover:bg-stone-50 shadow-2xs transition-colors"
+                        title="Tăng số lượng"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
           )}
         </div>
 
-        {/* ================= SUMMARY & 3-BUTTON FOOTER ================= */}
+        {/* ================= SUMMARY & FOOTER ================= */}
         <div className="p-3 bg-stone-50 border-t border-stone-200 space-y-2.5 shrink-0">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-bold text-stone-600">
@@ -351,44 +369,72 @@ export default function OrderDetailsModal({
             </span>
           </div>
 
-          {/* FOOTER ĐÚNG 3 NÚT DÀN ĐỀU HÀNG NGANG 3 CỘT (GRID 3 COLS) */}
-          <div className="grid grid-cols-3 gap-2 w-full pt-0.5">
-            {/* Nút 1: Thanh toán */}
-            <button
-              type="button"
-              disabled={isSubmitting || items.length === 0}
-              onClick={handleCheckout}
-              aria-label="Thanh toán hóa đơn bàn này"
-              className="touch-target min-h-[44px] px-2 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 active:scale-97 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Banknote className="w-4 h-4 shrink-0" />
-              <span className="truncate">Thanh toán</span>
-            </button>
+          {isHistorical ? (
+            /* FOOTER CHO ĐƠN LỊCH SỬ CHƯA THANH TOÁN: 2 NÚT (ĐÓNG & THU TIỀN) */
+            <div className="flex items-center gap-2 w-full pt-0.5">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={onClose}
+                className="touch-target min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold text-stone-700 bg-white border border-stone-300 hover:bg-stone-100 active:scale-97 transition-colors flex-1"
+              >
+                Đóng
+              </button>
 
-            {/* Nút 2: Thêm món */}
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleAddMoreItems}
-              aria-label="Thêm món vào đơn của bàn"
-              className="touch-target min-h-[44px] px-2 py-2 rounded-xl text-xs font-bold text-stone-700 bg-white border border-stone-300 hover:bg-stone-100 active:scale-97 shadow-2xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-            >
-              <PlusCircle className="w-4 h-4 text-forest-800 shrink-0" />
-              <span className="truncate">Thêm món</span>
-            </button>
+              <button
+                type="button"
+                disabled={isSubmitting || items.length === 0}
+                onClick={() => {
+                  onClose();
+                  if (onHistoricalPay) onHistoricalPay(order);
+                }}
+                aria-label="Thu tiền đơn cũ"
+                className="touch-target min-h-[44px] px-4 py-2 rounded-xl text-xs font-black text-white bg-[#009E78] hover:bg-[#008666] active:scale-97 shadow-md flex items-center justify-center gap-1.5 transition-all flex-2"
+              >
+                <Banknote className="w-4 h-4 shrink-0" />
+                <span className="truncate">Thu tiền ({formatVND(subtotal)})</span>
+              </button>
+            </div>
+          ) : (
+            /* FOOTER ĐÚNG 3 NÚT DÀN ĐỀU HÀNG NGANG 3 CỘT (GRID 3 COLS) */
+            <div className="grid grid-cols-3 gap-2 w-full pt-0.5">
+              {/* Nút 1: Thanh toán */}
+              <button
+                type="button"
+                disabled={isSubmitting || items.length === 0}
+                onClick={handleCheckout}
+                aria-label="Thanh toán hóa đơn bàn này"
+                className="touch-target min-h-[44px] px-2 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 active:scale-97 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Banknote className="w-4 h-4 shrink-0" />
+                <span className="truncate">Thanh toán</span>
+              </button>
 
-            {/* Nút 3: Lưu đơn */}
-            <button
-              type="button"
-              disabled={isSubmitting || items.length === 0}
-              onClick={handleSaveOrder}
-              aria-label="Lưu đơn hàng và giữ trạng thái đang phục vụ"
-              className="touch-target min-h-[44px] px-2 py-2 rounded-xl text-xs font-black text-white bg-[#214E34] hover:bg-[#1a3e29] active:scale-97 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
-              <span className="truncate">Lưu đơn</span>
-            </button>
-          </div>
+              {/* Nút 2: Thêm món */}
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleAddMoreItems}
+                aria-label="Thêm món vào đơn của bàn"
+                className="touch-target min-h-[44px] px-2 py-2 rounded-xl text-xs font-bold text-stone-700 bg-white border border-stone-300 hover:bg-stone-100 active:scale-97 shadow-2xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+              >
+                <PlusCircle className="w-4 h-4 text-forest-800 shrink-0" />
+                <span className="truncate">Thêm món</span>
+              </button>
+
+              {/* Nút 3: Lưu đơn */}
+              <button
+                type="button"
+                disabled={isSubmitting || items.length === 0}
+                onClick={handleSaveOrder}
+                aria-label="Lưu đơn hàng và giữ trạng thái đang phục vụ"
+                className="touch-target min-h-[44px] px-2 py-2 rounded-xl text-xs font-black text-white bg-[#214E34] hover:bg-[#1a3e29] active:scale-97 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
+                <span className="truncate">Lưu đơn</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>,

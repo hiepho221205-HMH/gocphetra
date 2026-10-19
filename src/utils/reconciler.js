@@ -35,6 +35,14 @@ export function reconcileTablesAndOrders(tablesArr, ordersObj, orderHistoryArr =
       return;
     }
 
+    if (ord.status === 'unpaid_carried_over') {
+      // Historical carried over order: preserve exactly as unpaid_carried_over
+      newHistory.unshift(ord);
+      delete newOrders[ord.id];
+      changed = true;
+      return;
+    }
+
     const table = newTables.find((t) => t.id === ord.tableId);
     if (!table || table.status === 'empty' || table.activeOrderId !== ord.id) {
       const cancelledOrder = {
@@ -70,5 +78,85 @@ export function reconcileTablesAndOrders(tablesArr, ordersObj, orderHistoryArr =
     reconciledOrders: newOrders,
     reconciledHistory: newHistory,
     changed
+  };
+}
+
+/**
+ * Daily Order Rollover for Past Unpaid Orders:
+ * - Scans all active orders.
+ * - Any order with businessDate < currentBusinessDate (or created prior to current business date)
+ *   is safely rolled over to status: 'unpaid_carried_over', paymentStatus: 'unpaid'.
+ * - Preserves 100% of items, notes, basePrice, and totals without auto-deleting or auto-cancelling.
+ * - Moves the order from active orders to orderHistory.
+ * - Releases the associated table to 'empty' IF the table's activeOrderId is that exact order.
+ * - Total Isolation: Does NOT affect tables if a new customer is already seated today.
+ */
+export function rolloverPastUnpaidOrders(tablesArr, ordersObj, orderHistoryArr = [], currentBusinessDate) {
+  if (!Array.isArray(tablesArr) || !ordersObj || typeof ordersObj !== 'object') {
+    return {
+      tables: tablesArr || [],
+      orders: ordersObj || {},
+      orderHistory: Array.isArray(orderHistoryArr) ? orderHistoryArr : [],
+      rolledOrdersCount: 0,
+      releasedTablesCount: 0
+    };
+  }
+
+  const targetDate = currentBusinessDate;
+  const newTables = tablesArr.map((t) => ({ ...t }));
+  const newOrders = { ...ordersObj };
+  const newHistory = Array.isArray(orderHistoryArr) ? [...orderHistoryArr] : [];
+
+  let rolledOrdersCount = 0;
+  let releasedTablesCount = 0;
+
+  Object.values(newOrders).forEach((ord) => {
+    if (!ord || !ord.id) return;
+    if (ord.status === 'completed' || ord.status === 'cancelled') return;
+
+    const ordDate = ord.businessDate || (ord.createdAt ? ord.createdAt.substring(0, 10) : '');
+    // If order is from a previous business date
+    if (targetDate && ordDate && ordDate < targetDate) {
+      const carriedOverOrder = {
+        ...ord,
+        status: 'unpaid_carried_over',
+        paymentStatus: 'unpaid',
+        carriedOverAt: ord.carriedOverAt || new Date().toISOString()
+      };
+
+      // Add to history or update existing if already present
+      const existingHistIndex = newHistory.findIndex((h) => h.id === ord.id);
+      if (existingHistIndex >= 0) {
+        newHistory[existingHistIndex] = carriedOverOrder;
+      } else {
+        newHistory.unshift(carriedOverOrder);
+      }
+
+      delete newOrders[ord.id];
+      rolledOrdersCount++;
+
+      // Free table ONLY if activeOrderId matches this order
+      if (ord.tableId) {
+        const tblIndex = newTables.findIndex((t) => t.id === ord.tableId);
+        if (tblIndex >= 0 && newTables[tblIndex].activeOrderId === ord.id) {
+          newTables[tblIndex] = {
+            ...newTables[tblIndex],
+            status: 'empty',
+            activeOrderId: null,
+            seatedAt: null,
+            customerCount: 0
+          };
+          releasedTablesCount++;
+        }
+      }
+    }
+  });
+
+  return {
+    tables: newTables,
+    orders: newOrders,
+    orderHistory: newHistory,
+    rolledOrdersCount,
+    releasedTablesCount
   };
 }

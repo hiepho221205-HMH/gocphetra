@@ -58,14 +58,16 @@ export default function ReportsView() {
     const datesSet = new Set(daysRange);
     return (orderHistory || []).filter((ord) => {
       if (ord.status !== 'completed') return false;
-      const paidIso =
-        ord.paid_at ||
-        ord.paidAt ||
-        ord.completed_at ||
-        ord.completedAt ||
-        ord.finishedAt;
-      if (!paidIso) return false;
-      const paidDate = getVietnamDateString(paidIso);
+      const paidDate =
+        ord.paymentBusinessDate ||
+        getVietnamDateString(
+          ord.paid_at ||
+          ord.paidAt ||
+          ord.completed_at ||
+          ord.completedAt ||
+          ord.finishedAt
+        );
+      if (!paidDate) return false;
       return datesSet.has(paidDate);
     });
   }, [orderHistory, daysRange]);
@@ -109,13 +111,16 @@ export default function ReportsView() {
 
     return daysRange.map((dateStr) => {
       const ordersOnDay = completedOrdersInRange.filter((ord) => {
-        const paidIso =
-          ord.paid_at ||
-          ord.paidAt ||
-          ord.completed_at ||
-          ord.completedAt ||
-          ord.finishedAt;
-        return getVietnamDateString(paidIso) === dateStr;
+        const paidDate =
+          ord.paymentBusinessDate ||
+          getVietnamDateString(
+            ord.paid_at ||
+            ord.paidAt ||
+            ord.completed_at ||
+            ord.completedAt ||
+            ord.finishedAt
+          );
+        return paidDate === dateStr;
       });
 
       const dayRevenue = ordersOnDay.reduce((sum, ord) => sum + (Number(ord.total) || 0), 0);

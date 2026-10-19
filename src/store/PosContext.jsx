@@ -38,8 +38,18 @@ import {
   deleteStaffProfile,
   mapStaffProfileFromDb,
   batchDeleteOrders,
-  logDataCleanupJob
+  logDataCleanupJob,
+  // Rollover & Historical Payments
+  rolloverDailyOrdersRpc,
+  processHistoricalPaymentRpc,
+  cloudUpsertPayment,
+  fetchPaymentsByBusinessDate
 } from '../lib/supabase';
+import {
+  getVietnamTodayString,
+  getVietnamDateString,
+  formatShortDate
+} from '../utils/dateTime';
 
 const PosContext = createContext(null);
 
@@ -53,6 +63,7 @@ const STORAGE_KEYS = {
   ORDER_HISTORY: 'goc_pos_history_v4',
   SETTINGS: 'goc_pos_settings_v4',
   STAFF: 'goc_pos_staff_v4',
+  PAYMENTS: 'goc_pos_payments_v4',
 };
 
 function loadStorage(key, fallback) {
@@ -109,17 +120,29 @@ export function mergeStaffProfiles(localList = [], cloudList = []) {
   return merged;
 }
 
-import { reconcileTablesAndOrders } from '../utils/reconciler';
-export { reconcileTablesAndOrders };
+import { reconcileTablesAndOrders, rolloverPastUnpaidOrders } from '../utils/reconciler';
+export { reconcileTablesAndOrders, rolloverPastUnpaidOrders };
 
 export function PosProvider({ children }) {
-  // Compute initial reconciled state from storage/fallback
+  // Compute initial reconciled state from storage/fallback + daily rollover catch-up
   const [initialState] = useState(() => {
     const rawTables = loadStorage(STORAGE_KEYS.TABLES, INITIAL_TABLES);
     const rawOrders = loadStorage(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
     const rawHistory = loadStorage(STORAGE_KEYS.ORDER_HISTORY, null);
     const historyFallback = rawHistory && rawHistory.length > 0 ? rawHistory : INITIAL_ORDER_HISTORY;
-    return reconcileTablesAndOrders(rawTables, rawOrders, historyFallback);
+    const reconciled = reconcileTablesAndOrders(rawTables, rawOrders, historyFallback);
+    const today = getVietnamTodayString();
+    const rolled = rolloverPastUnpaidOrders(
+      reconciled.reconciledTables,
+      reconciled.reconciledOrders,
+      reconciled.reconciledHistory,
+      today
+    );
+    return {
+      reconciledTables: rolled.tables,
+      reconciledOrders: rolled.orders,
+      reconciledHistory: rolled.orderHistory
+    };
   });
 
   // State definitions
@@ -130,6 +153,7 @@ export function PosProvider({ children }) {
   const [productToppings, setProductToppings] = useState(() => loadStorage(STORAGE_KEYS.PRODUCT_TOPPINGS, INITIAL_PRODUCT_TOPPINGS));
   const [orders, setOrders] = useState(() => initialState.reconciledOrders);
   const [orderHistory, setOrderHistory] = useState(() => initialState.reconciledHistory);
+  const [payments, setPayments] = useState(() => loadStorage(STORAGE_KEYS.PAYMENTS, []));
   const [settings, setSettings] = useState(() => loadStorage(STORAGE_KEYS.SETTINGS, INITIAL_SETTINGS));
   const [staffList, setStaffList] = useState(() => {
     const loaded = loadStorage(STORAGE_KEYS.STAFF, null);
@@ -161,6 +185,7 @@ export function PosProvider({ children }) {
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.PRODUCT_TOPPINGS, JSON.stringify(productToppings)); }, [productToppings]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ORDER_HISTORY, JSON.stringify(orderHistory)); }, [orderHistory]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments)); }, [payments]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(staffList)); }, [staffList]);
 
@@ -250,9 +275,11 @@ export function PosProvider({ children }) {
         }
 
         const reconciled = reconcileTablesAndOrders(fetchedTables, mergedOrders, mergedHistory);
-        setTables(reconciled.reconciledTables);
-        setOrders(reconciled.reconciledOrders);
-        setOrderHistory(reconciled.reconciledHistory);
+        const today = getVietnamTodayString();
+        const rolled = rolloverPastUnpaidOrders(reconciled.reconciledTables, reconciled.reconciledOrders, reconciled.reconciledHistory, today);
+        setTables(rolled.tables);
+        setOrders(rolled.orders);
+        setOrderHistory(rolled.orderHistory);
 
         setCloudStatus((prev) => ({ ...prev, lastSyncTime: new Date() }));
         if (showNotification) showToast('Đã đồng bộ dữ liệu mới nhất từ Cloud!', 'success');
@@ -325,9 +352,15 @@ export function PosProvider({ children }) {
           const fetchedOrders = cloudData.orders && Object.keys(cloudData.orders).length > 0 ? cloudData.orders : orders;
           const fetchedHistory = cloudData.orderHistory && cloudData.orderHistory.length > 0 ? cloudData.orderHistory : orderHistory;
           const reconciled = reconcileTablesAndOrders(fetchedTables, fetchedOrders, fetchedHistory);
-          setTables(reconciled.reconciledTables);
-          setOrders(reconciled.reconciledOrders);
-          setOrderHistory(reconciled.reconciledHistory);
+          const today = getVietnamTodayString();
+          const rolled = rolloverPastUnpaidOrders(reconciled.reconciledTables, reconciled.reconciledOrders, reconciled.reconciledHistory, today);
+          setTables(rolled.tables);
+          setOrders(rolled.orders);
+          setOrderHistory(rolled.orderHistory);
+
+          if (isSupabaseConfigured && supabase) {
+            rolloverDailyOrdersRpc(today).catch((e) => console.warn('Lỗi gọi rolloverDailyOrdersRpc khi khởi động:', e));
+          }
 
           setCloudStatus((prev) => ({ ...prev, lastSyncTime: new Date() }));
         }
@@ -748,6 +781,8 @@ export function PosProvider({ children }) {
       tableId: table.id,
       tableName: table.name,
       status: 'serving',
+      businessDate: getVietnamTodayString(),
+      paymentStatus: 'unpaid',
       createdAt: new Date().toISOString(),
       cashier: settings.currentCashier.split('(')[0].trim(),
       customerCount: table.capacity || 2,
@@ -918,6 +953,8 @@ export function PosProvider({ children }) {
         tableId: table.id,
         tableName: table.name,
         status: 'serving',
+        businessDate: getVietnamTodayString(),
+        paymentStatus: 'unpaid',
         createdAt: new Date().toISOString(),
         cashier: (settings.currentCashier || 'Thu ngân').split('(')[0].trim(),
         customerCount: table.capacity || 2,
@@ -1050,9 +1087,14 @@ export function PosProvider({ children }) {
 
   const finalizeOrder = (tableId, completedOrder) => {
     const finishedAt = new Date().toISOString();
+    const today = getVietnamTodayString();
     const finalOrder = {
       ...completedOrder,
       status: 'completed',
+      paymentStatus: 'paid',
+      businessDate: completedOrder.businessDate || (completedOrder.createdAt ? getVietnamDateString(completedOrder.createdAt) : today),
+      paymentBusinessDate: today,
+      paidAt: finishedAt,
       finishedAt
     };
 
@@ -1078,6 +1120,23 @@ export function PosProvider({ children }) {
         t.id === tableId ? resetTable : t
       )
     );
+
+    const paymentId = 'PAY_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const payRecord = {
+      id: paymentId,
+      orderId: finalOrder.id,
+      amount: Number(finalOrder.paidAmount || finalOrder.total) || 0,
+      paymentMethod: finalOrder.paymentMethod || 'cash',
+      paymentStatus: 'completed',
+      paidAt: finishedAt,
+      businessDate: today,
+      cashierId: finalOrder.cashier || 'Thu ngân',
+      idempotencyKey: `ORD_FIN_${finalOrder.id}_${Date.now()}`,
+      notes: `Thanh toán tại bàn ${completedOrder.tableName}`,
+      createdAt: finishedAt
+    };
+    setPayments((prev) => [payRecord, ...prev]);
+    cloudUpsertPayment(payRecord);
 
     cloudUpsertOrder(finalOrder);
     cloudUpsertTable(resetTable);
@@ -1121,6 +1180,148 @@ export function PosProvider({ children }) {
     finalizeOrder(tableId, finalOrder);
     showToast(`Thanh toán thành công ${order.tableName || table?.name}! Đã giải phóng bàn.`, 'success');
     return true;
+  };
+
+  // =================== HISTORICAL ORDER SETTLEMENT & ROLLOVER ===================
+  const runCatchupRollover = async (targetBusinessDate = getVietnamTodayString()) => {
+    let rolledCount = 0;
+    let freedCount = 0;
+
+    setOrders((curOrders) => {
+      setTables((curTables) => {
+        setOrderHistory((curHistory) => {
+          const res = rolloverPastUnpaidOrders(curTables, curOrders, curHistory, targetBusinessDate);
+          rolledCount = res.rolledOrdersCount;
+          freedCount = res.releasedTablesCount;
+
+          if (rolledCount > 0) {
+            setTimeout(() => {
+              setTables(res.tables);
+              setOrders(res.orders);
+            }, 0);
+
+            res.tables.forEach((t) => cloudUpsertTable(t));
+            res.orderHistory.slice(0, rolledCount).forEach((ord) => cloudUpsertOrder(ord));
+          }
+          return res.orderHistory;
+        });
+        return curTables;
+      });
+      return curOrders;
+    });
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await rolloverDailyOrdersRpc(targetBusinessDate);
+      } catch (err) {
+        console.warn('Lỗi gọi rolloverDailyOrdersRpc:', err);
+      }
+    }
+
+    if (rolledCount > 0) {
+      showToast(
+        `Đã tự động kết chuyển ${rolledCount} đơn chưa thanh toán qua ngày và giải phóng ${freedCount} bàn.`,
+        'info'
+      );
+    }
+
+    return { rolledOrdersCount: rolledCount, releasedTablesCount: freedCount };
+  };
+
+  const processHistoricalPayment = async ({
+    orderId,
+    paymentMethod = 'cash',
+    amount = null,
+    cashier = 'Thu ngân',
+    idempotencyKey = null
+  }) => {
+    const targetOrder = orderHistory.find((o) => o.id === orderId);
+    if (!targetOrder) {
+      showToast(`Không tìm thấy đơn hàng #${orderId}`, 'error');
+      return { success: false, error: 'Order not found' };
+    }
+
+    if (targetOrder.status === 'completed') {
+      showToast(`Đơn hàng #${orderId} đã được thanh toán hoàn tất!`, 'info');
+      return { success: true, alreadyCompleted: true, order: targetOrder };
+    }
+
+    const currentBusinessDate = getVietnamTodayString();
+    const payAmount = amount !== null && amount !== undefined
+      ? Number(amount)
+      : (Number(targetOrder.remainingAmount) || Number(targetOrder.total) || 0);
+    const paidAt = new Date().toISOString();
+    const paymentId = 'PAY_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const safeKey = idempotencyKey || `HIST_${orderId}_${Date.now()}`;
+
+    // Cloud RPC Execution
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await processHistoricalPaymentRpc({
+          orderId,
+          paymentMethod,
+          amount: payAmount,
+          paymentBusinessDate: currentBusinessDate,
+          cashier,
+          idempotencyKey: safeKey
+        });
+      } catch (e) {
+        console.warn('Lỗi gọi processHistoricalPaymentRpc:', e);
+      }
+    }
+
+    // Payment record for cash-basis attribution
+    const paymentRecord = {
+      id: paymentId,
+      orderId,
+      amount: payAmount,
+      paymentMethod,
+      paymentStatus: 'completed',
+      paidAt,
+      businessDate: currentBusinessDate,
+      cashierId: cashier,
+      idempotencyKey: safeKey,
+      notes: `Thu tiền đơn cũ (${targetOrder.tableName || targetOrder.id}) ngày ${targetOrder.businessDate || targetOrder.createdAt?.substring(0, 10)}`,
+      createdAt: paidAt
+    };
+
+    // Updated Order in History
+    const updatedOrder = {
+      ...targetOrder,
+      status: 'completed',
+      paymentStatus: 'paid',
+      paidAmount: payAmount,
+      remainingAmount: 0,
+      paymentMethod,
+      paidAt,
+      paymentBusinessDate: currentBusinessDate,
+      finishedAt: targetOrder.finishedAt || paidAt,
+      splitPayments: [
+        ...(targetOrder.splitPayments || []),
+        {
+          method: paymentMethod,
+          amount: payAmount,
+          timestamp: paidAt,
+          paymentId
+        }
+      ]
+    };
+
+    setPayments((prev) => [paymentRecord, ...prev]);
+    setOrderHistory((prev) =>
+      prev.map((ord) => (ord.id === orderId ? updatedOrder : ord))
+    );
+
+    cloudUpsertPayment(paymentRecord);
+    cloudUpsertOrder(updatedOrder);
+
+    // CRITICAL ISOLATION: Tables and active dining floor are NOT touched!
+    showToast(
+      `Đã thu tiền thành công đơn ${targetOrder.tableName || targetOrder.id} (${formatVND(payAmount)})! Doanh thu đã ghi nhận vào ngày hôm nay.`,
+      'success'
+    );
+
+    return { success: true, payment: paymentRecord, order: updatedOrder };
   };
 
   // =================== MENU & TOPPING CRUD ===================
@@ -1566,6 +1767,8 @@ export function PosProvider({ children }) {
     productToppings,
     orders,
     orderHistory,
+    payments,
+    setPayments,
     settings,
     staffList,
     toasts,
@@ -1576,6 +1779,10 @@ export function PosProvider({ children }) {
     syncFromCloud,
     seedToCloud,
     refreshCloudHealth,
+
+    // Rollover & Historical Payments
+    runCatchupRollover,
+    processHistoricalPayment,
 
     activeTab,
     setActiveTab,

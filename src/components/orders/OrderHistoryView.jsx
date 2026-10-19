@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { usePos } from '../../store/PosContext';
 import ReceiptPrintView from '../billing/ReceiptPrintView';
+import HistoricalPaymentModal from '../billing/HistoricalPaymentModal';
 import OrderDetailsModal from './OrderDetailsModal';
 import DatePickerModal from './DatePickerModal';
 import {
@@ -47,20 +48,14 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
 
   // Modals
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [activeDetailOrder, setActiveDetailOrder] = useState(null); // For serving order details
+  const [activeDetailOrder, setActiveDetailOrder] = useState(null); // For serving & unpaid order details
   const [printOrder, setPrintOrder] = useState(null); // For completed read-only receipt
+  const [payingOrder, setPayingOrder] = useState(null); // For historical order payment
 
   // Date classification
   const isToday = selectedDate === todayStr;
   const isPast = compareVietnamDateStrings(selectedDate, todayStr) < 0;
   const isFuture = compareVietnamDateStrings(selectedDate, todayStr) > 0;
-
-  // Auto-switch tab to 'completed' when a past date is selected
-  useEffect(() => {
-    if (isPast) {
-      setActiveHistoryTab('completed');
-    }
-  }, [isPast, selectedDate]);
 
   // Brief loading feedback on date change
   const handleSelectDate = (newDateStr) => {
@@ -93,42 +88,70 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
     if (!isToday) return []; // Past and Future dates do not have active serving orders!
 
     const list = Object.values(orders).filter((ord) => {
-      if (ord.status === 'completed') return false;
-      const createdDate = getVietnamDateString(ord.createdAt || ord.created_at);
+      if (ord.status === 'completed' || ord.status === 'cancelled' || ord.status === 'unpaid_carried_over') return false;
+      const createdDate = ord.businessDate || getVietnamDateString(ord.createdAt || ord.created_at);
       return !createdDate || createdDate === selectedDate;
     });
 
     // Sort ascending by creation time in the day (oldest first: 08:30 -> 09:15 -> 10:00)
     return [...list].sort((a, b) => {
-      const timeA = new Date(a.createdAt || a.created_at).getTime();
-      const timeB = new Date(b.createdAt || b.created_at).getTime();
+      const timeA = new Date(a.createdAt || a.created_at || 0).getTime();
+      const timeB = new Date(b.createdAt || b.created_at || 0).getTime();
       return timeA - timeB;
     });
   }, [orders, isToday, selectedDate]);
 
-  // 2. Completed Orders for Selected Date (Filtered strictly by paid_at / completed_at / finishedAt)
+  // 2. Unpaid Carried-over Orders for Past Date
+  const unpaidOrdersForDate = useMemo(() => {
+    if (!isPast) return [];
+
+    const list = (orderHistory || []).filter((ord) => {
+      if (ord.status !== 'unpaid_carried_over') return false;
+      const bDate = ord.businessDate || getVietnamDateString(ord.createdAt || ord.created_at);
+      return bDate === selectedDate;
+    });
+
+    return [...list].sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.created_at || 0).getTime();
+      const timeB = new Date(b.createdAt || b.created_at || 0).getTime();
+      return timeA - timeB;
+    });
+  }, [orderHistory, isPast, selectedDate]);
+
+  // 3. Completed Orders for Selected Date (Filtered by origin business date or paid date on today)
   const completedOrdersForDate = useMemo(() => {
     if (isFuture) return []; // Future dates have no completed orders
 
     const list = (orderHistory || []).filter((ord) => {
       if (ord.status !== 'completed') return false;
-      const paidIso = ord.paid_at || ord.paidAt || ord.completed_at || ord.completedAt || ord.finishedAt;
-      if (!paidIso) return false;
-      const paidDate = getVietnamDateString(paidIso);
-      return paidDate === selectedDate;
+      const bDate = ord.businessDate || getVietnamDateString(ord.createdAt || ord.created_at);
+      const paidDate = ord.paymentBusinessDate || getVietnamDateString(ord.paid_at || ord.paidAt || ord.finishedAt);
+      return bDate === selectedDate || (isToday && paidDate === selectedDate);
     });
 
     // Sort ascending by payment/completion time in the day (oldest first: 09:00 -> 10:15)
     return [...list].sort((a, b) => {
-      const timeA = new Date(a.paid_at || a.paidAt || a.completed_at || a.completedAt || a.finishedAt).getTime();
-      const timeB = new Date(b.paid_at || b.paidAt || b.completed_at || b.completedAt || b.finishedAt).getTime();
+      const timeA = new Date(a.paid_at || a.paidAt || a.completed_at || a.completedAt || a.finishedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.paid_at || b.paidAt || b.completed_at || b.completedAt || b.finishedAt || b.createdAt || 0).getTime();
       return timeA - timeB;
     });
-  }, [orderHistory, isFuture, selectedDate]);
+  }, [orderHistory, isFuture, isToday, selectedDate]);
+
+  // Auto-select tab when switching between today and past date
+  useEffect(() => {
+    if (isPast && activeHistoryTab === 'serving' && unpaidOrdersForDate.length === 0) {
+      setActiveHistoryTab('completed');
+    }
+  }, [isPast, selectedDate, unpaidOrdersForDate.length]);
 
   // Dynamic Metrics for Selected Date
-  const totalOrdersCount = servingOrdersForDate.length + completedOrdersForDate.length;
-  const totalRevenue = completedOrdersForDate.reduce((sum, ord) => sum + (ord.total || 0), 0);
+  const totalOrdersCount = (isPast ? unpaidOrdersForDate.length : servingOrdersForDate.length) + completedOrdersForDate.length;
+  // Cash-basis attribution: revenue collected on this date
+  const totalRevenue = useMemo(() => {
+    return completedOrdersForDate
+      .filter((ord) => !ord.paymentBusinessDate || ord.paymentBusinessDate === selectedDate)
+      .reduce((sum, ord) => sum + (Number(ord.paidAmount) || Number(ord.total) || 0), 0);
+  }, [completedOrdersForDate, selectedDate]);
 
   // Filtered by Search Query
   const filteredServingOrders = useMemo(() => {
@@ -140,6 +163,16 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         (ord.tableName && ord.tableName.toLowerCase().includes(q))
     );
   }, [servingOrdersForDate, search]);
+
+  const filteredUnpaidOrders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return unpaidOrdersForDate;
+    return unpaidOrdersForDate.filter(
+      (ord) =>
+        ord.id.toLowerCase().includes(q) ||
+        (ord.tableName && ord.tableName.toLowerCase().includes(q))
+    );
+  }, [unpaidOrdersForDate, search]);
 
   const filteredCompletedOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -270,38 +303,49 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         <div className="mb-3 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
           <span className="leading-tight text-[11px]">
-            Đang xem ngày quá khứ (<b>{formatShortDate(selectedDate)}</b>). Chỉ hiển thị hóa đơn đã hoàn tất.
+            Đang xem ngày quá khứ (<b>{formatShortDate(selectedDate)}</b>).
+            {unpaidOrdersForDate.length > 0 ? (
+              <span> Có <b>{unpaidOrdersForDate.length} đơn chưa thanh toán</b> được kết chuyển sang tab Chưa thanh toán.</span>
+            ) : (
+              <span> Toàn bộ đơn hàng đã được hoàn tất hoặc thu tiền.</span>
+            )}
           </span>
         </div>
       )}
 
       {/* ================= 3. SEGMENTED TAB BAR ================= */}
       <div className="grid grid-cols-2 gap-1.5 p-1 bg-stone-200/70 rounded-2xl mb-3">
-        {/* Tab 1: Đang phục vụ */}
+        {/* Tab 1: Đang phục vụ (Hôm nay) HOẶC Chưa thanh toán (Quá khứ) */}
         <button
           type="button"
-          disabled={isPast || isFuture}
+          disabled={isFuture}
           onClick={() => {
             setActiveHistoryTab('serving');
             window.dispatchEvent(new CustomEvent('goc_pos_show_nav'));
           }}
           className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs ${
             activeHistoryTab === 'serving'
-              ? 'bg-[#214E34] text-white shadow-sm'
-              : isPast || isFuture
+              ? isPast
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-[#214E34] text-white shadow-sm'
+              : isFuture
               ? 'text-stone-400 bg-transparent cursor-not-allowed opacity-50'
               : 'text-stone-600 hover:text-stone-900 bg-transparent'
           }`}
         >
-          <span>Đang phục vụ</span>
+          <span>{isPast ? 'Chưa thanh toán' : 'Đang phục vụ'}</span>
           <span
             className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
               activeHistoryTab === 'serving'
-                ? 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
+                ? isPast
+                  ? 'bg-amber-400/20 text-amber-100 border border-amber-400/30'
+                  : 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
+                : isPast && unpaidOrdersForDate.length > 0
+                ? 'bg-amber-200 text-amber-900'
                 : 'bg-stone-300 text-stone-700'
             }`}
           >
-            {servingOrdersForDate.length}
+            {isPast ? unpaidOrdersForDate.length : servingOrdersForDate.length}
           </span>
         </button>
 
@@ -339,7 +383,9 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
             type="text"
             placeholder={
               activeHistoryTab === 'serving'
-                ? 'Tìm theo mã đơn hoặc số bàn đang phục vụ...'
+                ? isPast
+                  ? 'Tìm theo mã đơn hoặc số bàn chưa thanh toán...'
+                  : 'Tìm theo mã đơn hoặc số bàn đang phục vụ...'
                 : 'Tìm theo mã đơn hoặc số bàn đã hoàn thành...'
             }
             value={search}
@@ -469,6 +515,96 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
             </div>
           )}
 
+          {/* TAB 1: CHƯA THANH TOÁN (NGÀY QUÁ KHỨ) */}
+          {activeHistoryTab === 'serving' && isPast && (
+            <div>
+              {filteredUnpaidOrders.length > 0 ? (
+                <div className="space-y-2.5">
+                  {filteredUnpaidOrders.map((ord) => {
+                    const itemCount = ord.items.reduce((s, it) => s + (it.quantity || 1), 0);
+                    const timeStr = ord.createdAt
+                      ? new Date(ord.createdAt).toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      : 'Đơn chuyển ngày';
+
+                    return (
+                      <div
+                        key={ord.id}
+                        className="bg-white p-3.5 rounded-2xl border border-amber-200/90 shadow-2xs hover:border-amber-400/80 transition-all select-none space-y-2 group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-black text-sm text-[#214E34]">
+                              {ord.tableName}
+                            </span>
+                            <span className="text-[10px] text-stone-400 font-mono font-bold bg-stone-100 px-1.5 py-0.2 rounded">
+                              #{ord.id}
+                            </span>
+                          </div>
+
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                            Chưa thanh toán (Chuyển ngày)
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] text-stone-500 line-clamp-1">
+                          {ord.items.map((it) => `${it.name} (x${it.quantity})`).join(', ')}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                          <div className="flex items-center gap-2 text-stone-400 text-[10.5px]">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" /> {timeStr}
+                            </span>
+                            <span>•</span>
+                            <span>{itemCount} món</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-sm text-[#214E34]">
+                              {formatVND(ord.total)}
+                            </span>
+
+                            {/* Nút Xem đơn */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenServingDetails(ord)}
+                              className="touch-target px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs flex items-center gap-1 border border-stone-200 transition-colors shadow-2xs"
+                            >
+                              <Receipt className="w-3.5 h-3.5" />
+                              <span>Xem đơn</span>
+                            </button>
+
+                            {/* Nút Thu tiền */}
+                            <button
+                              type="button"
+                              onClick={() => setPayingOrder(ord)}
+                              className="touch-target px-3 py-1.5 rounded-xl bg-[#009E78] hover:bg-[#008666] text-white font-extrabold text-xs flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                            >
+                              <Banknote className="w-3.5 h-3.5" />
+                              <span>Thu tiền</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-14 text-stone-400 text-xs bg-white rounded-2xl border border-stone-200/80 p-6 space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500/60 mx-auto" />
+                  <p className="font-semibold text-stone-600">Không có đơn chưa thanh toán nào trong ngày này</p>
+                  <p className="text-[11px] text-stone-400">
+                    Tất cả các đơn phát sinh trong ngày {formatShortDate(selectedDate)} đều đã được xử lý hoàn tất.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* TAB 2: ĐÃ HOÀN THÀNH (HÔM NAY HOẶC QUÁ KHỨ) */}
           {activeHistoryTab === 'completed' && (
             <div>
@@ -502,10 +638,17 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                             </span>
                           </div>
 
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            Đã hoàn tất
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            {ord.paymentBusinessDate && ord.paymentBusinessDate !== (ord.businessDate || getVietnamDateString(ord.createdAt)) && (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                                Đã thu ngày {formatShortDate(ord.paymentBusinessDate)}
+                              </span>
+                            )}
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              Đã hoàn tất
+                            </span>
+                          </div>
                         </div>
 
                         <div className="text-[11px] text-stone-500 line-clamp-1">
@@ -575,13 +718,17 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         onSelectDate={handleSelectDate}
       />
 
-      {/* ================= MODAL 2: CHI TIẾT ĐƠN ĐANG PHỤC VỤ (HÔM NAY) ================= */}
-      {activeDetailOrder && isToday && (
+      {/* ================= MODAL 2: CHI TIẾT ĐƠN HÀNG (HÔM NAY HOẶC ĐƠN CŨ) ================= */}
+      {activeDetailOrder && (
         <OrderDetailsModal
           isOpen={Boolean(activeDetailOrder)}
           onClose={() => setActiveDetailOrder(null)}
           table={activeDetailOrder.table}
           order={activeDetailOrder.order}
+          onHistoricalPay={(ord) => {
+            setActiveDetailOrder(null);
+            setPayingOrder(ord);
+          }}
           onAddMoreItems={(tbl) => {
             setActiveDetailOrder(null);
             if (onGoToOrder) {
@@ -605,6 +752,15 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
           onClose={() => setPrintOrder(null)}
           order={printOrder}
           isPrePrint={false}
+        />
+      )}
+
+      {/* ================= MODAL 4: THU TIỀN ĐƠN NGÀY CŨ ================= */}
+      {payingOrder && (
+        <HistoricalPaymentModal
+          isOpen={Boolean(payingOrder)}
+          onClose={() => setPayingOrder(null)}
+          order={payingOrder}
         />
       )}
     </div>

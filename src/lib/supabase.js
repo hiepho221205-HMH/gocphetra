@@ -146,6 +146,11 @@ export function mapOrderToDb(o) {
     remaining_amount: Number(o.remainingAmount) || 0,
     split_payments: o.splitPayments || [],
     payment_method: o.paymentMethod || null,
+    business_date: o.businessDate || (o.createdAt ? o.createdAt.substring(0, 10) : null),
+    carried_over_at: o.carriedOverAt || null,
+    payment_status: o.paymentStatus || (o.status === 'completed' ? 'paid' : (Number(o.paidAmount) > 0 ? 'partial' : 'unpaid')),
+    paid_at: o.paidAt || (o.status === 'completed' ? (o.finishedAt || o.createdAt) : null),
+    payment_business_date: o.paymentBusinessDate || null,
     created_at: o.createdAt || new Date().toISOString(),
     finished_at: o.finishedAt || null
   };
@@ -168,8 +173,51 @@ export function mapOrderFromDb(o) {
     remainingAmount: Number(o.remaining_amount) || 0,
     splitPayments: o.split_payments || [],
     paymentMethod: o.payment_method,
+    businessDate: o.business_date || (o.created_at ? o.created_at.substring(0, 10) : null),
+    carriedOverAt: o.carried_over_at || null,
+    paymentStatus: o.payment_status || (o.status === 'completed' ? 'paid' : 'unpaid'),
+    paidAt: o.paid_at || (o.status === 'completed' ? (o.finished_at || o.created_at) : null),
+    paymentBusinessDate: o.payment_business_date || null,
     createdAt: o.created_at,
     finishedAt: o.finished_at
+  };
+}
+
+// ============================================================================
+// PAYMENTS MAPPERS (HISTORICAL PAYMENTS)
+// ============================================================================
+
+export function mapPaymentToDb(p) {
+  return {
+    id: p.id,
+    order_id: p.orderId,
+    amount: Number(p.amount) || 0,
+    payment_method: p.paymentMethod || 'cash',
+    payment_status: p.paymentStatus || 'completed',
+    paid_at: p.paidAt || new Date().toISOString(),
+    business_date: p.businessDate || (p.paidAt ? p.paidAt.substring(0, 10) : new Date().toISOString().substring(0, 10)),
+    cashier_id: p.cashierId || p.cashier || null,
+    idempotency_key: p.idempotencyKey || null,
+    notes: p.notes || null,
+    metadata: p.metadata || {},
+    created_at: p.createdAt || new Date().toISOString()
+  };
+}
+
+export function mapPaymentFromDb(p) {
+  return {
+    id: p.id,
+    orderId: p.order_id,
+    amount: Number(p.amount) || 0,
+    paymentMethod: p.payment_method,
+    paymentStatus: p.payment_status,
+    paidAt: p.paid_at,
+    businessDate: p.business_date,
+    cashierId: p.cashier_id,
+    idempotencyKey: p.idempotency_key,
+    notes: p.notes,
+    metadata: p.metadata || {},
+    createdAt: p.created_at
   };
 }
 
@@ -350,7 +398,7 @@ export async function fetchAllCloudData() {
     const orderHistoryArr = [];
 
     allOrders.forEach((ord) => {
-      if (ord.status === 'completed' || ord.status === 'cancelled') {
+      if (ord.status === 'completed' || ord.status === 'cancelled' || ord.status === 'unpaid_carried_over') {
         orderHistoryArr.push(ord);
       } else {
         activeOrdersObj[ord.id] = ord;
@@ -812,3 +860,92 @@ export async function batchDeleteOrders(orderIds = [], batchSize = 50) {
 }
 export const cloudBatchDeleteOrders = batchDeleteOrders;
 
+// ============================================================================
+// DAILY ORDER ROLLOVER & HISTORICAL PAYMENTS (SUPER TASK)
+// ============================================================================
+
+/**
+ * Executes atomic daily rollover of uncompleted orders from previous business dates on Cloud.
+ */
+export async function rolloverDailyOrdersRpc(targetBusinessDate) {
+  if (!supabase) return { success: false, rolledOrdersCount: 0, releasedTablesCount: 0 };
+  try {
+    const { data, error } = await supabase.rpc('rollover_daily_orders', {
+      p_target_business_date: targetBusinessDate
+    });
+    if (error) {
+      console.warn('Lỗi rolloverDailyOrdersRpc:', error.message);
+      return { success: false, error };
+    }
+    return data || { success: true };
+  } catch (err) {
+    console.warn('Lỗi rolloverDailyOrdersRpc (exception):', err?.message || err);
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Executes atomic checkout of historical carried-over order on Cloud.
+ */
+export async function processHistoricalPaymentRpc({
+  orderId,
+  paymentMethod = 'cash',
+  amount,
+  paymentBusinessDate,
+  cashier = 'Thu ngân',
+  idempotencyKey = null
+}) {
+  if (!supabase) return { success: false, error: new Error('Supabase not configured') };
+  try {
+    const { data, error } = await supabase.rpc('process_historical_payment', {
+      p_order_id: orderId,
+      p_payment_method: paymentMethod,
+      p_amount: amount,
+      p_payment_business_date: paymentBusinessDate,
+      p_cashier: cashier,
+      p_idempotency_key: idempotencyKey
+    });
+    if (error) {
+      console.warn('Lỗi processHistoricalPaymentRpc:', error.message);
+      return { success: false, error };
+    }
+    return data || { success: true };
+  } catch (err) {
+    console.warn('Lỗi processHistoricalPaymentRpc (exception):', err?.message || err);
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Upsert a payment record to Supabase
+ */
+export async function cloudUpsertPayment(payment) {
+  if (!supabase || !payment) return;
+  try {
+    await supabase.from('payments').upsert(mapPaymentToDb(payment));
+  } catch (e) {
+    console.warn('Lỗi cloudUpsertPayment:', e);
+  }
+}
+
+/**
+ * Fetch payments for a given business date
+ */
+export async function fetchPaymentsByBusinessDate(businessDate) {
+  if (!supabase || !businessDate) return [];
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('business_date', businessDate)
+      .order('paid_at', { ascending: true });
+    if (error) {
+      console.warn('Lỗi fetchPaymentsByBusinessDate:', error.message);
+      return [];
+    }
+    return (data || []).map(mapPaymentFromDb);
+  } catch (e) {
+    console.warn('Lỗi fetchPaymentsByBusinessDate (exception):', e);
+    return [];
+  }
+}
