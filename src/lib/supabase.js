@@ -129,6 +129,28 @@ export function mapProductToppingFromDb(pt) {
   };
 }
 
+export function mapOrderToBaseDb(o) {
+  return {
+    id: o.id,
+    table_id: o.tableId || null,
+    table_name: o.tableName || '',
+    status: o.status || 'serving',
+    cashier: o.cashier || '',
+    customer_count: Number(o.customerCount) || 1,
+    items: o.items || [],
+    discount_percent: Number(o.discountPercent) || 0,
+    surcharge: Number(o.surcharge) || 0,
+    subtotal: Number(o.subtotal) || 0,
+    total: Number(o.total) || 0,
+    paid_amount: Number(o.paidAmount) || 0,
+    remaining_amount: Number(o.remainingAmount) || 0,
+    split_payments: o.splitPayments || [],
+    payment_method: o.paymentMethod || null,
+    created_at: o.createdAt || new Date().toISOString(),
+    finished_at: o.finishedAt || null
+  };
+}
+
 export function mapOrderToDb(o) {
   return {
     id: o.id,
@@ -492,7 +514,12 @@ export async function seedInitialDataToCloud(data) {
       data.orderHistory.forEach((ord) => ordersToSeed.push(mapOrderToDb(ord)));
     }
     if (ordersToSeed.length) {
-      const { error } = await supabase.from('orders').upsert(ordersToSeed);
+      let { error } = await supabase.from('orders').upsert(ordersToSeed);
+      if (error && (error.code === 'PGRST204' || error.message?.includes('schema cache') || error.message?.includes('business_date'))) {
+        const fallbackOrders = ordersToSeed.map(mapOrderToBaseDb);
+        const fbRes = await supabase.from('orders').upsert(fallbackOrders);
+        error = fbRes.error;
+      }
       if (error) throw error;
     }
 
@@ -545,7 +572,12 @@ export async function cloudDeleteTable(tableId) {
 export async function cloudUpsertOrder(order) {
   if (!supabase) return;
   try {
-    await supabase.from('orders').upsert(mapOrderToDb(order));
+    const payload = mapOrderToDb(order);
+    const { error } = await supabase.from('orders').upsert(payload);
+    if (error && (error.code === 'PGRST204' || error.message?.includes('schema cache') || error.message?.includes('business_date'))) {
+      const basePayload = mapOrderToBaseDb(order);
+      await supabase.from('orders').upsert(basePayload);
+    }
   } catch (e) {
     console.warn('Lỗi cloudUpsertOrder:', e);
   }
