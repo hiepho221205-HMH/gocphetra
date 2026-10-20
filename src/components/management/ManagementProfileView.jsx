@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { usePos } from '../../store/PosContext';
 import { useVersionChecker } from '../../hooks/useVersionChecker';
 import { APP_VERSION, BUILD_DATE, RELEASE_NAME } from '../../config/version';
@@ -18,12 +18,14 @@ import {
   ArrowLeft,
   Smartphone,
   Monitor,
-  LogOut
+  LogOut,
+  Camera
 } from 'lucide-react';
 
-export default function ManagementProfileView() {
+export default function ManagementProfileView({ onBack }) {
   const {
     settings,
+    updateSettings,
     showToast,
     deviceMode,
     toggleDeviceMode,
@@ -32,6 +34,8 @@ export default function ManagementProfileView() {
     cloudStatus
   } = usePos();
 
+  const fileInputRef = useRef(null);
+  const [imageError, setImageError] = useState(false);
   const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -50,6 +54,43 @@ export default function ManagementProfileView() {
   const branchName = settings?.branchName || 'Chi nhánh 01 - Trụ sở chính';
   const shiftName = settings?.shiftName || 'Ca Sáng (06:30 - 14:30)';
   const shiftDisplay = shiftName.split('(')[0].trim() || 'Ca Sáng';
+  const avatarUrl = settings?.avatarUrl || null;
+
+  // Xử lý upload ảnh đại diện
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Vui lòng chọn file hình ảnh hợp lệ (PNG, JPG, WebP)', 'error');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Dung lượng ảnh tối đa là 2MB', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Data = event.target?.result;
+      if (base64Data) {
+        setImageError(false);
+        updateSettings({ avatarUrl: base64Data });
+        showToast('Đã cập nhật ảnh đại diện thành công!', 'success');
+      }
+    };
+    reader.onerror = () => {
+      showToast('Không thể đọc file ảnh. Vui lòng thử lại.', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = () => {
+    updateSettings({ avatarUrl: null });
+    setImageError(false);
+    showToast('Đã xóa ảnh đại diện, chuyển về mặc định', 'info');
+  };
 
   // Subpage 1: Quản lý nhân viên
   if (currentView === 'staff') {
@@ -59,7 +100,7 @@ export default function ManagementProfileView() {
           <button
             type="button"
             onClick={() => setCurrentView('main')}
-            className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center"
+            className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -73,7 +114,6 @@ export default function ManagementProfileView() {
           </div>
         </div>
 
-        {/* SLOT: SECTION 1 - QUẢN LÝ NHÂN VIÊN TỐI GIẢN (MILESTONE 2: StaffManagementSection) */}
         <StaffManagementSection />
       </div>
     );
@@ -96,7 +136,7 @@ export default function ManagementProfileView() {
           <button
             type="button"
             onClick={() => setCurrentView('main')}
-            className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center"
+            className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -110,7 +150,6 @@ export default function ManagementProfileView() {
           </div>
         </div>
 
-        {/* SLOT: SECTION 2 - DỌN DẸP DỮ LIỆU BÁN HÀNG AN TOÀN (MILESTONE 3: DataCleanupSection) */}
         <DataCleanupSection />
       </div>
     );
@@ -124,7 +163,7 @@ export default function ManagementProfileView() {
           <button
             type="button"
             onClick={() => setCurrentView('main')}
-            className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center"
+            className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -149,29 +188,87 @@ export default function ManagementProfileView() {
       className="px-4 pt-3 pb-28 text-xs"
     >
       {/* ========================================================= */}
+      {/* 0. TOP BAR VỚI NÚT QUAY LẠI (BACK) DÀNH CHO CÀI ĐẶT       */}
+      {/* ========================================================= */}
+      <div className="flex items-center justify-between pb-3 mb-2 border-b border-gray-100">
+        <button
+          type="button"
+          onClick={onBack || (() => setActiveTab('tables'))}
+          data-testid="settings-back-button"
+          className="p-2 rounded-xl bg-forest-50 hover:bg-forest-100 text-[#214E34] border border-forest-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+          aria-label="Quay lại"
+        >
+          <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
+        </button>
+        <div className="text-center">
+          <h1 className="text-sm font-black text-[#214E34] tracking-tight leading-none">
+            Cài đặt & Quản lý
+          </h1>
+          <p className="text-[10.5px] text-gray-500 mt-0.5">
+            Hệ thống & thông tin ca trực
+          </p>
+        </div>
+        <div className="w-9" />
+      </div>
+
+      {/* ========================================================= */}
       {/* 1. PROFILE HEADER: CĂN GIỮA PHÍA TRÊN CÙNG                */}
       {/* ========================================================= */}
-      <div className="flex flex-col items-center text-center">
-        {/* Avatar tròn 84px nền #214E34 với icon User trắng & online ping dot */}
+      <div className="flex flex-col items-center text-center mt-2">
+        {/* Avatar tròn 84px với ảnh thật hoặc icon User trắng + Nút Camera đổi ảnh */}
         <div className="relative inline-flex items-center justify-center">
-          <div className="w-[84px] h-[84px] rounded-full bg-[#214E34] text-white flex items-center justify-center shadow-lg shadow-forest-900/20 ring-4 ring-[#214E34]/15">
-            <User className="w-11 h-11 text-white stroke-[1.8]" />
+          <div className="w-[84px] h-[84px] rounded-full overflow-hidden bg-[#214E34] text-white flex items-center justify-center shadow-lg shadow-forest-900/20 ring-4 ring-[#214E34]/15">
+            {avatarUrl && !imageError ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                onError={() => setImageError(true)}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User className="w-11 h-11 text-white stroke-[1.8]" />
+            )}
           </div>
 
-          {/* Chấm xanh trạng thái hoạt động (online ping indicator) */}
-          <span className="absolute bottom-1 right-1 flex h-4 w-4 items-center justify-center">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-white shadow-2xs" />
-          </span>
+          {/* Nút icon Camera tròn nhỏ nằm ở góc dưới bên phải Avatar 84px */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            data-testid="upload-avatar-btn"
+            aria-label="Đổi ảnh đại diện"
+            title="Đổi ảnh đại diện"
+            className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#009E78] text-white hover:bg-[#008766] border-2 border-white shadow-md active:scale-90 transition-all cursor-pointer flex items-center justify-center"
+          >
+            <Camera className="w-3.5 h-3.5 stroke-[2.2]" />
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhotoUpload}
+          />
         </div>
 
+        {/* Nút xóa ảnh tùy chỉnh nếu đang dùng ảnh cá nhân */}
+        {avatarUrl && (
+          <button
+            type="button"
+            onClick={handleRemovePhoto}
+            className="mt-1.5 text-[11px] text-rose-600 hover:text-rose-700 font-semibold underline cursor-pointer"
+          >
+            Xóa ảnh tùy chỉnh
+          </button>
+        )}
+
         {/* Tên quản lý lấy từ dữ liệu hiện tại (spacing 8-12px) */}
-        <h2 className="text-lg font-black text-gray-900 tracking-tight mt-3">
+        <h2 className="text-lg font-black text-gray-900 tracking-tight mt-2.5">
           {displayName}
         </h2>
 
         {/* Badge "Quản lý • Admin" (spacing 8-12px) */}
-        <div className="mt-2">
+        <div className="mt-1.5">
           <span
             data-role="Quản lý (Admin)"
             title="Quản lý (Admin)"
@@ -181,16 +278,16 @@ export default function ManagementProfileView() {
           </span>
         </div>
 
-        {/* Dòng thương hiệu "GÓC – Phê & Trà" (spacing 8-12px) */}
-        <p className="text-xs text-gray-500 font-medium tracking-wide mt-2">
+        {/* Dòng thương hiệu "GÓC – Phê & Trà" */}
+        <p className="text-xs text-gray-500 font-medium tracking-wide mt-1.5">
           GÓC – Phê & Trà
         </p>
       </div>
 
       {/* ========================================================= */}
-      {/* 2. DANH SÁCH 4 CARD CHỨC NĂNG PASTEL ĐỘC LẬP (Spacing 24px)*/}
+      {/* 2. DANH SÁCH 4 CARD CHỨC NĂNG PASTEL ĐỘC LẬP              */}
       {/* ========================================================= */}
-      <div className="mt-6 space-y-3">
+      <div className="mt-5 space-y-3">
         {/* Card 1: Quản lý nhân viên (Pastel Xanh lá nhạt #EAF5ED) */}
         <ProfileNavCard
           title="Quản lý nhân viên"
@@ -289,7 +386,7 @@ export default function ManagementProfileView() {
           type="button"
           data-testid="logout-trigger-btn"
           onClick={() => setShowLogoutModal(true)}
-          className="touch-target btn-press w-full py-3 px-4 bg-rose-50/80 hover:bg-rose-100 text-rose-800 border border-rose-200/80 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs"
+          className="touch-target btn-press w-full py-3 px-4 bg-rose-50/80 hover:bg-rose-100 text-rose-800 border border-rose-200/80 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs cursor-pointer"
         >
           <LogOut className="w-4 h-4 text-rose-600" />
           <span>Đăng xuất tài khoản POS</span>

@@ -20,7 +20,7 @@ describe('Challenger M1: Empirical & Stress Verification', () => {
     const bottomNavPath = path.resolve('src/components/common/BottomNav.jsx');
     const bottomNavContent = fs.readFileSync(bottomNavPath, 'utf8');
 
-    test('1.1 - BottomNav defines 5 ordered tabs with exact contract IDs and labels', () => {
+    test('1.1 - BottomNav defines 4 ordered tabs with exact contract IDs and labels', () => {
       assert.ok(bottomNavContent.includes("id: 'tables'"), 'Tab 1 must be tables');
       assert.ok(bottomNavContent.includes("label: 'Bàn'"), "Tab 1 label must be 'Bàn'");
       assert.ok(bottomNavContent.includes("id: 'menu'"), 'Tab 2 must be menu');
@@ -29,21 +29,14 @@ describe('Challenger M1: Empirical & Stress Verification', () => {
       assert.ok(bottomNavContent.includes("label: 'Đơn hàng'"), "Tab 3 label must be 'Đơn hàng'");
       assert.ok(bottomNavContent.includes("id: 'reports'"), 'Tab 4 must be reports');
       assert.ok(bottomNavContent.includes("label: 'Báo cáo'"), "Tab 4 label must be 'Báo cáo'");
-      assert.ok(bottomNavContent.includes("id: 'settings'"), "Tab 5 must preserve internal id 'settings'");
-      assert.ok(bottomNavContent.includes("label: 'Quản lý'"), "Tab 5 must display label 'Quản lý'");
+      assert.ok(!bottomNavContent.includes("id: 'settings'"), "Settings tab is removed from BottomNav");
     });
 
-    test('1.2 - BottomNav imports ShieldCheck for Tab 5', () => {
-      assert.match(
-        bottomNavContent,
-        /import\s*\{[^}]*ShieldCheck[^}]*\}\s*from\s*['"]lucide-react['"]/,
-        'ShieldCheck must be imported from lucide-react'
-      );
-      assert.match(
-        bottomNavContent,
-        /id:\s*['"]settings['"],\s*label:\s*['"]Quản lý['"],\s*icon:\s*ShieldCheck/,
-        "Tab 5 must bind icon to ShieldCheck"
-      );
+    test('1.2 - Settings is isolated from BottomNav and accessed via Header Avatar', () => {
+      const headerPath = path.resolve('src/components/common/PageHeader.jsx');
+      const headerContent = fs.readFileSync(headerPath, 'utf8');
+      assert.ok(headerContent.includes('onOpenSettings') || headerContent.includes("setActiveTab('settings')"), 'PageHeader triggers settings');
+      assert.ok(!bottomNavContent.includes('ShieldCheck'), 'ShieldCheck removed from BottomNav');
     });
 
     test('1.3 - BottomNav active state styling logic verification', () => {
@@ -330,13 +323,13 @@ describe('Challenger M1: Empirical & Stress Verification', () => {
 
       // Verify mobile container classes
       assert.ok(
-        appContent.includes("max-w-[400px] min-h-screen sm:min-h-[844px] sm:max-h-[92vh] sm:rounded-[40px] sm:border-[8px] sm:border-[#1E2E22]"),
+        appContent.includes("max-w-[400px] sm:h-[844px] sm:max-h-[92vh] sm:rounded-[40px] sm:border-[8px] sm:border-[#1E2E22]"),
         'Mobile container specifies 400px maximum width, rounded corners, and smartphone border'
       );
 
       // Verify desktop responsive container classes
       assert.ok(
-        appContent.includes("max-w-6xl min-h-screen rounded-none"),
+        appContent.includes("max-w-6xl rounded-none"),
         'Desktop responsive container specifies max-w-6xl and edge-to-edge layout'
       );
 

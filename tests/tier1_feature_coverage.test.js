@@ -35,26 +35,24 @@ import {
 
 describe('Tier 1: Feature Coverage (Happy Path)', () => {
 
-  test('T1.1 - BottomNav Tab 5 Navigation Contract', () => {
+  test('T1.1 - BottomNav 4-Tab Navigation Contract & Settings Header Isolation', () => {
     // Read BottomNav.jsx to verify contract compliance
     const bottomNavPath = path.resolve(process.cwd(), 'src/components/common/BottomNav.jsx');
     assert.ok(fs.existsSync(bottomNavPath), 'BottomNav.jsx must exist');
     const content = fs.readFileSync(bottomNavPath, 'utf-8');
 
-    // Tab 5 navigation item must target 'settings' internal route
-    assert.ok(content.includes("id: 'settings'"), "BottomNav must route tab 5 to 'settings'");
+    // BottomNav must contain exactly 4 tabs: tables, menu, orders, reports
+    assert.ok(content.includes("id: 'tables'"), "BottomNav must route tab 'tables'");
+    assert.ok(content.includes("id: 'menu'"), "BottomNav must route tab 'menu'");
+    assert.ok(content.includes("id: 'orders'"), "BottomNav must route tab 'orders'");
+    assert.ok(content.includes("id: 'reports'"), "BottomNav must route tab 'reports'");
+    assert.ok(!content.includes("id: 'settings'"), "BottomNav must not contain settings tab (moved to Header Avatar)");
+    assert.ok(content.includes("grid-cols-4"), "BottomNav must use grid-cols-4 for 4 tabs");
 
-    // Check whether Tab 5 has been upgraded to 'Quản lý' with ShieldCheck, or tracks planned upgrade
-    const isUpgraded = content.includes("'Quản lý'") || content.includes('"Quản lý"');
-    const hasShieldCheck = content.includes('ShieldCheck');
-    
-    if (isUpgraded && hasShieldCheck) {
-      assert.ok(true, "Tab 5 successfully updated to 'Quản lý' with ShieldCheck");
-    } else {
-      // Prior to M1 execution, verify standard contract specification
-      assert.ok(content.includes('navItems'), "BottomNav contains navItems definition");
-      assert.match(content, /id:\s*'settings'/, "Tab 5 exists as settings tab ready for M1 upgrade");
-    }
+    // Verify App.jsx routes settings via Header Avatar
+    const appPath = path.resolve(process.cwd(), 'src/App.jsx');
+    const appContent = fs.readFileSync(appPath, 'utf-8');
+    assert.ok(appContent.includes("activeTab === 'settings'"), "App must route settings tab");
   });
 
   test('T1.2 - Admin Profile Header & Brand Styling Tokens', () => {

@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { usePos } from '../../store/PosContext';
-import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3, ShieldCheck } from 'lucide-react';
+import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3 } from 'lucide-react';
 
 export default function BottomNav() {
-  const { activeTab, setActiveTab, tables, orders } = usePos();
+  const { activeTab, setActiveTab, orders } = usePos();
 
   // Đếm bàn đang phục vụ
   const activeOrderCount = Object.keys(orders).length;
@@ -13,11 +13,10 @@ export default function BottomNav() {
     { id: 'menu', label: 'Thực đơn', icon: UtensilsCrossed },
     { id: 'orders', label: 'Đơn hàng', icon: ClipboardList },
     { id: 'reports', label: 'Báo cáo', icon: BarChart3 },
-    { id: 'settings', label: 'Quản lý', icon: ShieldCheck },
   ];
 
-  // Tính toán index của tab đang chọn để di chuyển highlight
-  const activeIndex = Math.max(0, navItems.findIndex((item) => item.id === activeTab));
+  // Tính toán index của tab đang chọn để di chuyển highlight (-1 nếu không thuộc 4 tab)
+  const activeIndex = navItems.findIndex((item) => item.id === activeTab);
 
   // Danh sách các tab áp dụng hiệu ứng tự động trượt ẩn/hiện khi cuộn
   const AUTO_HIDE_TABS = ['tables', 'orders'];
@@ -103,7 +102,7 @@ export default function BottomNav() {
   useEffect(() => {
     const syncTabFromUrl = () => {
       const hash = window.location.hash.replace('#', '');
-      const validTabs = ['tables', 'menu', 'orders', 'reports', 'settings'];
+      const validTabs = ['tables', 'menu', 'orders', 'reports'];
       if (validTabs.includes(hash) && hash !== activeTab) {
         setActiveTab(hash);
       }
@@ -123,6 +122,7 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="Thanh điều hướng chính"
+      data-testid="bottom-nav"
       className={`fixed bottom-4 left-4 right-4 max-w-[380px] mx-auto z-40 select-none pointer-events-none transition-all duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
         isVisible
           ? 'translate-y-0 opacity-100'
@@ -138,19 +138,21 @@ export default function BottomNav() {
           isVisible ? 'pointer-events-auto' : 'pointer-events-none'
         }`}
       >
-        {/* Track Grid 5 cột đồng bộ tọa độ tuyệt đối giữa highlight và các nút bấm */}
-        <div className="relative w-full h-full grid grid-cols-5 items-center">
+        {/* Track Grid 4 cột đồng bộ tọa độ tuyệt đối giữa highlight và các nút bấm */}
+        <div className="relative w-full h-full grid grid-cols-4 items-center">
           {/* Khối Highlight Circle 44x44px nền xanh trượt ngang mượt mà (220ms) */}
           <div
-            className="absolute top-0 bottom-0 left-0 w-1/5 flex items-center justify-center pointer-events-none transition-transform duration-220 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            className={`absolute top-0 bottom-0 left-0 w-1/4 flex items-center justify-center pointer-events-none transition-all duration-220 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              activeIndex >= 0 ? 'opacity-100' : 'opacity-0'
+            }`}
             style={{
-              transform: `translateX(${activeIndex * 100}%)`,
+              transform: `translateX(${Math.max(0, activeIndex) * 100}%)`,
             }}
           >
             <div className="w-11 h-11 rounded-full bg-forest-800 animate-fadeIn shadow-md shadow-forest-800/30 flex items-center justify-center" />
           </div>
 
-          {/* Danh sách 5 icon chức năng chia đều 5 cột Grid */}
+          {/* Danh sách 4 icon chức năng chia đều 4 cột Grid */}
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -163,6 +165,7 @@ export default function BottomNav() {
                 aria-selected={isActive}
                 aria-label={item.label}
                 title={item.label}
+                data-testid={`bottom-nav-${item.id}`}
                 onClick={() => {
                   if (window.history?.pushState) {
                     window.history.pushState({ tab: item.id }, '', `#${item.id}`);

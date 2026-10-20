@@ -18,10 +18,6 @@ const TAB_CONFIG = {
   reports: {
     title: 'Báo cáo',
     subtitle: 'Thống kê doanh thu & ca làm việc'
-  },
-  settings: {
-    title: 'Quản lý quán',
-    subtitle: 'Cấu hình vận hành, nhân viên & dữ liệu'
   }
 };
 
@@ -32,7 +28,7 @@ const TAB_CONFIG = {
  * - Right: Circular avatar (48-52px) with subtle mint accent border (#D4E8DB) & online indicator
  * - Persistent sticky positioning, safe-area aware, high-contrast, mobile-first 360-430px
  */
-export default function PageHeader({ onOpenProfile }) {
+export default function PageHeader({ onOpenSettings, onOpenProfile }) {
   const { activeTab, settings, setActiveTab } = usePos();
   const [imageError, setImageError] = useState(false);
 
@@ -42,17 +38,19 @@ export default function PageHeader({ onOpenProfile }) {
   const displayName = cashierRaw.split('(')[0].trim() || 'Trần Mai';
 
   const handleAvatarClick = () => {
-    if (onOpenProfile) {
+    if (onOpenSettings) {
+      onOpenSettings();
+    } else if (onOpenProfile) {
       onOpenProfile();
     } else {
-      setActiveTab('profile');
+      setActiveTab('settings');
     }
   };
 
   return (
     <header
       data-testid="shared-page-header"
-      className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-4 pt-3 pb-2.5 border-b border-gray-100/90 shadow-[0_2px_8px_rgba(0,0,0,0.03)] shrink-0 transition-all duration-200"
+      className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-4 pt-[max(12px,env(safe-area-inset-top))] pb-2.5 border-b border-gray-100/90 shadow-[0_2px_8px_rgba(0,0,0,0.03)] shrink-0 transition-all duration-200"
     >
       <div className="flex items-center justify-between gap-3">
         {/* Left: Big Foodgo-style Title & Subtitle */}

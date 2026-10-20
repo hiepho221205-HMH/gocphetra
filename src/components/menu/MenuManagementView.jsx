@@ -273,7 +273,7 @@ export default function MenuManagementView() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-64px)] sm:h-[780px] bg-[#F8FAF8] overflow-hidden select-none">
+    <div className="flex flex-col h-full sm:h-[780px] bg-[#F8FAF8] overflow-hidden select-none">
       {/* 2-COLUMN SPLIT-VIEW POS MENU MANAGEMENT */}
       <div className="flex flex-1 overflow-hidden">
         {/* ================= LEFT SIDEBAR: CATEGORIES & ACTIONS (~116px) ================= */}

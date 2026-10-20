@@ -13,7 +13,6 @@ import OrderHistoryView from './components/orders/OrderHistoryView';
 import ReportsView from './components/reports/ReportsView';
 import SettingsView from './components/settings/SettingsView';
 import PageHeader from './components/common/PageHeader';
-import ProfileView from './components/profile/ProfileView';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
 function PosContent() {
@@ -25,6 +24,7 @@ function PosContent() {
     toggleDeviceMode
   } = usePos();
 
+  const [previousTab, setPreviousTab] = useState('tables');
   const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
@@ -41,14 +41,19 @@ function PosContent() {
     setActiveTab('tables');
   };
 
+  const handleOpenSettings = () => {
+    setPreviousTab(activeTab);
+    setActiveTab('settings');
+  };
+
   return (
-    <div className={`min-h-screen bg-[#EAEFEA] flex items-center justify-center transition-all ${deviceMode === 'mobile' ? 'p-0 sm:py-6 sm:px-4' : 'p-0'}`}>
+    <div className={`h-[100dvh] max-h-[100dvh] w-full bg-[#EAEFEA] flex items-center justify-center overflow-hidden transition-all ${deviceMode === 'mobile' ? 'p-0 sm:py-6 sm:px-4' : 'p-0'}`}>
       {/* Mobile Device Frame Container */}
       <div
-        className={`w-full bg-[#F4F6F4] flex flex-col relative transition-all duration-300 shadow-2xl overflow-hidden pt-safe ${
+        className={`w-full bg-[#F4F6F4] flex flex-col relative transition-all duration-300 shadow-2xl overflow-hidden h-[100dvh] max-h-[100dvh] ${
           deviceMode === 'mobile'
-            ? 'max-w-[400px] min-h-screen sm:min-h-[844px] sm:max-h-[92vh] sm:rounded-[40px] sm:border-[8px] sm:border-[#1E2E22]'
-            : 'max-w-6xl min-h-screen rounded-none'
+            ? 'max-w-[400px] sm:h-[844px] sm:max-h-[92vh] sm:rounded-[40px] sm:border-[8px] sm:border-[#1E2E22]'
+            : 'max-w-6xl rounded-none'
         }`}
       >
         {/* Mobile Mockup Speaker Notch (on Desktop Mobile mode) */}
@@ -81,9 +86,9 @@ function PosContent() {
           </div>
         )}
 
-        {/* SHARED STICKY HEADER (Foodgo layout for 5 main POS tabs) */}
-        {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports', 'settings'].includes(activeTab) && (
-          <PageHeader onOpenProfile={() => setActiveTab('profile')} />
+        {/* SHARED STICKY HEADER (Foodgo layout for 4 main POS tabs: tables, menu, orders, reports) */}
+        {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab) && (
+          <PageHeader onOpenSettings={handleOpenSettings} />
         )}
 
         {/* Scrollable Main Area */}
@@ -166,23 +171,18 @@ function PosContent() {
             </div>
           )}
 
-          {/* TAB 5: CÀI ĐẶT (SETTINGS) */}
+          {/* TAB 5: CÀI ĐẶT & QUẢN LÝ (SETTINGS - Truy cập qua Avatar Header) */}
           {activeTab === 'settings' && (
             <div className="animate-fadeIn">
-              <SettingsView />
-            </div>
-          )}
-
-          {/* TAB: PROFILE (HỒ SƠ CÁ NHÂN TỪ AVATAR) */}
-          {activeTab === 'profile' && (
-            <div className="animate-fadeIn">
-              <ProfileView onBack={() => setActiveTab('tables')} />
+              <SettingsView onBack={() => setActiveTab(previousTab || 'tables')} />
             </div>
           )}
         </main>
 
-        {/* Bottom Navigation */}
-        <BottomNav />
+        {/* Bottom Navigation (Chỉ hiện trên 4 tab chính, ẩn khi đang gọi món hoặc vào Cài đặt) */}
+        {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab) && (
+          <BottomNav />
+        )}
 
         {/* Modals */}
         <TableActionModal

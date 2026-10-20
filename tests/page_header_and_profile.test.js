@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-describe('Shared Sticky Header (Foodgo Layout) & Profile View Contract Tests', () => {
+describe('Shared Sticky Header (Foodgo Layout) & Settings Management Contract Tests', () => {
   const headerPath = path.resolve('src/components/common/PageHeader.jsx');
-  const profilePath = path.resolve('src/components/profile/ProfileView.jsx');
+  const profilePath = path.resolve('src/components/management/ManagementProfileView.jsx');
   const appPath = path.resolve('src/App.jsx');
   const tableGridPath = path.resolve('src/components/tables/TableGrid.jsx');
   const menuPath = path.resolve('src/components/menu/MenuManagementView.jsx');
@@ -23,12 +23,12 @@ describe('Shared Sticky Header (Foodgo Layout) & Profile View Contract Tests', (
   // =========================================================================
   // 1. Shared PageHeader Component & Styling
   // =========================================================================
-  it('1.1 - PageHeader defines correct title and subtitle mappings for 5 tabs', () => {
+  it('1.1 - PageHeader defines correct title and subtitle mappings for 4 tabs', () => {
     assert.ok(headerContent.includes("title: 'Sơ đồ bàn'"), 'Tab tables must map to Sơ đồ bàn');
     assert.ok(headerContent.includes("title: 'Thực đơn'"), 'Tab menu must map to Thực đơn');
     assert.ok(headerContent.includes("title: 'Đơn hàng'"), 'Tab orders must map to Đơn hàng');
     assert.ok(headerContent.includes("title: 'Báo cáo'"), 'Tab reports must map to Báo cáo');
-    assert.ok(headerContent.includes("title: 'Quản lý quán'"), 'Tab settings must map to Quản lý quán');
+    assert.ok(!headerContent.includes("title: 'Quản lý quán'"), 'Tab settings must not be in PageHeader');
   });
 
   it('1.2 - PageHeader enforces Foodgo typography: 26-28px bold title in #214E34 & 12.5px subtitle', () => {
@@ -68,43 +68,43 @@ describe('Shared Sticky Header (Foodgo Layout) & Profile View Contract Tests', (
   });
 
   // =========================================================================
-  // 2. ProfileView Component & Functionality
+  // 2. Settings ManagementProfileView Component & Functionality
   // =========================================================================
-  it('2.1 - ProfileView includes dedicated header with back button', () => {
-    assert.ok(profileContent.includes('ArrowLeft'), 'ProfileView must have back button with ArrowLeft');
-    assert.ok(profileContent.includes('data-testid="profile-back-button"'), 'Back button testid must exist');
-    assert.ok(profileContent.includes('Hồ sơ nhân viên'), 'Title must be Hồ sơ nhân viên');
+  it('2.1 - ManagementProfileView includes dedicated header with back button', () => {
+    assert.ok(profileContent.includes('ArrowLeft'), 'ManagementProfileView must have back button with ArrowLeft');
+    assert.ok(profileContent.includes('data-testid="settings-back-button"'), 'Back button testid must exist');
+    assert.ok(profileContent.includes('Cài đặt & Quản lý'), 'Title must be Cài đặt & Quản lý');
   });
 
-  it('2.2 - ProfileView provides avatar upload and removal functionality', () => {
+  it('2.2 - ManagementProfileView provides avatar upload and removal functionality', () => {
     assert.ok(profileContent.includes('type="file"'), 'Must have file input for photo upload');
     assert.ok(profileContent.includes('handlePhotoUpload'), 'Must have photo upload handler');
     assert.ok(profileContent.includes('handleRemovePhoto'), 'Must have photo removal handler');
     assert.ok(profileContent.includes('avatarUrl'), 'Must bind to settings.avatarUrl');
   });
 
-  it('2.3 - ProfileView displays real cashier, shift, branch, and logout workflow', () => {
+  it('2.3 - ManagementProfileView displays real cashier, shift, branch, and logout workflow', () => {
     assert.ok(profileContent.includes('currentCashier'), 'Must read cashier from settings');
     assert.ok(profileContent.includes('shiftName'), 'Must read shift from settings');
     assert.ok(profileContent.includes('branchName'), 'Must read branch from settings');
     assert.ok(profileContent.includes('handleConfirmLogout'), 'Must have logout confirmation handler');
-    assert.ok(profileContent.includes('showLogoutConfirm'), 'Must have logout confirmation modal');
+    assert.ok(profileContent.includes('SafeLogoutModal'), 'Must have logout confirmation modal');
   });
 
   // =========================================================================
   // 3. App Integration & Header Isolation
   // =========================================================================
-  it('3.1 - App renders PageHeader only for 5 main tabs and hides it during active ordering', () => {
+  it('3.1 - App renders PageHeader only for 4 main tabs and hides it during active ordering and settings', () => {
     assert.ok(appContent.includes('<PageHeader'), 'App must render PageHeader');
     assert.ok(
-      appContent.includes("!activeOrderingTable && ['tables', 'menu', 'orders', 'reports', 'settings'].includes(activeTab)"),
-      'PageHeader must be scoped to 5 main tabs and hidden during active table ordering'
+      appContent.includes("!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab)"),
+      'PageHeader must be scoped to 4 main tabs and hidden during active table ordering or settings'
     );
   });
 
-  it('3.2 - App renders ProfileView when activeTab === "profile"', () => {
-    assert.ok(appContent.includes("activeTab === 'profile'"), 'App must route profile tab');
-    assert.ok(appContent.includes('<ProfileView'), 'App must render ProfileView');
+  it('3.2 - App routes avatar click directly to SettingsView with onBack', () => {
+    assert.ok(appContent.includes("activeTab === 'settings'"), 'App must route settings tab');
+    assert.ok(appContent.includes('<SettingsView onBack='), 'App must render SettingsView with onBack');
   });
 
   // =========================================================================
