@@ -196,18 +196,8 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
   };
 
   return (
-    <div className="px-4 pt-3.5 pb-24 text-stone-800">
-      {/* ================= 1. HEADER ================= */}
-      <div className="mb-2.5">
-        <h2 className="text-lg font-black text-forest-900 tracking-tight leading-none">
-          Đơn hàng
-        </h2>
-        <p className="text-[11px] text-gray-500 mt-0.5">
-          Theo dõi đơn đang phục vụ và hóa đơn đã hoàn tất theo ngày
-        </p>
-      </div>
-
-      {/* ================= 2. DATE FILTER BAR ================= */}
+    <div className="px-4 pt-3 pb-24 text-stone-800">
+      {/* ================= 1. DATE FILTER BAR ================= */}
       <div className="mb-3 bg-white p-2.5 rounded-2xl border border-stone-200/90 shadow-2xs space-y-2">
         {/* Row 1: Calendar selector + Quick nav arrows + Today button */}
         <div className="flex items-center justify-between gap-1.5">

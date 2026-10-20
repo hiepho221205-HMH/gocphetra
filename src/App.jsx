@@ -12,6 +12,8 @@ import MenuManagementView from './components/menu/MenuManagementView';
 import OrderHistoryView from './components/orders/OrderHistoryView';
 import ReportsView from './components/reports/ReportsView';
 import SettingsView from './components/settings/SettingsView';
+import PageHeader from './components/common/PageHeader';
+import ProfileView from './components/profile/ProfileView';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
 function PosContent() {
@@ -77,6 +79,11 @@ function PosContent() {
               <ArrowRight className="w-3 h-3" />
             </button>
           </div>
+        )}
+
+        {/* SHARED STICKY HEADER (Foodgo layout for 5 main POS tabs) */}
+        {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports', 'settings'].includes(activeTab) && (
+          <PageHeader onOpenProfile={() => setActiveTab('profile')} />
         )}
 
         {/* Scrollable Main Area */}
@@ -163,6 +170,13 @@ function PosContent() {
           {activeTab === 'settings' && (
             <div className="animate-fadeIn">
               <SettingsView />
+            </div>
+          )}
+
+          {/* TAB: PROFILE (HỒ SƠ CÁ NHÂN TỪ AVATAR) */}
+          {activeTab === 'profile' && (
+            <div className="animate-fadeIn">
+              <ProfileView onBack={() => setActiveTab('tables')} />
             </div>
           )}
         </main>

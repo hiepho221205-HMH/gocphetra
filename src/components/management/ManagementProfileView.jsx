@@ -146,7 +146,7 @@ export default function ManagementProfileView() {
   return (
     <div
       data-testid="management-profile-view"
-      className="px-4 pt-5 pb-28 text-xs"
+      className="px-4 pt-3 pb-28 text-xs"
     >
       {/* ========================================================= */}
       {/* 1. PROFILE HEADER: CĂN GIỮA PHÍA TRÊN CÙNG                */}

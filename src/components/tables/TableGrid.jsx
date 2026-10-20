@@ -47,18 +47,8 @@ export default function TableGrid({
   });
 
   return (
-    <div className="px-4 pt-3.5 pb-24">
-      {/* 1. Header gọn: Tiêu đề trang Sơ đồ bàn */}
-      <div className="mb-2.5">
-        <h2 className="text-lg font-black text-forest-900 tracking-tight leading-none">
-          Sơ đồ bàn
-        </h2>
-        <p className="text-[11px] text-gray-500 mt-0.5">
-          Quản lý trạng thái bàn và gọi món nhanh
-        </p>
-      </div>
-
-      {/* 2. Đúng 3 thẻ thống kê: Tổng bàn | Có khách | Bàn trống */}
+    <div className="px-4 pt-3 pb-24">
+      {/* 1. Đúng 3 thẻ thống kê: Tổng bàn | Có khách | Bàn trống */}
       <div className="grid grid-cols-3 gap-2 mb-3">
         {/* Tổng bàn */}
         <div className="bg-white p-2.5 rounded-xl border border-gray-200/80 text-center shadow-xs">

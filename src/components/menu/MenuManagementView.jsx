@@ -274,16 +274,6 @@ export default function MenuManagementView() {
 
   return (
     <div className="flex flex-col h-[calc(100dvh-64px)] sm:h-[780px] bg-[#F8FAF8] overflow-hidden select-none">
-      {/* Tiêu đề trang: Thực đơn */}
-      <div className="px-4 pt-3.5 pb-2 bg-white/95 backdrop-blur-md border-b border-stone-200/80 shrink-0">
-        <h2 className="text-lg font-black text-forest-900 tracking-tight leading-none">
-          Thực đơn
-        </h2>
-        <p className="text-[11px] text-gray-500 mt-0.5">
-          Quản lý danh mục, món bán & công thức topping
-        </p>
-      </div>
-
       {/* 2-COLUMN SPLIT-VIEW POS MENU MANAGEMENT */}
       <div className="flex flex-1 overflow-hidden">
         {/* ================= LEFT SIDEBAR: CATEGORIES & ACTIONS (~116px) ================= */}

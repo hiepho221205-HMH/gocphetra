@@ -154,18 +154,8 @@ export default function ReportsView() {
   }, [dailySeries, inspectedDayIndex]);
 
   return (
-    <div className="px-4 pt-3.5 pb-24 space-y-3.5 text-stone-800">
-      {/* ================= 1. HEADER ================= */}
-      <div>
-        <h2 className="text-lg font-black text-forest-900 tracking-tight leading-none">
-          Báo cáo
-        </h2>
-        <p className="text-[11px] text-gray-500 mt-0.5">
-          Theo dõi doanh thu bán hàng & phương thức thanh toán
-        </p>
-      </div>
-
-      {/* ================= 2. SEGMENTED TIME FILTER (4 LỰA CHỌN) ================= */}
+    <div className="px-4 pt-3 pb-24 space-y-3.5 text-stone-800">
+      {/* ================= 1. SEGMENTED TIME FILTER (4 LỰA CHỌN) ================= */}
       <div className="grid grid-cols-4 gap-1 p-1 bg-stone-200/70 rounded-2xl">
         {TIME_FILTERS.map((f) => {
           const isSelected = activeFilterId === f.id;
