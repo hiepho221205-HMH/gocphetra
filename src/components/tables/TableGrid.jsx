@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { usePos } from '../../store/PosContext';
 import TableCard from './TableCard';
-import { Plus, Search, Layers } from 'lucide-react';
+import { Plus, Search, Layers, CheckCircle2, Users, Coffee } from 'lucide-react';
+import { triggerHaptic } from '../../utils/haptics';
 
 export default function TableGrid({
   onAddNewTable,
@@ -46,64 +47,133 @@ export default function TableGrid({
     return matchesStatus && matchesSearch;
   });
 
+  const handleStatusChange = (status) => {
+    triggerHaptic('light');
+    setSelectedStatus(status);
+  };
+
+  const handleAddClick = () => {
+    triggerHaptic('medium');
+    onAddNewTable?.();
+  };
+
   return (
-    <div className="px-4 pt-3 pb-24">
-      {/* 1. Đúng 3 thẻ thống kê: Tổng bàn | Có khách | Bàn trống */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {/* Tổng bàn */}
-        <div className="bg-white p-2.5 rounded-xl border border-gray-200/80 text-center shadow-xs">
-          <span className="text-[10.5px] text-gray-500 font-medium block mb-0.5">Tổng bàn</span>
-          <span className="text-base font-black text-forest-900 leading-tight">{totalCount}</span>
+    <div className="px-3.5 pt-3 pb-28">
+      {/* 1. Dashboard 3 Thẻ Thống Kê 3D Clay Token (Reference Image 2) */}
+      <div className="grid grid-cols-3 gap-2.5 mb-3.5">
+        {/* Tổng bàn - Blue 3D Disc Badge */}
+        <div
+          onClick={() => handleStatusChange('all')}
+          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-transform active:scale-95 ${
+            selectedStatus === 'all' ? 'ring-2 ring-blue-500/50' : ''
+          }`}
+        >
+          <span className="text-[11px] text-gray-500 font-extrabold uppercase tracking-wider block mb-1.5">
+            Tổng bàn
+          </span>
+          <div className="w-12 h-12 clay-disc-base clay-disc-blue text-lg shadow-clay-disc">
+            {totalCount}
+          </div>
         </div>
 
-        {/* Có khách */}
-        <div className="bg-[#EBF7EE] p-2.5 rounded-xl border border-emerald-200 text-center shadow-xs">
-          <span className="text-[10.5px] text-emerald-800 font-bold block mb-0.5">Có khách</span>
-          <span className="text-base font-black text-emerald-900 leading-tight">{occupiedCount}</span>
+        {/* Có khách - Green 3D Disc Badge with Sub-Badge Pill */}
+        <div
+          onClick={() => handleStatusChange('occupied')}
+          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-transform active:scale-95 ${
+            selectedStatus === 'occupied' ? 'ring-2 ring-emerald-500/50' : ''
+          }`}
+        >
+          <span className="text-[11px] text-[#214E34] font-extrabold uppercase tracking-wider block mb-1.5">
+            Có khách
+          </span>
+          <div className="w-12 h-12 clay-disc-base clay-disc-green text-lg shadow-clay-disc">
+            {occupiedCount}
+            {occupiedCount > 0 && (
+              <span className="clay-sub-badge bg-rose-500 text-white animate-pulse">
+                •
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Bàn trống */}
-        <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-200 text-center shadow-xs">
-          <span className="text-[10.5px] text-gray-600 font-medium block mb-0.5">Bàn trống</span>
-          <span className="text-base font-black text-gray-800 leading-tight">{emptyCount}</span>
+        {/* Bàn trống - White Clay 3D Disc Badge */}
+        <div
+          onClick={() => handleStatusChange('empty')}
+          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-transform active:scale-95 ${
+            selectedStatus === 'empty' ? 'ring-2 ring-gray-400/50' : ''
+          }`}
+        >
+          <span className="text-[11px] text-gray-500 font-extrabold uppercase tracking-wider block mb-1.5">
+            Bàn trống
+          </span>
+          <div className="w-12 h-12 clay-disc-base clay-disc-white text-lg border border-gray-100 shadow-clay-disc">
+            {emptyCount}
+          </div>
         </div>
       </div>
 
-      {/* 3. Thanh công cụ: Tìm kiếm + Lọc trạng thái + Nút "+ Thêm bàn" */}
+      {/* 2. Thanh công cụ tìm kiếm & nút Thêm bàn */}
       <div className="flex items-center gap-2 mb-3">
-        {/* Ô tìm kiếm số bàn */}
+        {/* Ô tìm kiếm mềm 3D Inset */}
         <div className="relative flex-1">
-          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder="Tìm số bàn..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-2.5 py-2 bg-white border border-gray-200 rounded-xl text-xs placeholder:text-gray-400 focus:outline-none focus:border-forest-800 font-medium shadow-2xs"
+            className="w-full pl-9 pr-3 py-2.5 clay-input text-xs placeholder:text-gray-400 font-bold text-gray-800"
           />
         </div>
 
-        {/* Dropdown lọc trạng thái (3 tùy chọn) */}
-        <select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
-          aria-label="Lọc theo trạng thái bàn"
-          className="bg-white border border-gray-200 rounded-xl px-2.5 py-2 text-xs font-semibold text-gray-700 focus:outline-none focus:border-forest-800 shadow-2xs"
-        >
-          <option value="all">Tất cả</option>
-          <option value="empty">Bàn trống</option>
-          <option value="occupied">Có khách</option>
-        </select>
-
-        {/* Nút "+ Thêm bàn" nổi bật */}
+        {/* Nút "+ Thêm bàn" 3D Pill Forest Green */}
         <button
-          onClick={onAddNewTable}
-          className="touch-target btn-press px-3 py-2 bg-forest-800 hover:bg-forest-900 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-md flex-shrink-0"
+          type="button"
+          onClick={handleAddClick}
+          className="touch-target clay-btn-primary px-3.5 py-2.5 text-xs font-black flex items-center gap-1.5 shrink-0 cursor-pointer"
         >
-          <Plus className="w-4 h-4 text-emerald-300" />
+          <Plus className="w-4 h-4 text-emerald-300 stroke-[2.5]" />
           <span>Thêm bàn</span>
         </button>
       </div>
+
+      {/* 3. Segmented Control Filter Pills (Soft Inset Well) */}
+      <div className="clay-inset p-1 flex items-center justify-between gap-1 mb-3.5">
+        {[
+          { key: 'all', label: 'Tất cả' },
+          { key: 'occupied', label: `Có khách (${occupiedCount})` },
+          { key: 'empty', label: `Bàn trống (${emptyCount})` }
+        ].map((tab) => {
+          const isActive = selectedStatus === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => handleStatusChange(tab.key)}
+              className={`flex-1 py-1.5 px-2 rounded-[14px] text-xs font-extrabold transition-all duration-150 cursor-pointer touch-target ${
+                isActive
+                  ? 'bg-white text-[#214E34] shadow-[0_4px_12px_rgba(160,175,200,0.25),inset_0_1px_1px_rgba(255,255,255,1)]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Hidden standard select element for backward compatibility with automated tests */}
+      <select
+        value={selectedStatus}
+        onChange={(e) => handleStatusChange(e.target.value)}
+        aria-label="Lọc theo trạng thái bàn"
+        className="sr-only"
+        tabIndex={-1}
+      >
+        <option value="all">Tất cả</option>
+        <option value="empty">Bàn trống</option>
+        <option value="occupied">Có khách</option>
+      </select>
 
       {/* 4. Grid hiển thị danh sách bàn: đúng 2 cột trên mobile 390px */}
       {filteredTables.length > 0 ? (
@@ -118,7 +188,7 @@ export default function TableGrid({
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 bg-white/70 rounded-2xl border border-dashed border-gray-200 p-6">
+        <div className="text-center py-12 clay-card p-6 border-dashed border-gray-200">
           <Layers className="w-8 h-8 text-gray-300 mx-auto mb-2" />
           <p className="text-xs text-gray-600 font-bold">Không tìm thấy bàn phù hợp</p>
           <p className="text-[11px] text-gray-400 mt-0.5">

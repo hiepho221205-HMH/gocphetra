@@ -449,6 +449,16 @@ export async function fetchAllCloudData() {
       ? staffRes.data.map(mapStaffProfileFromDb)
       : [];
 
+    let payments = [];
+    try {
+      const paymentsRes = await supabase.from('payments').select('*').order('paid_at', { ascending: false }).limit(500);
+      if (paymentsRes && !paymentsRes.error && Array.isArray(paymentsRes.data)) {
+        payments = paymentsRes.data.map(mapPaymentFromDb);
+      }
+    } catch {
+      // payments table might not exist in early schema
+    }
+
     return {
       tables,
       categories,
@@ -459,7 +469,8 @@ export async function fetchAllCloudData() {
       orderHistory: orderHistoryArr,
       settings,
       staff,
-      staffList: staff
+      staffList: staff,
+      payments
     };
   } catch (err) {
     console.warn('Lỗi tải dữ liệu Cloud Supabase:', err);
@@ -1165,3 +1176,126 @@ export async function cloudRecordAuditLog(log) {
     console.warn('Lỗi cloudRecordAuditLog:', e);
   }
 }
+
+// ============================================================================
+// AUTHENTICATION & USER PROFILE OPERATIONS (AUTH V1)
+// ============================================================================
+
+export async function signInWithEmail(email, password) {
+  if (!supabase) {
+    return { success: false, error: new Error('Supabase client chưa được cấu hình') };
+  }
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password
+    });
+    if (error) {
+      return { success: false, error, message: error.message };
+    }
+    return { success: true, user: data.user, session: data.session };
+  } catch (err) {
+    return { success: false, error: err, message: err?.message || 'Lỗi kết nối xác thực' };
+  }
+}
+
+export async function signOutUser() {
+  if (!supabase) return { success: true };
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.warn('Lỗi signOut:', error.message);
+    return { success: !error };
+  } catch (err) {
+    console.warn('Lỗi ngoại lệ khi signOut:', err);
+    return { success: false, error: err };
+  }
+}
+
+export async function getCurrentSession() {
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session || null;
+  } catch (err) {
+    console.warn('Lỗi getCurrentSession:', err);
+    return null;
+  }
+}
+
+export async function fetchUserProfileAndRole(userId) {
+  if (!supabase || !userId) return null;
+  try {
+    const [profileRes, roleRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+      supabase.from('user_roles').select('*').eq('user_id', userId).maybeSingle()
+    ]);
+
+    const profileData = profileRes?.data || null;
+    const roleData = roleRes?.data || null;
+
+    if (profileData) {
+      return {
+        id: userId,
+        email: profileData.email,
+        name: profileData.name || 'Nhân viên',
+        role: roleData?.role || profileData.role || 'staff',
+        status: profileData.status || 'active',
+        avatarUrl: profileData.avatar_url || null,
+        phone: profileData.phone || '',
+        branchId: profileData.branch_id || 'main'
+      };
+    }
+
+    const { data: staffData } = await supabase
+      .from('staff_profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (staffData) {
+      return {
+        id: userId,
+        email: staffData.email,
+        name: staffData.name || 'Nhân viên',
+        role: staffData.role || 'staff',
+        status: staffData.status || 'active',
+        avatarUrl: null,
+        phone: staffData.phone || '',
+        branchId: staffData.branch_id || 'main'
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('Lỗi fetchUserProfileAndRole:', err);
+    return null;
+  }
+}
+
+export async function updateUserProfile(userId, updates = {}) {
+  if (!supabase || !userId) return { success: false };
+  try {
+    const payload = {};
+    if (updates.name !== undefined) payload.name = updates.name;
+    if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
+    if (updates.phone !== undefined) payload.phone = updates.phone;
+    payload.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', userId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Lỗi updateUserProfile:', error.message);
+      return { success: false, error };
+    }
+    return { success: true, data };
+  } catch (err) {
+    console.warn('Lỗi updateUserProfile exception:', err);
+    return { success: false, error: err };
+  }
+}
+

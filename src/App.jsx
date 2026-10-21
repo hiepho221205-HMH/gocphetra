@@ -13,8 +13,8 @@ import OrderHistoryView from './components/orders/OrderHistoryView';
 import ReportsView from './components/reports/ReportsView';
 import SettingsView from './components/settings/SettingsView';
 import PageHeader from './components/common/PageHeader';
-import DemoRoleSwitcher from './components/common/DemoRoleSwitcher';
 import AccessDeniedView from './components/common/AccessDeniedView';
+import LoginPage from './components/auth/LoginPage';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
 function PosContent() {
@@ -57,10 +57,10 @@ function PosContent() {
   };
 
   return (
-    <div className={`h-[100dvh] max-h-[100dvh] w-full bg-[#EAEFEA] flex flex-col items-center justify-center overflow-hidden transition-all ${deviceMode === 'mobile' ? 'p-0 sm:py-3 sm:px-4' : 'p-0'}`}>
+    <div className={`h-[100dvh] max-h-[100dvh] w-full ambient-clay-bg flex flex-col items-center justify-center overflow-hidden transition-all ${deviceMode === 'mobile' ? 'p-0 sm:py-3 sm:px-4' : 'p-0'}`}>
       {/* Mobile Device Frame Container */}
       <div
-        className={`w-full bg-[#F4F6F4] flex flex-col relative transition-all duration-300 shadow-2xl overflow-hidden h-[100dvh] max-h-[100dvh] ${
+        className={`w-full bg-[#F4F7FB] flex flex-col relative transition-all duration-300 shadow-2xl overflow-hidden h-[100dvh] max-h-[100dvh] ${
           deviceMode === 'mobile'
             ? 'max-w-[400px] sm:h-[844px] sm:max-h-[92vh] sm:rounded-[40px] sm:border-[8px] sm:border-[#1E2E22]'
             : 'max-w-6xl rounded-none'
@@ -74,9 +74,6 @@ function PosContent() {
             </div>
           </div>
         )}
-
-        {/* DEMO ROLE SWITCHER (Only in Dev/Staging, hidden in Production) */}
-        <DemoRoleSwitcher />
 
         {/* Global Toast Notifications */}
         <Toast />
@@ -293,10 +290,33 @@ function PosContent() {
   );
 }
 
+function PosAppRoot() {
+  const { isAuthenticated, isAuthLoading } = usePos();
+
+  if (isAuthLoading) {
+    return (
+      <div className="h-[100dvh] w-full bg-[#EAEFEA] flex flex-col items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-[#214E34] text-white flex items-center justify-center shadow-lg animate-pulse">
+            <span className="font-black text-xl">GÓC</span>
+          </div>
+          <p className="text-xs font-bold text-[#214E34] tracking-wide">Đang kiểm tra phiên làm việc...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
+  return <PosContent />;
+}
+
 export default function App() {
   return (
     <PosProvider>
-      <PosContent />
+      <PosAppRoot />
     </PosProvider>
   );
 }

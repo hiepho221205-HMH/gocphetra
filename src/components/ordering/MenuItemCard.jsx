@@ -6,10 +6,12 @@ export default function MenuItemCard({ item, onSelect }) {
   return (
     <div
       onClick={() => item.inStock && onSelect(item)}
-      className={`relative rounded-2xl bg-white border border-gray-100 shadow-xs overflow-hidden flex flex-col justify-between transition-all duration-smooth select-none ${
+      data-testid={`menu-item-${item.id}`}
+      data-menu-item="true"
+      className={`relative rounded-[22px] bg-white border border-stone-200/60 shadow-clay-card overflow-hidden flex flex-col justify-between transition-all duration-smooth select-none ${
         item.inStock
-          ? 'cursor-pointer hover:shadow-md hover:border-forest-800/30 active:scale-[0.98]'
-          : 'opacity-60 cursor-not-allowed bg-gray-50'
+          ? 'cursor-pointer hover:shadow-clay-hover hover:scale-[1.01] active:scale-[0.98]'
+          : 'opacity-60 cursor-not-allowed bg-stone-50'
       }`}
     >
       {/* Product Image */}
@@ -68,7 +70,7 @@ export default function MenuItemCard({ item, onSelect }) {
 
           <button
             disabled={!item.inStock}
-            className="touch-target w-7 h-7 rounded-lg bg-forest-800 text-white flex items-center justify-center hover:bg-forest-900 active:scale-95 transition-all shadow-xs disabled:opacity-30"
+            className="touch-target w-7 h-7 rounded-xl bg-forest-800 text-white flex items-center justify-center hover:bg-forest-900 active:scale-95 transition-all shadow-clay-btn disabled:opacity-30"
           >
             <Plus className="w-4 h-4" />
           </button>

@@ -11,6 +11,8 @@
     width: 100%;
     overflow: hidden;
     overscroll-behavior: none;
+    background-color: #F5F7F4;
+    color: #1F2A24;
   }
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -23,43 +25,221 @@
   }
 }
 
-/* Glassmorphism custom classes */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.65);
+/* ========================================================================= */
+/* 3D SOFT CLAY & NEUMORPHIC DESIGN SYSTEM (GÓC - PHÊ & TRÀ)                 */
+/* Inspired by reference images: soft clay cards, ambient pastel lighting,   */
+/* extruded circular 3D tokens, and tactile pill control bars                */
+/* ========================================================================= */
+
+/* Ambient pastel gradient lighting matching Reference Image 1 & 2 */
+.ambient-clay-bg {
+  background: 
+    radial-gradient(circle at 10% 8%, rgba(254, 215, 226, 0.50) 0%, transparent 35%),
+    radial-gradient(circle at 92% 12%, rgba(219, 234, 254, 0.60) 0%, transparent 40%),
+    radial-gradient(circle at 50% 95%, rgba(209, 250, 229, 0.40) 0%, transparent 45%),
+    #F5F7F4;
 }
 
-.glass-panel-elevated {
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 16px 40px -10px rgba(33, 78, 52, 0.12);
+/* Soft Clay Cards with multi-layered specular highlight and depth */
+.clay-card {
+  background: #FFFFFF;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 12px 28px -4px rgba(160, 175, 200, 0.16),
+    0 4px 10px -2px rgba(160, 175, 200, 0.08),
+    inset 0 2px 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -2px 4px 0 rgba(190, 200, 215, 0.12);
+  transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
-.glass-forest {
-  background: rgba(33, 78, 52, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+.clay-card-interactive {
+  cursor: pointer;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms ease, border-color 180ms ease;
+}
+.clay-card-interactive:hover {
+  box-shadow: 
+    0 18px 36px -6px rgba(160, 175, 200, 0.22),
+    0 6px 14px -2px rgba(160, 175, 200, 0.1),
+    inset 0 2px 2px 0 rgba(255, 255, 255, 1),
+    inset 0 -2px 4px 0 rgba(190, 200, 215, 0.14);
+}
+.clay-card-interactive:active {
+  transform: scale(0.975);
+  box-shadow: 
+    0 4px 12px -2px rgba(160, 175, 200, 0.14),
+    inset 0 2px 3px 0 rgba(160, 175, 200, 0.18);
 }
 
-.glass-input {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(33, 78, 52, 0.15);
+/* Soft Inset Well for search, inputs, segmented containers */
+.clay-inset {
+  background: #EEF2F6;
+  border-radius: 20px;
+  box-shadow: 
+    inset 0 3px 6px rgba(160, 175, 200, 0.18),
+    inset 0 -2px 4px rgba(255, 255, 255, 0.9);
 }
-.glass-input:focus {
-  background: #ffffff;
+
+.clay-input {
+  background: #EEF2F6;
+  border-radius: 18px;
+  border: 1.5px solid transparent;
+  box-shadow: 
+    inset 0 2px 5px rgba(160, 175, 200, 0.18),
+    inset 0 -1.5px 3px rgba(255, 255, 255, 0.9);
+  transition: all 180ms ease;
+}
+.clay-input:focus {
+  background: #FFFFFF;
   border-color: #214E34;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(33, 78, 52, 0.15);
+  box-shadow: 
+    0 0 0 4px rgba(33, 78, 52, 0.12),
+    0 4px 12px rgba(33, 78, 52, 0.08);
 }
 
-/* Touch target enforce */
+/* 3D Tactile Circular Discs (Key Signature from Images 1 & 2) */
+.clay-disc-base {
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-weight: 800;
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.clay-disc-blue {
+  background: linear-gradient(145deg, #3B82F6, #1D4ED8);
+  color: #FFFFFF;
+  box-shadow: 
+    0 8px 18px -2px rgba(37, 99, 235, 0.42),
+    0 3px 6px -1px rgba(37, 99, 235, 0.2),
+    inset 0 2px 3px rgba(255, 255, 255, 0.65),
+    inset 0 -3px 4px rgba(29, 78, 216, 0.45);
+}
+
+.clay-disc-green {
+  background: linear-gradient(145deg, #10B981, #059669);
+  color: #FFFFFF;
+  box-shadow: 
+    0 8px 18px -2px rgba(16, 185, 129, 0.42),
+    0 3px 6px -1px rgba(16, 185, 129, 0.2),
+    inset 0 2px 3px rgba(255, 255, 255, 0.65),
+    inset 0 -3px 4px rgba(4, 120, 87, 0.45);
+}
+
+.clay-disc-coral {
+  background: linear-gradient(145deg, #F87171, #DC2626);
+  color: #FFFFFF;
+  box-shadow: 
+    0 8px 18px -2px rgba(239, 68, 68, 0.42),
+    0 3px 6px -1px rgba(239, 68, 68, 0.2),
+    inset 0 2px 3px rgba(255, 255, 255, 0.65),
+    inset 0 -3px 4px rgba(185, 28, 28, 0.45);
+}
+
+.clay-disc-amber {
+  background: linear-gradient(145deg, #FBBF24, #D97706);
+  color: #FFFFFF;
+  box-shadow: 
+    0 8px 18px -2px rgba(245, 158, 11, 0.42),
+    0 3px 6px -1px rgba(245, 158, 11, 0.2),
+    inset 0 2px 3px rgba(255, 255, 255, 0.65),
+    inset 0 -3px 4px rgba(180, 83, 9, 0.45);
+}
+
+.clay-disc-forest {
+  background: linear-gradient(145deg, #2E6744, #214E34);
+  color: #FFFFFF;
+  box-shadow: 
+    0 8px 18px -2px rgba(33, 78, 52, 0.45),
+    0 3px 6px -1px rgba(33, 78, 52, 0.25),
+    inset 0 2px 3px rgba(255, 255, 255, 0.5),
+    inset 0 -3px 4px rgba(14, 36, 24, 0.55);
+}
+
+.clay-disc-white {
+  background: #FFFFFF;
+  color: #1F2A24;
+  box-shadow: 
+    0 8px 18px -2px rgba(160, 175, 200, 0.22),
+    0 3px 6px -1px rgba(160, 175, 200, 0.12),
+    inset 0 2px 2px rgba(255, 255, 255, 1),
+    inset 0 -2px 3px rgba(190, 200, 215, 0.2);
+}
+
+/* Floating corner sub-badge on 3D discs (Images 1 & 2) */
+.clay-sub-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 800;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Clay Tactile Pill Buttons */
+.clay-pill-btn {
+  background: #FFFFFF;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    0 6px 16px -2px rgba(160, 175, 200, 0.2),
+    0 2px 5px -1px rgba(160, 175, 200, 0.1),
+    inset 0 2px 2px rgba(255, 255, 255, 0.95),
+    inset 0 -2px 3px rgba(190, 200, 215, 0.15);
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.clay-pill-btn:active {
+  transform: scale(0.96);
+  box-shadow: 
+    0 2px 6px -1px rgba(160, 175, 200, 0.18),
+    inset 0 2px 4px rgba(160, 175, 200, 0.2);
+}
+
+/* Primary Brand Pill CTA (GÓC Forest Green #214E34) */
+.clay-btn-primary {
+  background: linear-gradient(145deg, #285E3E, #214E34);
+  color: #FFFFFF;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 10px 22px -3px rgba(33, 78, 52, 0.38),
+    0 4px 8px -1px rgba(33, 78, 52, 0.2),
+    inset 0 2px 3px rgba(255, 255, 255, 0.45),
+    inset 0 -3px 4px rgba(14, 36, 24, 0.5);
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.clay-btn-primary:active {
+  transform: scale(0.965);
+  box-shadow: 
+    0 3px 10px -1px rgba(33, 78, 52, 0.35),
+    inset 0 2px 4px rgba(14, 36, 24, 0.6);
+}
+
+/* Floating Bottom Navigation Controller Bar (Reference Image 1) */
+.clay-bottom-bar {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    0 16px 36px -4px rgba(160, 175, 200, 0.28),
+    0 6px 14px -2px rgba(160, 175, 200, 0.14),
+    inset 0 2px 2px rgba(255, 255, 255, 1);
+}
+
+/* Standard Touch Target Enforcement (44px min for mobile POS) */
 .touch-target {
   min-height: 44px;
   min-width: 44px;
@@ -68,15 +248,14 @@
   justify-content: center;
 }
 
-/* Micro-interaction button */
 .btn-press {
-  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1), opacity 180ms ease, background-color 180ms ease;
+  transition: transform 160ms cubic-bezier(0.4, 0, 0.2, 1), opacity 160ms ease;
 }
 .btn-press:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
-/* Custom scrollbars */
+/* Custom soft scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -85,11 +264,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(33, 78, 52, 0.2);
+  background: rgba(160, 175, 200, 0.35);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(33, 78, 52, 0.35);
+  background: rgba(33, 78, 52, 0.4);
 }
 
 /* Print thermal receipt styles */
@@ -109,12 +288,3 @@
     padding: 10px;
   }
 }
-
-/* Safe area padding utilities for mobile */
-.pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-

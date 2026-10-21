@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { usePos } from '../../store/PosContext';
 import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3 } from 'lucide-react';
+import { triggerHaptic } from '../../utils/haptics';
 
 export default function BottomNav() {
   const { activeTab, setActiveTab, orders, currentRole } = usePos();
@@ -22,19 +23,15 @@ export default function BottomNav() {
     ? [allNavItems[0], allNavItems[2]]
     : allNavItems;
 
-  // Tính toán index của tab đang chọn để di chuyển highlight (-1 nếu không thuộc danh sách)
   const activeIndex = navItems.findIndex((item) => item.id === activeTab);
 
-  // Danh sách các tab áp dụng hiệu ứng tự động trượt ẩn/hiện khi cuộn
   const AUTO_HIDE_TABS = ['tables', 'orders'];
   const shouldAutoHide = AUTO_HIDE_TABS.includes(activeTab);
 
-  // Trạng thái hiển thị khi cuộn danh sách (áp dụng cho Sơ đồ bàn: 'tables' và Đơn hàng: 'orders')
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
 
-  // Theo dõi sự kiện cuộn trên scroll container
   useEffect(() => {
     if (!shouldAutoHide) {
       setIsVisible(true);
@@ -99,7 +96,6 @@ export default function BottomNav() {
     };
   }, [activeTab, shouldAutoHide]);
 
-  // Tự động đồng bộ với URL hash khi tải trang, reload trang, nút Back hoặc popstate
   useEffect(() => {
     const syncTabFromUrl = () => {
       const hash = window.location.hash.replace('#', '');
@@ -132,15 +128,15 @@ export default function BottomNav() {
         bottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
       }}
     >
-      {/* Vỏ ngoài Floating Tab Bar với Glassmorphism và bo cong cao cấp */}
+      {/* Vỏ ngoài Floating Tab Bar với Glassmorphism & bo cong cao cấp */}
       <div
-        className={`relative w-full h-[64px] px-1.5 bg-white/80 backdrop-blur-xl border border-white/70 shadow-[0_12px_36px_-6px_rgba(33,78,52,0.18),0_4px_16px_rgba(0,0,0,0.04)] rounded-[28px] ${
+        className={`clay-bottom-bar relative w-full h-[68px] px-2.5 ${
           isVisible ? 'pointer-events-auto' : 'pointer-events-none'
         }`}
       >
         {/* Track Grid phân bổ theo số tab (2 cột cho Staff, 4 cột cho Manager/Admin) */}
         <div className={`relative w-full h-full grid ${isStaff ? 'grid-cols-2' : 'grid-cols-4'} items-center`}>
-          {/* Khối Highlight Circle 44x44px nền xanh trượt ngang mượt mà */}
+          {/* Khối Highlight Circle 48x48px nền xanh trượt ngang mượt mà */}
           <div
             className={`absolute top-0 bottom-0 left-0 ${isStaff ? 'w-1/2' : 'w-1/4'} flex items-center justify-center pointer-events-none transition-all duration-220 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               activeIndex >= 0 ? 'opacity-100' : 'opacity-0'
@@ -149,7 +145,7 @@ export default function BottomNav() {
               transform: `translateX(${Math.max(0, activeIndex) * 100}%)`,
             }}
           >
-            <div className="w-11 h-11 rounded-full bg-forest-800 animate-fadeIn shadow-md shadow-forest-800/30 flex items-center justify-center" />
+            <div className="w-12 h-12 rounded-full clay-btn-primary animate-fadeIn flex items-center justify-center" />
           </div>
 
           {/* Danh sách icon chức năng */}
@@ -167,12 +163,13 @@ export default function BottomNav() {
                 title={item.label}
                 data-testid={`bottom-nav-${item.id}`}
                 onClick={() => {
+                  triggerHaptic('light');
                   if (window.history?.pushState) {
                     window.history.pushState({ tab: item.id }, '', `#${item.id}`);
                   }
                   setActiveTab(item.id);
                 }}
-                className="touch-target col-span-1 h-full min-h-[44px] flex items-center justify-center relative z-10 active:scale-95 transition-transform duration-150 outline-none focus-visible:ring-2 focus-visible:ring-forest-800/40 rounded-full cursor-pointer"
+                className="touch-target col-span-1 h-full min-h-[44px] flex items-center justify-center relative z-10 active:scale-95 transition-transform duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[#214E34]/40 rounded-full cursor-pointer"
               >
                 <span className="sr-only">{item.label}</span>
 
@@ -180,13 +177,13 @@ export default function BottomNav() {
                   <Icon
                     className={`w-[23px] h-[23px] transition-all duration-200 ${
                       isActive
-                        ? 'text-white stroke-[2.2] scale-105'
+                        ? 'text-white stroke-[2.4] scale-105 drop-shadow-sm'
                         : 'text-gray-400 hover:text-gray-600 stroke-[1.8] scale-100'
                     }`}
                   />
 
                   {item.badge && (
-                    <span className="absolute -top-0.5 -right-1 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm ring-2 ring-white/90 leading-none animate-fadeIn">
+                    <span className="absolute -top-1 -right-1.5 bg-rose-500 text-white text-[10.5px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-md ring-2 ring-white leading-none animate-fadeIn">
                       {item.badge}
                     </span>
                   )}

@@ -81,7 +81,18 @@ async function runEmulation() {
     });
 
     await page.goto('http://localhost:4173', { waitUntil: 'networkidle0' });
-    await page.waitForSelector('[data-testid="shared-page-header"]', { timeout: 5000 });
+
+    // Handle Login if unauthenticated
+    const loginBtn = await page.$('[data-testid="login-submit-button"]');
+    if (loginBtn) {
+      console.log(`[${vp.name}] Logging in as admin01@gocpos.vn...`);
+      await page.type('input[type="email"]', 'admin01@gocpos.vn');
+      await page.type('input[type="password"]', '123456');
+      await page.click('[data-testid="login-submit-button"]');
+      await page.waitForNavigation({ waitUntil: 'networkidle0' }).catch(() => {});
+    }
+
+    await page.waitForSelector('[data-testid="shared-page-header"]', { timeout: 10000 });
 
     // 1. Initial Header position check
     const initialHeaderBox = await page.$eval('[data-testid="shared-page-header"]', el => {

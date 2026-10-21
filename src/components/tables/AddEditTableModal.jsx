@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePos } from '../../store/PosContext';
 import { X, AlertCircle } from 'lucide-react';
+import { triggerHaptic } from '../../utils/haptics';
 
 export default function AddEditTableModal({ isOpen, onClose, tableToEdit }) {
   const { tables, addTable, updateTable, deleteTable, showToast } = usePos();
@@ -56,6 +57,7 @@ export default function AddEditTableModal({ isOpen, onClose, tableToEdit }) {
     e.preventDefault();
     if (errorMessage || !tableNumber.trim()) return;
 
+    triggerHaptic('medium');
     const clean = tableNumber.trim();
     const formattedName = clean.toLowerCase().startsWith('bàn') ? clean : `Bàn ${clean.replace(/^B/i, '')}`;
 
@@ -78,33 +80,44 @@ export default function AddEditTableModal({ isOpen, onClose, tableToEdit }) {
   const handleDelete = () => {
     if (!tableToEdit) return;
     if (tableToEdit.status !== 'empty' || tableToEdit.activeOrderId) {
+      triggerHaptic('error');
       showToast('Không thể xóa bàn đang có khách hoặc chưa thanh toán!', 'error');
       return;
     }
 
     if (window.confirm(`Xác nhận xóa ${tableToEdit.name} khỏi sơ đồ bàn?`)) {
+      triggerHaptic('warning');
       const ok = deleteTable(tableToEdit.id);
       if (ok) onClose();
     }
   };
 
+  const handleClose = () => {
+    triggerHaptic('light');
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-float overflow-hidden border border-gray-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fadeIn">
+      <div className="w-full max-w-sm clay-card p-0 overflow-hidden animate-slideUp">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-forest-50/50">
-          <h3 className="font-extrabold text-sm text-forest-900">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-[#F5F7F4]/80">
+          <h3 className="font-black text-sm text-[#214E34] tracking-tight">
             {tableToEdit ? 'Chỉnh sửa bàn' : '+ Thêm bàn mới'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
-            <X className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={handleClose}
+            className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-gray-400 hover:text-gray-600 shadow-sm cursor-pointer"
+          >
+            <X className="w-4 h-4 stroke-[2.5]" />
           </button>
         </div>
 
         {/* Form: Chỉ nhập số bàn */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-3.5 text-xs">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
           <div>
-            <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-extrabold text-gray-600 uppercase tracking-wider mb-1.5">
               Số bàn / Tên bàn
             </label>
             <input
@@ -113,41 +126,41 @@ export default function AddEditTableModal({ isOpen, onClose, tableToEdit }) {
               placeholder="VD: Bàn 13 hoặc 13"
               value={tableNumber}
               onChange={(e) => handleNumberChange(e.target.value)}
-              className={`w-full px-3 py-2 text-xs bg-gray-50 border rounded-xl focus:bg-white focus:outline-none font-bold ${
+              className={`w-full px-3.5 py-2.5 text-xs font-bold clay-input ${
                 errorMessage
-                  ? 'border-rose-400 focus:border-rose-500 text-rose-900 bg-rose-50/30'
-                  : 'border-gray-200 focus:border-forest-800 text-forest-950'
+                  ? 'border-rose-400 text-rose-900 bg-rose-50/30'
+                  : 'text-gray-800'
               }`}
             />
             {errorMessage && (
-              <p className="flex items-center gap-1 text-[11px] text-rose-600 font-semibold mt-1">
-                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <p className="flex items-center gap-1.5 text-[11px] text-rose-600 font-bold mt-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>{errorMessage}</span>
               </p>
             )}
           </div>
 
-          <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+          <div className="flex items-center space-x-2 pt-3 border-t border-gray-100">
             {tableToEdit && tableToEdit.status === 'empty' && (
               <button
                 type="button"
                 onClick={handleDelete}
-                className="py-2.5 px-3 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors"
+                className="py-2.5 px-3 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-[14px] transition-colors cursor-pointer"
               >
                 Xóa bàn
               </button>
             )}
             <button
               type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 text-xs font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200"
+              onClick={handleClose}
+              className="flex-1 py-2.5 text-xs font-bold text-gray-600 clay-pill-btn cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={Boolean(errorMessage) || !tableNumber.trim()}
-              className="flex-1 py-2.5 text-xs font-bold text-white bg-forest-800 rounded-xl hover:bg-forest-900 disabled:opacity-40 shadow-sm"
+              className="flex-1 py-2.5 text-xs font-black text-white clay-btn-primary disabled:opacity-40 cursor-pointer"
             >
               {tableToEdit ? 'Lưu thay đổi' : 'Lưu bàn mới'}
             </button>

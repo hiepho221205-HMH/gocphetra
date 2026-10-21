@@ -31,6 +31,7 @@ import {
   addDaysToDateString,
   compareVietnamDateStrings
 } from '../../utils/dateTime';
+import { triggerHaptic } from '../../utils/haptics';
 
 export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
   const { orderHistory, orders, tables } = usePos();
@@ -60,9 +61,9 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
   // Brief loading feedback on date change
   const handleSelectDate = (newDateStr) => {
     if (newDateStr === selectedDate) return;
+    triggerHaptic('light');
     setIsLoading(true);
     setSelectedDate(newDateStr);
-    // Đảm bảo Bottom Navigation trượt hiện ngay để người dùng thao tác
     window.dispatchEvent(new CustomEvent('goc_pos_show_nav'));
     setTimeout(() => {
       setIsLoading(false);
@@ -85,7 +86,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
 
   // 1. Serving Orders for Selected Date (Only applicable on Today)
   const servingOrdersForDate = useMemo(() => {
-    if (!isToday) return []; // Past and Future dates do not have active serving orders!
+    if (!isToday) return [];
 
     const list = Object.values(orders).filter((ord) => {
       if (ord.status === 'completed' || ord.status === 'cancelled' || ord.status === 'unpaid_carried_over') return false;
@@ -93,7 +94,6 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
       return !createdDate || createdDate === selectedDate;
     });
 
-    // Sort ascending by creation time in the day (oldest first: 08:30 -> 09:15 -> 10:00)
     return [...list].sort((a, b) => {
       const timeA = new Date(a.createdAt || a.created_at || 0).getTime();
       const timeB = new Date(b.createdAt || b.created_at || 0).getTime();
@@ -118,9 +118,9 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
     });
   }, [orderHistory, isPast, selectedDate]);
 
-  // 3. Completed Orders for Selected Date (Filtered by origin business date or paid date on today)
+  // 3. Completed Orders for Selected Date
   const completedOrdersForDate = useMemo(() => {
-    if (isFuture) return []; // Future dates have no completed orders
+    if (isFuture) return [];
 
     const list = (orderHistory || []).filter((ord) => {
       if (ord.status !== 'completed') return false;
@@ -129,7 +129,6 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
       return bDate === selectedDate || (isToday && paidDate === selectedDate);
     });
 
-    // Sort ascending by payment/completion time in the day (oldest first: 09:00 -> 10:15)
     return [...list].sort((a, b) => {
       const timeA = new Date(a.paid_at || a.paidAt || a.completed_at || a.completedAt || a.finishedAt || a.createdAt || 0).getTime();
       const timeB = new Date(b.paid_at || b.paidAt || b.completed_at || b.completedAt || b.finishedAt || b.createdAt || 0).getTime();
@@ -146,7 +145,6 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
 
   // Dynamic Metrics for Selected Date
   const totalOrdersCount = (isPast ? unpaidOrdersForDate.length : servingOrdersForDate.length) + completedOrdersForDate.length;
-  // Cash-basis attribution: revenue collected on this date
   const totalRevenue = useMemo(() => {
     return completedOrdersForDate
       .filter((ord) => !ord.paymentBusinessDate || ord.paymentBusinessDate === selectedDate)
@@ -186,6 +184,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
 
   // Open active order details
   const handleOpenServingDetails = (ord) => {
+    triggerHaptic('light');
     const tbl = tables.find((t) => t.id === ord.tableId) || {
       id: ord.tableId,
       name: ord.tableName || `Bàn ${ord.tableId}`,
@@ -196,32 +195,35 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
   };
 
   return (
-    <div className="px-4 pt-3 pb-24 text-stone-800">
+    <div className="px-3.5 pt-3 pb-28 text-gray-800">
       {/* ================= 1. DATE FILTER BAR ================= */}
-      <div className="mb-3 bg-white p-2.5 rounded-2xl border border-stone-200/90 shadow-2xs space-y-2">
+      <div className="mb-3.5 clay-card p-3 space-y-2.5">
         {/* Row 1: Calendar selector + Quick nav arrows + Today button */}
         <div className="flex items-center justify-between gap-1.5">
           {/* Main Date Picker Trigger Button */}
           <button
             type="button"
-            onClick={() => setIsDatePickerOpen(true)}
+            onClick={() => {
+              triggerHaptic('light');
+              setIsDatePickerOpen(true);
+            }}
             aria-label="Chọn ngày xem đơn"
-            className="flex-1 min-h-[42px] px-3 py-1.5 rounded-xl bg-forest-50/80 hover:bg-forest-100/90 active:scale-98 border border-forest-200/70 text-forest-900 transition-all flex items-center justify-between gap-2 shadow-2xs text-left"
+            className="flex-1 min-h-[44px] px-3.5 py-2 rounded-[16px] clay-inset transition-all flex items-center justify-between gap-2 text-left cursor-pointer active:scale-98"
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-[#214E34] text-white flex items-center justify-center shrink-0">
-                <Calendar className="w-4 h-4 text-emerald-300" />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full clay-disc-base clay-disc-blue text-white flex items-center justify-center shrink-0">
+                <Calendar className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <div className="text-[10px] uppercase font-bold text-forest-700 tracking-wider">
+                <div className="text-[10px] uppercase font-black text-[#214E34] tracking-wider">
                   {isToday ? 'Hôm nay' : isPast ? 'Quá khứ' : 'Tương lai'}
                 </div>
-                <div className="text-xs font-black truncate text-stone-900">
+                <div className="text-xs font-black truncate text-gray-900">
                   {formatVietnamDisplayDate(selectedDate)}
                 </div>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-forest-700 px-1.5 py-0.5 rounded-md bg-white/80 shrink-0 border border-forest-200">
+            <span className="text-[10.5px] font-extrabold text-[#214E34] px-2 py-0.5 rounded-full bg-white shadow-xs shrink-0">
               Đổi
             </span>
           </button>
@@ -232,9 +234,9 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
             onClick={handlePrevDay}
             aria-label="Lùi 1 ngày"
             title="Lùi 1 ngày"
-            className="w-10 h-10 rounded-xl bg-stone-100 hover:bg-stone-200 active:scale-95 text-stone-700 flex items-center justify-center shrink-0 transition-colors"
+            className="w-10 h-10 rounded-[14px] clay-pill-btn flex items-center justify-center shrink-0 text-gray-700 cursor-pointer"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
           </button>
 
           {/* Quick "Hôm nay" CTA button (visible when not on today) */}
@@ -244,42 +246,40 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
               onClick={handleGoToday}
               aria-label="Về ngày hôm nay"
               title="Về ngày hôm nay"
-              className="px-2.5 h-10 rounded-xl bg-[#214E34] hover:bg-[#1a3e29] active:scale-95 text-white text-xs font-bold flex items-center justify-center gap-1 shrink-0 transition-all shadow-xs"
+              className="px-3 h-10 clay-btn-primary text-xs font-black flex items-center justify-center gap-1 shrink-0 cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-emerald-300" />
+              <RotateCcw className="w-3.5 h-3.5 text-emerald-300 stroke-[2.5]" />
               <span className="hidden xs:inline">Hôm nay</span>
             </button>
           ) : (
-            /* Next Day (>) when on today */
             <button
               type="button"
               onClick={handleNextDay}
               aria-label="Tiến 1 ngày"
               title="Tiến 1 ngày"
-              className="w-10 h-10 rounded-xl bg-stone-100 hover:bg-stone-200 active:scale-95 text-stone-700 flex items-center justify-center shrink-0 transition-colors"
+              className="w-10 h-10 rounded-[14px] clay-pill-btn flex items-center justify-center shrink-0 text-gray-700 cursor-pointer"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
             </button>
           )}
 
-          {/* Next Day (>) when not on today */}
           {!isToday && (
             <button
               type="button"
               onClick={handleNextDay}
               aria-label="Tiến 1 ngày"
               title="Tiến 1 ngày"
-              className="w-10 h-10 rounded-xl bg-stone-100 hover:bg-stone-200 active:scale-95 text-stone-700 flex items-center justify-center shrink-0 transition-colors"
+              className="w-10 h-10 rounded-[14px] clay-pill-btn flex items-center justify-center shrink-0 text-gray-700 cursor-pointer"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
             </button>
           )}
         </div>
 
         {/* Row 2: Daily Stat Summary Bar */}
-        <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-stone-500 pt-1 border-t border-stone-100">
+        <div className="flex items-center justify-between px-1 text-[11px] font-bold text-gray-500 pt-1.5 border-t border-gray-100">
           <span>
-            Tổng: <b className="text-stone-900">{totalOrdersCount}</b> đơn
+            Tổng: <b className="text-gray-900">{totalOrdersCount}</b> đơn
           </span>
           <span>
             Doanh thu ngày:{' '}
@@ -290,9 +290,9 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
 
       {/* Guidance Banner for Past & Future Dates */}
       {isPast && (
-        <div className="mb-3 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+        <div className="mb-3.5 px-3.5 py-2.5 rounded-[16px] bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 shadow-xs">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span className="leading-tight text-[11px]">
+          <span className="leading-tight text-[11px] font-semibold">
             Đang xem ngày quá khứ (<b>{formatShortDate(selectedDate)}</b>).
             {unpaidOrdersForDate.length > 0 ? (
               <span> Có <b>{unpaidOrdersForDate.length} đơn chưa thanh toán</b> được kết chuyển sang tab Chưa thanh toán.</span>
@@ -304,35 +304,32 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
       )}
 
       {/* ================= 3. SEGMENTED TAB BAR ================= */}
-      <div className="grid grid-cols-2 gap-1.5 p-1 bg-stone-200/70 rounded-2xl mb-3">
-        {/* Tab 1: Đang phục vụ (Hôm nay) HOẶC Chưa thanh toán (Quá khứ) */}
+      <div className="clay-inset p-1 grid grid-cols-2 gap-1.5 mb-3.5">
+        {/* Tab 1: Đang phục vụ HOẶC Chưa thanh toán */}
         <button
           type="button"
           disabled={isFuture}
           onClick={() => {
+            triggerHaptic('light');
             setActiveHistoryTab('serving');
             window.dispatchEvent(new CustomEvent('goc_pos_show_nav'));
           }}
-          className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs ${
+          className={`py-2 px-3 rounded-[14px] text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeHistoryTab === 'serving'
               ? isPast
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-[#214E34] text-white shadow-sm'
+                ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-sm'
+                : 'clay-btn-primary shadow-sm text-white'
               : isFuture
-              ? 'text-stone-400 bg-transparent cursor-not-allowed opacity-50'
-              : 'text-stone-600 hover:text-stone-900 bg-transparent'
+              ? 'text-gray-400 cursor-not-allowed opacity-50'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
           <span>{isPast ? 'Chưa thanh toán' : 'Đang phục vụ'}</span>
           <span
-            className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+            className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
               activeHistoryTab === 'serving'
-                ? isPast
-                  ? 'bg-amber-400/20 text-amber-100 border border-amber-400/30'
-                  : 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
-                : isPast && unpaidOrdersForDate.length > 0
-                ? 'bg-amber-200 text-amber-900'
-                : 'bg-stone-300 text-stone-700'
+                ? 'bg-white/20 text-white'
+                : 'bg-gray-200 text-gray-700'
             }`}
           >
             {isPast ? unpaidOrdersForDate.length : servingOrdersForDate.length}
@@ -343,21 +340,22 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         <button
           type="button"
           onClick={() => {
+            triggerHaptic('light');
             setActiveHistoryTab('completed');
             window.dispatchEvent(new CustomEvent('goc_pos_show_nav'));
           }}
-          className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs ${
+          className={`py-2 px-3 rounded-[14px] text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
             activeHistoryTab === 'completed'
-              ? 'bg-[#214E34] text-white shadow-sm'
-              : 'text-stone-600 hover:text-stone-900 bg-transparent'
+              ? 'clay-btn-primary shadow-sm text-white'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
           <span>Đã hoàn thành</span>
           <span
-            className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+            className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
               activeHistoryTab === 'completed'
-                ? 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
-                : 'bg-stone-300 text-stone-700'
+                ? 'bg-white/20 text-white'
+                : 'bg-gray-200 text-gray-700'
             }`}
           >
             {completedOrdersForDate.length}
@@ -367,8 +365,8 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
 
       {/* ================= 4. SEARCH INPUT ================= */}
       {!isFuture && (
-        <div className="relative mb-3">
-          <Search className="w-3.5 h-3.5 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="relative mb-3.5">
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder={
@@ -380,13 +378,13 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
             }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 bg-white border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-[#214E34] focus:ring-1 focus:ring-[#214E34]"
+            className="w-full pl-8 pr-3 py-2 clay-input text-xs font-bold text-gray-800"
           />
           {search && (
             <button
               type="button"
               onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs px-1"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs px-1 cursor-pointer"
             >
               ✕
             </button>
@@ -396,28 +394,28 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
 
       {/* ================= 5. LOADING SPINNER ================= */}
       {isLoading ? (
-        <div className="py-16 text-center text-stone-400 space-y-2">
+        <div className="py-16 text-center text-gray-400 space-y-2">
           <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#214E34]" />
-          <p className="text-xs">Đang tải dữ liệu ngày {formatShortDate(selectedDate)}...</p>
+          <p className="text-xs font-bold">Đang tải dữ liệu ngày {formatShortDate(selectedDate)}...</p>
         </div>
       ) : isFuture ? (
         /* ================= 6. FUTURE DATE EMPTY STATE ================= */
-        <div className="text-center py-14 text-stone-400 text-xs bg-white rounded-2xl border border-stone-200/80 p-6 space-y-3 animate-fadeIn">
-          <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mx-auto text-stone-400">
+        <div className="text-center py-14 clay-card p-6 space-y-3 animate-fadeIn">
+          <div className="w-12 h-12 rounded-full clay-disc-base clay-disc-white flex items-center justify-center mx-auto text-gray-400">
             <CalendarX className="w-6 h-6" />
           </div>
           <div>
-            <h4 className="font-bold text-stone-800 text-sm">Chưa có dữ liệu</h4>
-            <p className="text-[11px] text-stone-400 mt-0.5">
+            <h4 className="font-black text-gray-800 text-sm">Chưa có dữ liệu</h4>
+            <p className="text-[11px] text-gray-400 mt-0.5 font-semibold">
               Không có đơn hàng nào cho ngày {formatShortDate(selectedDate)} (ngày tương lai).
             </p>
           </div>
           <button
             type="button"
             onClick={handleGoToday}
-            className="px-4 py-2 rounded-xl bg-[#214E34] hover:bg-[#1a3e29] text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm active:scale-97 transition-all"
+            className="px-4 py-2 clay-btn-primary font-black text-xs inline-flex items-center gap-1.5 cursor-pointer"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-emerald-300" />
+            <RotateCcw className="w-3.5 h-3.5 text-emerald-300 stroke-[2.5]" />
             <span>Về ngày hôm nay</span>
           </button>
         </div>
@@ -428,7 +426,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
           {activeHistoryTab === 'serving' && isToday && (
             <div>
               {filteredServingOrders.length > 0 ? (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   {filteredServingOrders.map((ord) => {
                     const itemCount = ord.items.reduce((s, it) => s + (it.quantity || 1), 0);
                     const timeStr = new Date(ord.createdAt).toLocaleTimeString('vi-VN', {
@@ -440,30 +438,29 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                       <div
                         key={ord.id}
                         onClick={() => handleOpenServingDetails(ord)}
-                        className="bg-white p-3.5 rounded-2xl border border-stone-200/90 shadow-2xs hover:border-[#214E34]/40 transition-all cursor-pointer select-none space-y-2 group active:scale-[0.99]"
+                        className="clay-card clay-card-interactive p-3.5 select-none space-y-2.5"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <span className="font-black text-sm text-[#214E34]">
                               {ord.tableName}
                             </span>
-                            <span className="text-[10px] text-stone-400 font-mono font-bold bg-stone-100 px-1.5 py-0.2 rounded">
+                            <span className="text-[10px] text-gray-400 font-mono font-bold bg-gray-100 px-2 py-0.5 rounded-full">
                               #{ord.id}
                             </span>
                           </div>
 
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full clay-disc-base clay-disc-blue text-white shadow-xs">
                             Đang phục vụ
                           </span>
                         </div>
 
-                        <div className="text-[11px] text-stone-500 line-clamp-1">
+                        <div className="text-[11.5px] text-gray-600 line-clamp-1 font-medium">
                           {ord.items.map((it) => `${it.name} (x${it.quantity})`).join(', ')}
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                          <div className="flex items-center gap-2 text-stone-400 text-[10.5px]">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div className="flex items-center gap-2 text-gray-400 text-[10.5px] font-semibold">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" /> {timeStr}
                             </span>
@@ -482,7 +479,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                                 e.stopPropagation();
                                 handleOpenServingDetails(ord);
                               }}
-                              className="touch-target px-2.5 py-1.5 rounded-xl bg-forest-50 hover:bg-[#214E34] text-[#214E34] hover:text-white font-extrabold text-xs flex items-center gap-1 border border-forest-200 transition-colors shadow-2xs"
+                              className="touch-target px-3 py-1.5 clay-pill-btn text-[#214E34] font-black text-xs flex items-center gap-1 cursor-pointer"
                             >
                               <Receipt className="w-3.5 h-3.5" />
                               <span>Xem đơn</span>
@@ -494,10 +491,10 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                   })}
                 </div>
               ) : (
-                <div className="text-center py-14 text-stone-400 text-xs bg-white rounded-2xl border border-stone-200/80 p-6 space-y-2">
-                  <Coffee className="w-8 h-8 text-stone-300 mx-auto" />
-                  <p className="font-semibold text-stone-600">Không có đơn hàng nào đang phục vụ</p>
-                  <p className="text-[11px] text-stone-400">
+                <div className="text-center py-14 clay-card p-6 space-y-2">
+                  <Coffee className="w-8 h-8 text-gray-300 mx-auto" />
+                  <p className="font-black text-gray-600">Không có đơn hàng nào đang phục vụ</p>
+                  <p className="text-[11px] text-gray-400 font-medium">
                     Khi khách vào bàn và gọi món, đơn sẽ tự động hiển thị tại đây.
                   </p>
                 </div>
@@ -509,7 +506,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
           {activeHistoryTab === 'serving' && isPast && (
             <div>
               {filteredUnpaidOrders.length > 0 ? (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   {filteredUnpaidOrders.map((ord) => {
                     const itemCount = ord.items.reduce((s, it) => s + (it.quantity || 1), 0);
                     const timeStr = ord.createdAt
@@ -522,30 +519,29 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                     return (
                       <div
                         key={ord.id}
-                        className="bg-white p-3.5 rounded-2xl border border-amber-200/90 shadow-2xs hover:border-amber-400/80 transition-all select-none space-y-2 group"
+                        className="clay-card p-3.5 border-amber-200 select-none space-y-2.5"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <span className="font-black text-sm text-[#214E34]">
                               {ord.tableName}
                             </span>
-                            <span className="text-[10px] text-stone-400 font-mono font-bold bg-stone-100 px-1.5 py-0.2 rounded">
+                            <span className="text-[10px] text-gray-400 font-mono font-bold bg-gray-100 px-2 py-0.5 rounded-full">
                               #{ord.id}
                             </span>
                           </div>
 
-                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                            Chưa thanh toán (Chuyển ngày)
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full clay-disc-base clay-disc-amber text-white shadow-xs">
+                            Chưa thanh toán
                           </span>
                         </div>
 
-                        <div className="text-[11px] text-stone-500 line-clamp-1">
+                        <div className="text-[11.5px] text-gray-600 line-clamp-1 font-medium">
                           {ord.items.map((it) => `${it.name} (x${it.quantity})`).join(', ')}
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                          <div className="flex items-center gap-2 text-stone-400 text-[10.5px]">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div className="flex items-center gap-2 text-gray-400 text-[10.5px] font-semibold">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" /> {timeStr}
                             </span>
@@ -562,7 +558,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                             <button
                               type="button"
                               onClick={() => handleOpenServingDetails(ord)}
-                              className="touch-target px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs flex items-center gap-1 border border-stone-200 transition-colors shadow-2xs"
+                              className="touch-target px-3 py-1.5 clay-pill-btn text-gray-700 font-bold text-xs flex items-center gap-1 cursor-pointer"
                             >
                               <Receipt className="w-3.5 h-3.5" />
                               <span>Xem đơn</span>
@@ -571,8 +567,11 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                             {/* Nút Thu tiền */}
                             <button
                               type="button"
-                              onClick={() => setPayingOrder(ord)}
-                              className="touch-target px-3 py-1.5 rounded-xl bg-[#009E78] hover:bg-[#008666] text-white font-extrabold text-xs flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                              onClick={() => {
+                                triggerHaptic('medium');
+                                setPayingOrder(ord);
+                              }}
+                              className="touch-target px-3.5 py-1.5 clay-btn-primary text-white font-black text-xs flex items-center gap-1 cursor-pointer"
                             >
                               <Banknote className="w-3.5 h-3.5" />
                               <span>Thu tiền</span>
@@ -584,10 +583,10 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                   })}
                 </div>
               ) : (
-                <div className="text-center py-14 text-stone-400 text-xs bg-white rounded-2xl border border-stone-200/80 p-6 space-y-2">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500/60 mx-auto" />
-                  <p className="font-semibold text-stone-600">Không có đơn chưa thanh toán nào trong ngày này</p>
-                  <p className="text-[11px] text-stone-400">
+                <div className="text-center py-14 clay-card p-6 space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                  <p className="font-black text-gray-600">Không có đơn chưa thanh toán nào trong ngày này</p>
+                  <p className="text-[11px] text-gray-400 font-medium">
                     Tất cả các đơn phát sinh trong ngày {formatShortDate(selectedDate)} đều đã được xử lý hoàn tất.
                   </p>
                 </div>
@@ -595,11 +594,11 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
             </div>
           )}
 
-          {/* TAB 2: ĐÃ HOÀN THÀNH (HÔM NAY HOẶC QUÁ KHỨ) */}
+          {/* TAB 2: ĐÃ HOÀN THÀNH */}
           {activeHistoryTab === 'completed' && (
             <div>
               {filteredCompletedOrders.length > 0 ? (
-                <div className="space-y-2.5">
+                <div className="space-y-3">
                   {filteredCompletedOrders.map((ord) => {
                     const itemCount = ord.items.reduce((s, it) => s + (it.quantity || 1), 0);
                     const paidIso = ord.paid_at || ord.paidAt || ord.completed_at || ord.completedAt || ord.finishedAt;
@@ -615,54 +614,56 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                     return (
                       <div
                         key={ord.id}
-                        onClick={() => setPrintOrder(ord)}
-                        className="bg-white p-3.5 rounded-2xl border border-stone-200/80 shadow-2xs hover:border-emerald-600/40 transition-all cursor-pointer select-none space-y-2 group active:scale-[0.99]"
+                        onClick={() => {
+                          triggerHaptic('light');
+                          setPrintOrder(ord);
+                        }}
+                        className="clay-card clay-card-interactive p-3.5 select-none space-y-2.5"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-extrabold text-sm text-stone-900">
+                            <span className="font-black text-sm text-gray-900">
                               {ord.tableName}
                             </span>
-                            <span className="text-[10px] text-stone-400 font-mono font-bold bg-stone-100 px-1.5 py-0.2 rounded">
+                            <span className="text-[10px] text-gray-400 font-mono font-bold bg-gray-100 px-2 py-0.5 rounded-full">
                               #{ord.id}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-1.5 flex-wrap justify-end">
                             {ord.paymentBusinessDate && ord.paymentBusinessDate !== (ord.businessDate || getVietnamDateString(ord.createdAt)) && (
-                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                                 Đã thu ngày {formatShortDate(ord.paymentBusinessDate)}
                               </span>
                             )}
-                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full clay-disc-base clay-disc-green text-white shadow-xs">
                               Đã hoàn tất
                             </span>
                           </div>
                         </div>
 
-                        <div className="text-[11px] text-stone-500 line-clamp-1">
+                        <div className="text-[11.5px] text-gray-600 line-clamp-1 font-medium">
                           {ord.items.map((it) => `${it.name} (x${it.quantity})`).join(', ')}
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-                          <div className="flex items-center gap-2 text-stone-400 text-[10.5px]">
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <div className="flex items-center gap-2 text-gray-400 text-[10.5px] font-semibold">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" /> {paymentTimeStr}
                             </span>
                             <span>•</span>
-                            <span className="flex items-center gap-1">
+                            <span className="flex items-center gap-1 font-bold text-gray-600">
                               {isVietQR ? (
-                                <QrCode className="w-3 h-3 text-emerald-600" />
+                                <QrCode className="w-3.5 h-3.5 text-emerald-600" />
                               ) : (
-                                <Banknote className="w-3 h-3 text-amber-600" />
+                                <Banknote className="w-3.5 h-3.5 text-amber-600" />
                               )}
                               {isVietQR ? 'VietQR' : 'Tiền mặt'}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-sm text-stone-900">
+                            <span className="font-black text-sm text-gray-900">
                               {formatVND(ord.total)}
                             </span>
 
@@ -670,9 +671,10 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                triggerHaptic('light');
                                 setPrintOrder(ord);
                               }}
-                              className="touch-target px-2.5 py-1.5 rounded-xl bg-stone-100 hover:bg-forest-100 text-stone-700 hover:text-[#214E34] font-bold text-xs flex items-center gap-1 transition-colors"
+                              className="touch-target px-3 py-1.5 clay-pill-btn text-[#214E34] font-black text-xs flex items-center gap-1 cursor-pointer"
                               title="In lại hóa đơn"
                             >
                               <Printer className="w-3.5 h-3.5" />
@@ -685,12 +687,12 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                   })}
                 </div>
               ) : (
-                <div className="text-center py-14 text-stone-400 text-xs bg-white rounded-2xl border border-stone-200/80 p-6 space-y-2">
-                  <Receipt className="w-8 h-8 text-stone-300 mx-auto" />
-                  <p className="font-semibold text-stone-600">
+                <div className="text-center py-14 clay-card p-6 space-y-2">
+                  <Receipt className="w-8 h-8 text-gray-300 mx-auto" />
+                  <p className="font-black text-gray-600">
                     Chưa có hóa đơn nào đã hoàn thành trong ngày {formatShortDate(selectedDate)}
                   </p>
-                  <p className="text-[11px] text-stone-400">
+                  <p className="text-[11px] text-gray-400 font-medium">
                     Các hóa đơn thanh toán thành công trong ngày sẽ được lưu trữ tại đây.
                   </p>
                 </div>
@@ -708,7 +710,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         onSelectDate={handleSelectDate}
       />
 
-      {/* ================= MODAL 2: CHI TIẾT ĐƠN HÀNG (HÔM NAY HOẶC ĐƠN CŨ) ================= */}
+      {/* ================= MODAL 2: CHI TIẾT ĐƠN HÀNG ================= */}
       {activeDetailOrder && (
         <OrderDetailsModal
           isOpen={Boolean(activeDetailOrder)}
@@ -735,7 +737,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         />
       )}
 
-      {/* ================= MODAL 3: IN HÓA ĐƠN ĐÃ HOÀN THÀNH (CHỈ ĐỌC) ================= */}
+      {/* ================= MODAL 3: IN HÓA ĐƠN ================= */}
       {printOrder && (
         <ReceiptPrintView
           isOpen={Boolean(printOrder)}

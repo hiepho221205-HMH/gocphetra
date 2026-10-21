@@ -20,6 +20,7 @@ import {
   formatVietnamDisplayDate,
   formatShortDate
 } from '../../utils/dateTime';
+import { triggerHaptic } from '../../utils/haptics';
 
 export default function HistoricalPaymentModal({
   isOpen,
@@ -74,6 +75,7 @@ export default function HistoricalPaymentModal({
 
   const handleConfirmPayment = async () => {
     if (isSubmitting) return;
+    triggerHaptic('medium');
     setIsSubmitting(true);
     setErrorMsg('');
 
@@ -88,16 +90,19 @@ export default function HistoricalPaymentModal({
       });
 
       if (result && result.success) {
+        triggerHaptic('success');
         if (onSuccess) {
           onSuccess(result.order);
         }
         onClose();
       } else {
+        triggerHaptic('error');
         setErrorMsg(result?.error || 'Có lỗi khi ghi nhận thanh toán. Vui lòng thử lại!');
         setIsSubmitting(false);
       }
     } catch (err) {
       console.error('Lỗi thu tiền đơn cũ:', err);
+      triggerHaptic('error');
       setErrorMsg('Lỗi hệ thống: ' + (err.message || err));
       setIsSubmitting(false);
     }
@@ -108,25 +113,25 @@ export default function HistoricalPaymentModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="hist-payment-title"
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs animate-fadeIn"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-md animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSubmitting) {
           onClose();
         }
       }}
     >
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh] animate-scaleUp">
+      <div className="clay-card w-full max-w-md p-0 overflow-hidden flex flex-col max-h-[92vh] animate-scaleUp">
         {/* ================= HEADER ================= */}
-        <div className="px-4 py-3 bg-[#214E34] text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center border border-emerald-400/30">
-              <Banknote className="w-4 h-4" />
+        <div className="px-5 py-4 bg-gradient-to-r from-[#214E34] to-[#2E6744] text-white flex items-center justify-between shrink-0 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-white/10 text-emerald-300 flex items-center justify-center">
+              <Banknote className="w-4 h-4 stroke-[2.2]" />
             </div>
             <div>
               <h3 id="hist-payment-title" className="font-black text-sm text-white leading-tight">
                 Thu tiền đơn ngày cũ
               </h3>
-              <p className="text-[11px] text-emerald-200/90 font-medium">
+              <p className="text-[11px] text-emerald-200 font-semibold">
                 {order.tableName} • Ngày {formatShortDate(originalDate)}
               </p>
             </div>
@@ -135,35 +140,38 @@ export default function HistoricalPaymentModal({
           <button
             type="button"
             disabled={isSubmitting}
-            onClick={onClose}
+            onClick={() => {
+              triggerHaptic('light');
+              onClose();
+            }}
             aria-label="Đóng cửa sổ"
-            className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors disabled:opacity-50"
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors disabled:opacity-50 cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 stroke-[2.5]" />
           </button>
         </div>
 
         {/* ================= BODY ================= */}
-        <div className="p-4 space-y-3.5 overflow-y-auto flex-1 text-stone-800">
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-gray-800">
           {/* Isolation & Cash-basis attribution Notice */}
-          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-900 text-xs flex items-start gap-2.5">
+          <div className="p-3.5 rounded-[16px] bg-amber-50/90 border border-amber-200/90 text-amber-900 text-xs flex items-start gap-2.5 shadow-xs">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-1 text-[11.5px] leading-relaxed">
-              <p className="font-bold text-amber-950">
+              <p className="font-black text-amber-950">
                 Ghi nhận doanh thu vào hôm nay ({formatShortDate(todayStr)})
               </p>
-              <p className="text-amber-800">
+              <p className="text-amber-800 font-semibold">
                 Đơn hàng phát sinh từ ngày cũ. Sau khi thu tiền, dòng tiền sẽ tính vào ca hiện tại và <b>hoàn toàn không làm ảnh hưởng</b> đến bàn trên sơ đồ ngày hôm nay.
               </p>
             </div>
           </div>
 
           {/* Order Details Preview */}
-          <div className="bg-stone-50 rounded-xl p-3 border border-stone-200/80 space-y-2">
-            <div className="flex items-center justify-between text-xs pb-2 border-b border-stone-200">
-              <span className="font-mono font-bold text-stone-500">#{order.id}</span>
-              <span className="font-semibold text-stone-600 flex items-center gap-1 text-[11px]">
-                <Clock className="w-3 h-3 text-stone-400" />
+          <div className="clay-inset p-3.5 space-y-2">
+            <div className="flex items-center justify-between text-xs pb-2 border-b border-gray-200">
+              <span className="font-mono font-black text-gray-500">#{order.id}</span>
+              <span className="font-bold text-gray-600 flex items-center gap-1 text-[11px]">
+                <Clock className="w-3 h-3 text-gray-400" />
                 {order.createdAt ? new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}
               </span>
             </div>
@@ -171,13 +179,13 @@ export default function HistoricalPaymentModal({
             {/* Item list */}
             <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
               {items.map((it, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs">
+                <div key={idx} className="flex items-center justify-between text-xs font-semibold">
                   <div className="flex-1 truncate pr-2">
-                    <span className="font-bold text-stone-800">{it.name}</span>
-                    <span className="text-[11px] text-stone-500 ml-1">x{it.quantity}</span>
+                    <span className="font-bold text-gray-800">{it.name}</span>
+                    <span className="text-[11px] text-gray-400 ml-1">x{it.quantity}</span>
                     {it.sizeName && <span className="text-[10px] text-emerald-800 ml-1">({it.sizeName})</span>}
                   </div>
-                  <span className="font-semibold text-stone-700 shrink-0">
+                  <span className="font-extrabold text-gray-700 shrink-0">
                     {formatVND(it.lineTotal || (it.unitPrice * it.quantity))}
                   </span>
                 </div>
@@ -185,9 +193,9 @@ export default function HistoricalPaymentModal({
             </div>
 
             {/* Total Row */}
-            <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
-              <span className="text-xs font-bold text-stone-700">Tổng tiền cần thu:</span>
-              <span className="text-base font-black text-[#214E34]">
+            <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+              <span className="text-xs font-extrabold text-gray-600">Tổng tiền cần thu:</span>
+              <span className="text-lg font-black text-[#214E34]">
                 {formatVND(totalAmount)}
               </span>
             </div>
@@ -195,35 +203,41 @@ export default function HistoricalPaymentModal({
 
           {/* Payment Method Selector */}
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-1.5">
+            <label className="block text-xs font-extrabold text-gray-700 mb-2">
               Hình thức thanh toán:
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={() => setPaymentMethod('cash')}
-                className={`min-h-[46px] p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all ${
+                onClick={() => {
+                  triggerHaptic('light');
+                  setPaymentMethod('cash');
+                }}
+                className={`min-h-[48px] p-2.5 rounded-[16px] flex items-center justify-center gap-2 text-xs font-black transition-all cursor-pointer ${
                   paymentMethod === 'cash'
-                    ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs ring-1 ring-amber-400'
-                    : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
+                    ? 'clay-btn-primary shadow-md'
+                    : 'clay-pill-btn text-gray-700'
                 }`}
               >
-                <Banknote className={`w-4 h-4 ${paymentMethod === 'cash' ? 'text-amber-600' : 'text-stone-400'}`} />
+                <Banknote className="w-4 h-4" />
                 <span>Tiền mặt</span>
               </button>
 
               <button
                 type="button"
                 disabled={isSubmitting}
-                onClick={() => setPaymentMethod('vietqr')}
-                className={`min-h-[46px] p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition-all ${
+                onClick={() => {
+                  triggerHaptic('light');
+                  setPaymentMethod('vietqr');
+                }}
+                className={`min-h-[48px] p-2.5 rounded-[16px] flex items-center justify-center gap-2 text-xs font-black transition-all cursor-pointer ${
                   paymentMethod === 'vietqr'
-                    ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-xs ring-1 ring-emerald-400'
-                    : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md'
+                    : 'clay-pill-btn text-gray-700'
                 }`}
               >
-                <QrCode className={`w-4 h-4 ${paymentMethod === 'vietqr' ? 'text-emerald-600' : 'text-stone-400'}`} />
+                <QrCode className="w-4 h-4" />
                 <span>Chuyển khoản VietQR</span>
               </button>
             </div>
@@ -231,7 +245,7 @@ export default function HistoricalPaymentModal({
 
           {/* Error Message */}
           {errorMsg && (
-            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-[14px] bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-bold">
               <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
               <span>{errorMsg}</span>
             </div>
@@ -239,12 +253,15 @@ export default function HistoricalPaymentModal({
         </div>
 
         {/* ================= FOOTER ================= */}
-        <div className="p-3 bg-stone-50 border-t border-stone-200 flex items-center gap-2 shrink-0">
+        <div className="p-4 bg-white/95 backdrop-blur-md border-t border-gray-100 flex items-center gap-2.5 shrink-0">
           <button
             type="button"
             disabled={isSubmitting}
-            onClick={onClose}
-            className="flex-1 min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold text-stone-700 bg-white border border-stone-300 hover:bg-stone-100 active:scale-97 transition-colors disabled:opacity-50"
+            onClick={() => {
+              triggerHaptic('light');
+              onClose();
+            }}
+            className="flex-1 min-h-[44px] px-3 py-2 rounded-[16px] text-xs font-bold text-gray-700 clay-pill-btn transition-colors disabled:opacity-50 cursor-pointer"
           >
             Đóng
           </button>
@@ -253,7 +270,7 @@ export default function HistoricalPaymentModal({
             type="button"
             disabled={isSubmitting || totalAmount <= 0}
             onClick={handleConfirmPayment}
-            className="flex-2 min-h-[44px] px-4 py-2 rounded-xl text-xs font-black text-white bg-[#009E78] hover:bg-[#008666] active:scale-97 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-2 min-h-[44px] px-4 py-2 rounded-[16px] text-xs font-black text-white clay-btn-primary flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {isSubmitting ? (
               <>

@@ -23,7 +23,8 @@ const testFiles = [
   path.join(__dirname, 'staff_management_redesign.test.js'),
   path.join(__dirname, 'staff_hub_navigation.test.js'),
   path.join(__dirname, 'rbac_remake.test.js'),
-  path.join(__dirname, 'supabase_sales_cleanup.test.js')
+  path.join(__dirname, 'supabase_sales_cleanup.test.js'),
+  path.join(__dirname, 'auth_and_rbac_v1.test.js')
 ];
 
 console.log('\n============================================================');

@@ -51,7 +51,13 @@ import {
   adminChangeUserRoleRpc,
   adminArchiveOrdersRpc,
   fetchAuditLogs,
-  cloudRecordAuditLog
+  cloudRecordAuditLog,
+  // Auth V1 Imports
+  signInWithEmail,
+  signOutUser,
+  getCurrentSession,
+  fetchUserProfileAndRole,
+  updateUserProfile
 } from '../lib/supabase';
 import {
   getVietnamTodayString,
@@ -178,13 +184,26 @@ export function PosProvider({ children }) {
     return loaded && Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_STAFF;
   });
 
+  // Real Supabase Auth State (Auth V1)
+  const [session, setSession] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(isSupabaseConfigured && typeof window !== 'undefined'));
+  const [authError, setAuthError] = useState(null);
+
   // RBAC 3-Tier State: 'admin' | 'manager' | 'staff'
   const [currentRole, setCurrentRole] = useState(() => {
+    if (isSupabaseConfigured && typeof window !== 'undefined') {
+      return null;
+    }
     const saved = loadStorage(STORAGE_KEYS.ROLE, 'admin');
     return ['admin', 'manager', 'staff'].includes(saved) ? saved : 'admin';
   });
   const [currentUser, setCurrentUser] = useState(() => {
-    return (DEMO_ACCOUNTS && DEMO_ACCOUNTS[currentRole]) || {
+    if (isSupabaseConfigured && typeof window !== 'undefined') {
+      return null;
+    }
+    return (DEMO_ACCOUNTS && DEMO_ACCOUNTS['admin']) || {
       id: 'staff-01',
       uid: '00000000-0000-0000-0000-000000000001',
       name: 'Trần Mai',
@@ -294,6 +313,147 @@ export function PosProvider({ children }) {
     };
   }, []);
 
+  // =================== SUPABASE AUTH & SESSION HYDRATION (AUTH V1) ===================
+  const hydrateUserAndRole = async (user, sessionObj = null) => {
+    if (!user) return null;
+    try {
+      const profile = await fetchUserProfileAndRole(user.id);
+      
+      // Requirement 12 & 26: If account is locked/paused/inactive, reject immediately
+      const status = profile?.status || 'active';
+      if (status !== 'active') {
+        await signOutUser();
+        setSession(null);
+        setAuthUser(null);
+        setCurrentUser(null);
+        setCurrentRole(null);
+        setCurrentUserProfile(null);
+        setAuthError('Tài khoản đã bị tạm khóa hoặc chưa được cấp quyền truy cập. Vui lòng liên hệ Quản trị viên.');
+        return null;
+      }
+
+      const role = profile?.role || user.user_metadata?.role || 'staff';
+      const name = profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || 'Nhân viên';
+      const avatarUrl = profile?.avatarUrl || null;
+      const phone = profile?.phone || user.user_metadata?.phone || '';
+
+      const userObj = {
+        id: user.id,
+        uid: user.id,
+        email: user.email,
+        name,
+        role,
+        status,
+        avatarUrl,
+        phone,
+        branchId: profile?.branchId || 'main'
+      };
+
+      setCurrentRole(role);
+      setCurrentUser(userObj);
+      setCurrentUserProfile(userObj);
+      if (sessionObj) setSession(sessionObj);
+      setAuthUser(user);
+
+      setUserProfiles((prev) => ({
+        ...prev,
+        [user.id]: userObj
+      }));
+
+      setSettings((prev) => ({
+        ...prev,
+        avatarUrl,
+        currentCashier: `${name} (${role.toUpperCase()})`
+      }));
+
+      return userObj;
+    } catch (err) {
+      console.warn('Lỗi hydrateUserAndRole:', err);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || typeof window === 'undefined') {
+      setIsAuthLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    // Check existing session
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      if (!isMounted) return;
+      if (currentSession?.user) {
+        await hydrateUserAndRole(currentSession.user, currentSession);
+      } else {
+        setSession(null);
+        setAuthUser(null);
+        setCurrentUser(null);
+        setCurrentRole(null);
+        setCurrentUserProfile(null);
+      }
+      setIsAuthLoading(false);
+    }).catch(() => {
+      if (isMounted) setIsAuthLoading(false);
+    });
+
+    // Listen to Supabase Auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (!isMounted) return;
+      if (newSession?.user) {
+        await hydrateUserAndRole(newSession.user, newSession);
+      } else if (event === 'SIGNED_OUT' || !newSession) {
+        setSession(null);
+        setAuthUser(null);
+        setCurrentUser(null);
+        setCurrentRole(null);
+        setCurrentUserProfile(null);
+      }
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  const loginWithEmail = async (email, password) => {
+    setAuthError(null);
+    const res = await signInWithEmail(email, password);
+    if (!res.success) {
+      let msg = res.message || 'Đăng nhập thất bại';
+      if (msg.includes('Invalid login credentials') || msg.includes('invalid_grant')) {
+        msg = 'Email hoặc mật khẩu không chính xác';
+      } else if (msg.includes('rate limit') || msg.includes('Too many requests')) {
+        msg = 'Quá nhiều yêu cầu đăng nhập. Vui lòng thử lại sau vài phút.';
+      }
+      setAuthError(msg);
+      return { success: false, message: msg };
+    }
+
+    const hydrated = await hydrateUserAndRole(res.user, res.session);
+    if (!hydrated) {
+      return { success: false, message: authError || 'Tài khoản không đủ quyền truy cập hệ thống' };
+    }
+
+    setActiveTab('tables');
+    showToast?.(`Chào mừng ${hydrated.name} (${hydrated.role.toUpperCase()}) đăng nhập GÓC POS`, 'success');
+    return { success: true, user: res.user, role: hydrated.role };
+  };
+
+  const logoutUser = async () => {
+    await signOutUser();
+    setSession(null);
+    setAuthUser(null);
+    setCurrentUser(null);
+    setCurrentRole(null);
+    setCurrentUserProfile(null);
+    setActiveTab('tables');
+    showToast?.('Đã đăng xuất phiên làm việc an toàn', 'info');
+  };
+
   // Auto-save effects
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(tables)); }, [tables]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories)); }, [categories]);
@@ -384,6 +544,26 @@ export function PosProvider({ children }) {
         if (cloudData.settings) setSettings(cloudData.settings);
         await syncStaffWithCloud(cloudData.staff || cloudData.staffList || null);
 
+        if (cloudData.payments && cloudData.payments.length > 0) {
+          setPayments(cloudData.payments);
+        } else if (cloudData.orderHistory && cloudData.orderHistory.length > 0) {
+          const derivedPayments = cloudData.orderHistory
+            .filter((o) => o.status === 'completed' && Number(o.total) > 0)
+            .map((o) => ({
+              id: 'PAY_DERIVED_' + o.id,
+              orderId: o.id,
+              amount: Number(o.paidAmount || o.total) || 0,
+              paymentMethod: o.paymentMethod || 'cash',
+              paymentStatus: 'completed',
+              paidAt: o.finishedAt || o.paidAt || o.createdAt,
+              businessDate: o.businessDate || (o.createdAt ? o.createdAt.substring(0, 10) : getVietnamTodayString()),
+              cashierId: o.cashier || 'Thu ngân'
+            }));
+          if (derivedPayments.length > 0) {
+            setPayments(derivedPayments);
+          }
+        }
+
         // Reconcile tables, orders, and history atomically according to Table-First Rule
         // Supabase is Single Source of Truth: cloud orders and cloud history take precedence
         const fetchedTables = cloudData.tables && cloudData.tables.length > 0 ? cloudData.tables : tables;
@@ -464,6 +644,26 @@ export function PosProvider({ children }) {
           if (cloudData.settings) setSettings(cloudData.settings);
           await syncStaffWithCloud(cloudData?.staff || cloudData?.staffList || null);
 
+          if (cloudData.payments && cloudData.payments.length > 0) {
+            setPayments(cloudData.payments);
+          } else if (cloudData.orderHistory && cloudData.orderHistory.length > 0) {
+            const derivedPayments = cloudData.orderHistory
+              .filter((o) => o.status === 'completed' && Number(o.total) > 0)
+              .map((o) => ({
+                id: 'PAY_DERIVED_' + o.id,
+                orderId: o.id,
+                amount: Number(o.paidAmount || o.total) || 0,
+                paymentMethod: o.paymentMethod || 'cash',
+                paymentStatus: 'completed',
+                paidAt: o.finishedAt || o.paidAt || o.createdAt,
+                businessDate: o.businessDate || (o.createdAt ? o.createdAt.substring(0, 10) : getVietnamTodayString()),
+                cashierId: o.cashier || 'Thu ngân'
+              }));
+            if (derivedPayments.length > 0) {
+              setPayments(derivedPayments);
+            }
+          }
+
           const fetchedTables = cloudData.tables && cloudData.tables.length > 0 ? cloudData.tables : tables;
           const fetchedOrders = cloudData.orders ? cloudData.orders : {};
           const fetchedHistory = cloudData.orderHistory ? cloudData.orderHistory : [];
@@ -515,7 +715,7 @@ export function PosProvider({ children }) {
       if (!isSupabaseConfigured || !supabase) return null;
 
       const ch = supabase
-        .channel('pos_realtime_tables')
+        .channel('pos_realtime_sync_channel')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, async (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const updated = mapTableFromDb(payload.new);
@@ -531,34 +731,102 @@ export function PosProvider({ children }) {
               return nextTables;
             });
 
-            // Event-Driven Invalidation: Targeted order fetch for active tables
-            if (updated.activeOrderId && (updated.status === 'occupied' || updated.status === 'awaiting_payment')) {
-              try {
-                const { data: ordData } = await supabase
-                  .from('orders')
-                  .select('*')
-                  .eq('id', updated.activeOrderId)
-                  .maybeSingle();
-                if (ordData) {
-                  const mapped = mapOrderFromDb(ordData);
-                  setOrders((prev) => ({ ...prev, [mapped.id]: mapped }));
-                }
-              } catch (e) {
-                console.warn('Lỗi fetch đơn hàng theo sự kiện Realtime bàn:', e);
-              }
-            } else if (updated.status === 'empty' || !updated.activeOrderId) {
+            if (updated.status === 'empty' || !updated.activeOrderId) {
               setOrders((prev) => {
                 const next = { ...prev };
+                let modified = false;
                 for (const oId in next) {
                   if (next[oId].tableId === updated.id) {
                     delete next[oId];
+                    modified = true;
                   }
                 }
-                return next;
+                return modified ? next : prev;
               });
             }
           } else if (payload.eventType === 'DELETE') {
             setTables((prev) => prev.filter((t) => t.id !== payload.old.id));
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, async (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const mapped = mapOrderFromDb(payload.new);
+
+            if (mapped.status === 'completed' || mapped.status === 'cancelled' || mapped.status === 'unpaid_carried_over') {
+              // Order completed / cancelled: Remove from active orders and add to orderHistory
+              setOrders((prev) => {
+                if (!prev[mapped.id]) return prev;
+                const next = { ...prev };
+                delete next[mapped.id];
+                return next;
+              });
+
+              setOrderHistory((prev) => {
+                const filtered = prev.filter((o) => o.id !== mapped.id);
+                return [mapped, ...filtered];
+              });
+
+              // Add synthetic payment if completed to guarantee cash/vietqr revenue matches
+              if (mapped.status === 'completed' && Number(mapped.total) > 0) {
+                setPayments((prev) => {
+                  if (prev.some((p) => p.orderId === mapped.id)) return prev;
+                  const pay = {
+                    id: 'PAY_SYNC_' + mapped.id,
+                    orderId: mapped.id,
+                    amount: Number(mapped.paidAmount || mapped.total) || 0,
+                    paymentMethod: mapped.paymentMethod || 'cash',
+                    paymentStatus: 'completed',
+                    paidAt: mapped.finishedAt || mapped.paidAt || mapped.createdAt || new Date().toISOString(),
+                    businessDate: mapped.businessDate || (mapped.createdAt ? mapped.createdAt.substring(0, 10) : getVietnamTodayString()),
+                    cashierId: mapped.cashier || 'Thu ngân'
+                  };
+                  return [pay, ...prev];
+                });
+              }
+
+              // Free table if associated
+              if (mapped.tableId) {
+                setTables((prev) =>
+                  prev.map((t) =>
+                    t.id === mapped.tableId && t.activeOrderId === mapped.id
+                      ? { ...t, status: 'empty', activeOrderId: null, customerCount: 0 }
+                      : t
+                  )
+                );
+              }
+            } else {
+              // Active order: update in active orders
+              setOrders((prev) => ({
+                ...prev,
+                [mapped.id]: mapped
+              }));
+
+              // Update associated table to occupied
+              if (mapped.tableId) {
+                setTables((prev) =>
+                  prev.map((t) =>
+                    t.id === mapped.tableId
+                      ? {
+                          ...t,
+                          status: 'occupied',
+                          activeOrderId: mapped.id,
+                          customerCount: mapped.customerCount || t.customerCount || 1,
+                          seatedAt: t.seatedAt || mapped.createdAt || new Date().toISOString()
+                        }
+                      : t
+                  )
+                );
+              }
+            }
+          } else if (payload.eventType === 'DELETE') {
+            const delId = payload.old.id;
+            setOrders((prev) => {
+              if (!prev[delId]) return prev;
+              const next = { ...prev };
+              delete next[delId];
+              return next;
+            });
+            setOrderHistory((prev) => prev.filter((o) => o.id !== delId));
           }
         })
         .subscribe((status, err) => {
@@ -2390,6 +2658,15 @@ export function PosProvider({ children }) {
     saveStaffMember,
     deleteStaff,
     cleanupCompletedOrders,
+    // Auth V1 Context values
+    session,
+    authUser,
+    currentUserProfile,
+    isAuthenticated: Boolean((session?.user && currentRole) || (!isSupabaseConfigured && currentUser)),
+    isAuthLoading,
+    authError,
+    loginWithEmail,
+    logoutUser,
     // RBAC Context values
     currentRole,
     currentUser,
@@ -2402,7 +2679,7 @@ export function PosProvider({ children }) {
     canConfigureStore: ['admin', 'manager'].includes(currentRole),
     canChangeUserRole: currentRole === 'admin',
     canCleanupData: currentRole === 'admin',
-    canAccessSettings: true,
+    canAccessSettings: ['admin', 'manager'].includes(currentRole),
     userProfiles,
     updateCurrentUserProfile,
     allOrderHistory: orderHistory,

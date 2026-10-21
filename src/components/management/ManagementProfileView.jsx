@@ -49,7 +49,8 @@ export default function ManagementProfileView({ onBack }) {
     canCleanupData,
     canChangeUserRole,
     currentRoute = '/settings',
-    navigate
+    navigate,
+    logoutUser
   } = usePos();
 
   const fileInputRef = useRef(null);
@@ -70,9 +71,12 @@ export default function ManagementProfileView({ onBack }) {
 
   const handleConfirmLogout = () => {
     setShowLogoutModal(false);
-    showToast('Đã đăng xuất phiên làm việc POS', 'info');
+    showToast('Đã đăng xuất phiên làm việc Quản lý', 'info');
     setActiveTab('tables');
   };
+
+  const branchName = settings?.branchName || 'Chi nhánh 01 - Trụ sở chính';
+  const shiftName = settings?.shiftName || 'Ca Sáng (06:30 - 14:30)';
 
   const activeId = currentUser?.id || (currentRole === 'admin' ? 'staff-01' : currentRole === 'manager' ? 'staff-02' : 'staff-03');
   const userProfile = userProfiles[activeId] || {};
@@ -208,6 +212,7 @@ export default function ManagementProfileView({ onBack }) {
           </div>
         </div>
 
+        {/* SLOT: SECTION 1 - QUẢN LÝ NHÂN VIÊN TỐI GIẢN (MILESTONE 2: StaffManagementSection) */}
         <StaffManagementSection />
       </div>
     );
@@ -273,6 +278,7 @@ export default function ManagementProfileView({ onBack }) {
           </div>
         </div>
 
+        {/* SLOT: SECTION 2 - DỌN DẸP DỮ LIỆU BÁN HÀNG AN TOÀN (MILESTONE 3: DataCleanupSection) */}
         <DataCleanupSection />
       </div>
     );
@@ -539,10 +545,10 @@ export default function ManagementProfileView({ onBack }) {
       {/* ========================================================= */}
       {/* 3. CHẾ ĐỘ HIỂN THỊ POS & THIẾT BỊ                         */}
       {/* ========================================================= */}
-      <div className="mt-4 bg-white p-3.5 rounded-2xl border border-gray-100 shadow-xs space-y-2.5">
+      <div className="mt-4 clay-card p-4 space-y-2.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-7 h-7 rounded-lg bg-forest-50 text-forest-800 flex items-center justify-center">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-[12px] bg-forest-50 text-forest-800 flex items-center justify-center shadow-inner">
               {deviceMode === 'mobile' ? (
                 <Smartphone className="w-4 h-4 text-forest-700" />
               ) : (
@@ -550,8 +556,8 @@ export default function ManagementProfileView({ onBack }) {
               )}
             </div>
             <div>
-              <h4 className="font-bold text-gray-900 text-xs">Chế độ hiển thị POS</h4>
-              <p className="text-[10px] text-gray-400">
+              <h4 className="font-black text-gray-900 text-xs">Chế độ hiển thị POS</h4>
+              <p className="text-[10px] text-gray-400 font-medium">
                 {deviceMode === 'mobile' ? 'Khung chuẩn Mobile 390px' : 'Toàn màn hình (Desktop/Tablet)'}
               </p>
             </div>
@@ -560,7 +566,7 @@ export default function ManagementProfileView({ onBack }) {
             type="button"
             data-testid="toggle-device-mode-btn"
             onClick={toggleDeviceMode}
-            className="touch-target btn-press px-2.5 py-1.5 text-xs font-bold rounded-xl border border-forest-800/20 bg-forest-50/70 text-forest-900 hover:bg-forest-100 transition-colors flex items-center gap-1.5 shadow-2xs"
+            className="touch-target btn-press px-3 py-2 text-xs font-black rounded-[16px] clay-btn text-forest-900 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
           >
             {deviceMode === 'mobile' ? (
               <>
@@ -585,7 +591,7 @@ export default function ManagementProfileView({ onBack }) {
           type="button"
           data-testid="logout-trigger-btn"
           onClick={() => setShowLogoutModal(true)}
-          className="touch-target btn-press w-full py-3 px-4 bg-rose-50/80 hover:bg-rose-100 text-rose-800 border border-rose-200/80 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs cursor-pointer"
+          className="touch-target btn-press w-full py-3.5 px-4 bg-gradient-to-r from-rose-50 to-rose-100/90 hover:from-rose-100 hover:to-rose-200 text-rose-800 border border-rose-200/90 rounded-[22px] font-black text-xs flex items-center justify-center gap-2 transition-all shadow-[0_6px_16px_-2px_rgba(244,63,94,0.18),inset_0_2px_2px_rgba(255,255,255,0.95)] cursor-pointer active:scale-95"
         >
           <LogOut className="w-4 h-4 text-rose-600" />
           <span>Đăng xuất tài khoản POS</span>
