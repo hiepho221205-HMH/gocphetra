@@ -65,7 +65,9 @@ export default function ReportsView() {
           ord.paidAt ||
           ord.completed_at ||
           ord.completedAt ||
-          ord.finishedAt
+          ord.finishedAt ||
+          ord.created_at ||
+          ord.createdAt
         );
       if (!paidDate) return false;
       return datesSet.has(paidDate);

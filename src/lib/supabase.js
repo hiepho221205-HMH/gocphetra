@@ -582,11 +582,10 @@ export async function cloudDeleteTable(tableId) {
 export async function cloudUpsertOrder(order) {
   if (!supabase) return;
   try {
-    const payload = mapOrderToDb(order);
-    const { error } = await supabase.from('orders').upsert(payload);
-    if (error && (error.code === 'PGRST204' || error.message?.includes('schema cache') || error.message?.includes('business_date'))) {
-      const basePayload = mapOrderToBaseDb(order);
-      await supabase.from('orders').upsert(basePayload);
+    const basePayload = mapOrderToBaseDb(order);
+    const { error } = await supabase.from('orders').upsert(basePayload);
+    if (error) {
+      console.warn('Lỗi cloudUpsertOrder:', error);
     }
   } catch (e) {
     console.warn('Lỗi cloudUpsertOrder:', e);

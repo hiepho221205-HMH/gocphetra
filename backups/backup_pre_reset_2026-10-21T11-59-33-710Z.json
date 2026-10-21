@@ -1,0 +1,1486 @@
+{
+  "metadata": {
+    "timestamp": "2026-10-21T11:59:33.711Z",
+    "projectUrl": "https://nbuulvdfxnmfdicbisxq.supabase.co",
+    "projectRef": "nbuulvdfxnmfdicbisxq",
+    "purpose": "Pre-Reset Safety Backup (Phase 3 Safe Reset)"
+  },
+  "tables": {
+    "tables": {
+      "count": 12,
+      "rows": [
+        {
+          "id": "B10",
+          "name": "Bàn 10",
+          "capacity": 4,
+          "status": "empty",
+          "active_order_id": null,
+          "customer_count": 0,
+          "seated_at": null,
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B11",
+          "name": "Bàn 11",
+          "capacity": 8,
+          "status": "empty",
+          "active_order_id": null,
+          "customer_count": 0,
+          "seated_at": null,
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B03",
+          "name": "Bàn 03",
+          "capacity": 4,
+          "status": "occupied",
+          "active_order_id": "ORD-398411",
+          "customer_count": 4,
+          "seated_at": "2026-10-19T16:46:38.411+00:00",
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B09",
+          "name": "Bàn 09",
+          "capacity": 4,
+          "status": "occupied",
+          "active_order_id": "ORD-699986",
+          "customer_count": 4,
+          "seated_at": "2026-10-21T11:04:59.986+00:00",
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B12",
+          "name": "Bàn 12",
+          "capacity": 2,
+          "status": "empty",
+          "active_order_id": null,
+          "customer_count": 1,
+          "seated_at": null,
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B01",
+          "name": "Bàn 01",
+          "capacity": 2,
+          "status": "empty",
+          "active_order_id": null,
+          "customer_count": 0,
+          "seated_at": null,
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B02",
+          "name": "Bàn 02",
+          "capacity": 4,
+          "status": "empty",
+          "active_order_id": null,
+          "customer_count": 0,
+          "seated_at": null,
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B04",
+          "name": "Bàn 04",
+          "capacity": 6,
+          "status": "empty",
+          "active_order_id": null,
+          "customer_count": 0,
+          "seated_at": null,
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B05",
+          "name": "Bàn 05",
+          "capacity": 2,
+          "status": "empty",
+          "active_order_id": null,
+          "customer_count": 0,
+          "seated_at": null,
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B06",
+          "name": "Bàn 06",
+          "capacity": 4,
+          "status": "empty",
+          "active_order_id": null,
+          "customer_count": 0,
+          "seated_at": null,
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B07",
+          "name": "Bàn 07",
+          "capacity": 4,
+          "status": "occupied",
+          "active_order_id": "ORD-006384",
+          "customer_count": 4,
+          "seated_at": "2026-10-19T16:40:06.384+00:00",
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        },
+        {
+          "id": "B08",
+          "name": "Bàn 08",
+          "capacity": 6,
+          "status": "empty",
+          "active_order_id": null,
+          "customer_count": 0,
+          "seated_at": null,
+          "created_at": "2026-10-18T15:39:44.393438+00:00"
+        }
+      ]
+    },
+    "categories": {
+      "count": 6,
+      "rows": [
+        {
+          "id": "cat-coffee",
+          "name": "Cà phê",
+          "icon": "Coffee",
+          "sort_order": 0,
+          "created_at": "2026-10-18T15:39:17.113089+00:00"
+        },
+        {
+          "id": "cat-fruit-tea",
+          "name": "Trà quả",
+          "icon": "Citrus",
+          "sort_order": 1,
+          "created_at": "2026-10-18T15:39:17.113089+00:00"
+        },
+        {
+          "id": "cat-milk-tea",
+          "name": "Trà sữa",
+          "icon": "CupSoda",
+          "sort_order": 2,
+          "created_at": "2026-10-18T15:39:17.113089+00:00"
+        },
+        {
+          "id": "cat-freeze",
+          "name": "Đá xay",
+          "icon": "Snowflake",
+          "sort_order": 3,
+          "created_at": "2026-10-18T15:39:17.113089+00:00"
+        },
+        {
+          "id": "cat-juice",
+          "name": "Nước ép",
+          "icon": "GlassWater",
+          "sort_order": 4,
+          "created_at": "2026-10-18T15:39:17.113089+00:00"
+        },
+        {
+          "id": "cat-bakery",
+          "name": "Bánh ngọt",
+          "icon": "Cake",
+          "sort_order": 5,
+          "created_at": "2026-10-18T15:39:17.113089+00:00"
+        }
+      ]
+    },
+    "menu_items": {
+      "count": 15,
+      "rows": [
+        {
+          "id": "prod-1",
+          "code": "CF01",
+          "name": "Cà phê đen đá",
+          "category_id": "cat-coffee",
+          "base_price": 25000,
+          "description": "Robusta Buôn Ma Thuột đậm đà, thơm nồng đắng dịu",
+          "toppings": [
+            "top-6"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-2",
+          "code": "CF02",
+          "name": "Cà phê Sữa đá Sài Gòn",
+          "category_id": "cat-coffee",
+          "base_price": 35000,
+          "description": "Cà phê rang mộc pha phin hòa cùng sữa đặc béo ngọt",
+          "toppings": [
+            "top-1",
+            "top-6"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-3",
+          "code": "CF03",
+          "name": "Cà phê Muối Cố Đô",
+          "category_id": "cat-coffee",
+          "base_price": 42000,
+          "description": "Vị đắng đầm hòa cùng lớp kem sữa mặn béo ngậy đặc trưng",
+          "toppings": [
+            "top-2",
+            "top-6"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-4",
+          "code": "CF04",
+          "name": "Bạc Xỉu 3 Tầng",
+          "category_id": "cat-coffee",
+          "base_price": 38000,
+          "description": "Sữa tươi thanh trùng, sữa đặc dịu ngọt và chút espresso",
+          "toppings": [
+            "top-1",
+            "top-6"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-5",
+          "code": "TQ01",
+          "name": "Trà Đào Cam Sả",
+          "category_id": "cat-fruit-tea",
+          "base_price": 45000,
+          "description": "Đào giòn mọng nước, cam vàng thanh mát và hương sả ấm",
+          "toppings": [
+            "top-3",
+            "top-8"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-6",
+          "code": "TQ02",
+          "name": "Trà Vải Hoa Hồng",
+          "category_id": "cat-fruit-tea",
+          "base_price": 45000,
+          "description": "Hương hoa hồng dịu mát quyện vải thiều ngọt lịm",
+          "toppings": [
+            "top-7",
+            "top-3"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-7",
+          "code": "TQ03",
+          "name": "Trà Mãng Cầu Tươi",
+          "category_id": "cat-fruit-tea",
+          "base_price": 48000,
+          "description": "Mãng cầu xiêm dầm chua ngọt thanh mát",
+          "toppings": [
+            "top-1"
+          ],
+          "in_stock": false,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-8",
+          "code": "TS01",
+          "name": "Matcha Latte Cheese",
+          "category_id": "cat-milk-tea",
+          "base_price": 45000,
+          "description": "Trà xanh Uji thơm ngát phủ lớp kem phô mai béo mịn",
+          "toppings": [
+            "top-1",
+            "top-2"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-9",
+          "code": "TS02",
+          "name": "Trà Sữa Ô Long Nướng",
+          "category_id": "cat-milk-tea",
+          "base_price": 42000,
+          "description": "Vị trà ô long nướng đậm đà cùng sữa tươi béo thơm",
+          "toppings": [
+            "top-1",
+            "top-4"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-10",
+          "code": "DX01",
+          "name": "Matcha Đá Xay Kem Tuyết",
+          "category_id": "cat-freeze",
+          "base_price": 55000,
+          "description": "Bột trà xanh Nhật Bản xay tuyết mịn cùng bông kem",
+          "toppings": [
+            "top-1"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-11",
+          "code": "DX02",
+          "name": "Cà phê Cốt Dừa Đá Xay",
+          "category_id": "cat-freeze",
+          "base_price": 52000,
+          "description": "Cốt dừa Bến Tre xay mát lạnh cùng shot espresso",
+          "toppings": [
+            "top-6"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-12",
+          "code": "NE01",
+          "name": "Nước Ép Dưa Hấu Bạc Hà",
+          "category_id": "cat-juice",
+          "base_price": 40000,
+          "description": "Dưa hấu tươi ép nguyên chất cùng lá bạc hà the mát",
+          "toppings": [
+            "top-3"
+          ],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-13",
+          "code": "NE02",
+          "name": "Nước Ép Cam Tươi Nguyên Chất",
+          "category_id": "cat-juice",
+          "base_price": 42000,
+          "description": "Cam sành tươi mọng nước, giàu vitamin C tự nhiên",
+          "toppings": [],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-14",
+          "code": "BN01",
+          "name": "Croissant Bơ Pháp Nướng",
+          "category_id": "cat-bakery",
+          "base_price": 32000,
+          "description": "Bánh sừng bò ngàn lớp thơm nức bơ cao cấp",
+          "toppings": [],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        },
+        {
+          "id": "prod-15",
+          "code": "BN02",
+          "name": "Tiramisu Cacao Đậm Vị",
+          "category_id": "cat-bakery",
+          "base_price": 45000,
+          "description": "Bánh Ý phô mai Mascarpone và cà phê nồng nàn",
+          "toppings": [],
+          "in_stock": true,
+          "created_at": "2026-10-18T15:39:43.873841+00:00"
+        }
+      ]
+    },
+    "toppings": {
+      "count": 8,
+      "rows": [
+        {
+          "id": "top-1",
+          "name": "Trân châu trắng",
+          "price": 10000,
+          "in_stock": true,
+          "is_global": true,
+          "created_at": "2026-10-18T15:39:43.660712+00:00"
+        },
+        {
+          "id": "top-2",
+          "name": "Kem Cheese béo mặn",
+          "price": 15000,
+          "in_stock": true,
+          "is_global": true,
+          "created_at": "2026-10-18T15:39:43.660712+00:00"
+        },
+        {
+          "id": "top-3",
+          "name": "Thạch nha đam lá dứa",
+          "price": 8000,
+          "in_stock": true,
+          "is_global": true,
+          "created_at": "2026-10-18T15:39:43.660712+00:00"
+        },
+        {
+          "id": "top-4",
+          "name": "Sương sáo thảo mộc",
+          "price": 10000,
+          "in_stock": true,
+          "is_global": true,
+          "created_at": "2026-10-18T15:39:43.660712+00:00"
+        },
+        {
+          "id": "top-5",
+          "name": "Hạt sen Huế ninh đường",
+          "price": 12000,
+          "in_stock": true,
+          "is_global": false,
+          "created_at": "2026-10-18T15:39:43.660712+00:00"
+        },
+        {
+          "id": "top-6",
+          "name": "Thêm 1 Shot Espresso",
+          "price": 12000,
+          "in_stock": true,
+          "is_global": false,
+          "created_at": "2026-10-18T15:39:43.660712+00:00"
+        },
+        {
+          "id": "top-7",
+          "name": "Trái vải thiều ngâm",
+          "price": 12000,
+          "in_stock": true,
+          "is_global": false,
+          "created_at": "2026-10-18T15:39:43.660712+00:00"
+        },
+        {
+          "id": "top-8",
+          "name": "Đào miếng giòn",
+          "price": 10000,
+          "in_stock": true,
+          "is_global": false,
+          "created_at": "2026-10-18T15:39:43.660712+00:00"
+        }
+      ]
+    },
+    "product_toppings": {
+      "count": 10,
+      "rows": [
+        {
+          "product_id": "prod-1",
+          "topping_id": "top-6",
+          "price_override": null
+        },
+        {
+          "product_id": "prod-2",
+          "topping_id": "top-1",
+          "price_override": null
+        },
+        {
+          "product_id": "prod-2",
+          "topping_id": "top-6",
+          "price_override": null
+        },
+        {
+          "product_id": "prod-3",
+          "topping_id": "top-2",
+          "price_override": 18000
+        },
+        {
+          "product_id": "prod-3",
+          "topping_id": "top-6",
+          "price_override": null
+        },
+        {
+          "product_id": "prod-4",
+          "topping_id": "top-1",
+          "price_override": null
+        },
+        {
+          "product_id": "prod-5",
+          "topping_id": "top-2",
+          "price_override": null
+        },
+        {
+          "product_id": "prod-5",
+          "topping_id": "top-5",
+          "price_override": null
+        },
+        {
+          "product_id": "prod-7",
+          "topping_id": "top-7",
+          "price_override": null
+        },
+        {
+          "product_id": "prod-8",
+          "topping_id": "top-8",
+          "price_override": null
+        }
+      ]
+    },
+    "orders": {
+      "count": 20,
+      "rows": [
+        {
+          "id": "ORD-102",
+          "table_id": "B03",
+          "table_name": "Bàn 03",
+          "status": "completed",
+          "cashier": "Nguyễn Văn Hùng",
+          "customer_count": 2,
+          "items": [
+            {
+              "name": "Cà phê Muối Cố Đô",
+              "size": "M",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Vừa (M)",
+              "toppings": [],
+              "basePrice": 42000,
+              "lineTotal": 42000,
+              "productId": "prod-3",
+              "sizePrice": 0,
+              "unitPrice": 42000,
+              "cartItemId": "item-3"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 42000,
+          "total": 42000,
+          "paid_amount": 42000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 42000,
+              "method": "cash",
+              "paymentId": "PAY-1792426064143",
+              "timestamp": "2026-10-19T16:07:44.143Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-18T14:44:42.85+00:00",
+          "finished_at": "2026-10-19T16:07:44.143+00:00"
+        },
+        {
+          "id": "ORD-069666",
+          "table_id": "B03",
+          "table_name": "Bàn 03",
+          "status": "serving",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê Muối Cố Đô",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 42000,
+              "lineTotal": 42000,
+              "productId": "prod-3",
+              "sizePrice": 0,
+              "unitPrice": 42000,
+              "cartItemId": "draft-1792426066574t55q"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 42000,
+          "total": 42000,
+          "paid_amount": 0,
+          "remaining_amount": 42000,
+          "split_payments": [],
+          "payment_method": null,
+          "created_at": "2026-10-19T16:07:49.666+00:00",
+          "finished_at": null
+        },
+        {
+          "id": "ORD-104967",
+          "table_id": "B03",
+          "table_name": "Bàn 03",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê Muối Cố Đô",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 42000,
+              "lineTotal": 42000,
+              "productId": "prod-3",
+              "sizePrice": 0,
+              "unitPrice": 42000,
+              "cartItemId": "draft-1792426066574t55q"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 42000,
+          "total": 42000,
+          "paid_amount": 42000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 42000,
+              "method": "cash",
+              "paymentId": "PAY-1792426110144",
+              "timestamp": "2026-10-19T16:08:30.144Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:08:24.967+00:00",
+          "finished_at": "2026-10-19T16:08:30.144+00:00"
+        },
+        {
+          "id": "ORD-069667",
+          "table_id": "B03",
+          "table_name": "Bàn 03",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê Muối Cố Đô",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 42000,
+              "lineTotal": 42000,
+              "productId": "prod-3",
+              "sizePrice": 0,
+              "unitPrice": 42000,
+              "cartItemId": "draft-1792426073437na7t"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 42000,
+          "total": 42000,
+          "paid_amount": 42000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 42000,
+              "method": "cash",
+              "paymentId": "PAY-1792426082990",
+              "timestamp": "2026-10-19T16:08:02.990Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:07:49.667+00:00",
+          "finished_at": "2026-10-19T16:08:02.99+00:00"
+        },
+        {
+          "id": "ORD-111623",
+          "table_id": "B03",
+          "table_name": "Bàn 03",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê Muối Cố Đô",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 42000,
+              "lineTotal": 42000,
+              "productId": "prod-3",
+              "sizePrice": 0,
+              "unitPrice": 42000,
+              "cartItemId": "draft-1792426066574t55q"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 42000,
+          "total": 42000,
+          "paid_amount": 42000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 42000,
+              "method": "cash",
+              "paymentId": "PAY-1792426126411",
+              "timestamp": "2026-10-19T16:08:46.411Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:08:31.623+00:00",
+          "finished_at": "2026-10-19T16:08:46.411+00:00"
+        },
+        {
+          "id": "ORD-089512",
+          "table_id": "B01",
+          "table_name": "Bàn 01",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 2,
+          "items": [
+            {
+              "name": "Trà Vải Hoa Hồng",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 45000,
+              "lineTotal": 45000,
+              "productId": "prod-6",
+              "sizePrice": 0,
+              "unitPrice": 45000,
+              "cartItemId": "draft-1792426086775ulw2"
+            },
+            {
+              "name": "Trà Đào Cam Sả",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 45000,
+              "lineTotal": 45000,
+              "productId": "prod-5",
+              "sizePrice": 0,
+              "unitPrice": 45000,
+              "cartItemId": "draft-1792426088096bign"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 90000,
+          "total": 90000,
+          "paid_amount": 90000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 90000,
+              "method": "cash",
+              "paymentId": "PAY-1792426101330",
+              "timestamp": "2026-10-19T16:08:21.330Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:08:09.512+00:00",
+          "finished_at": "2026-10-19T16:08:21.33+00:00"
+        },
+        {
+          "id": "ORD-356452",
+          "table_id": "B04",
+          "table_name": "Bàn 04",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 6,
+          "items": [
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-1792426351814yi9p"
+            },
+            {
+              "name": "Cà phê Sữa đá Sài Gòn",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 35000,
+              "lineTotal": 35000,
+              "productId": "prod-2",
+              "sizePrice": 0,
+              "unitPrice": 35000,
+              "cartItemId": "draft-1792426353754jhnc"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 60000,
+          "total": 60000,
+          "paid_amount": 60000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 60000,
+              "method": "cash",
+              "paymentId": "PAY-1792426367770",
+              "timestamp": "2026-10-19T16:12:47.770Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:12:36.452+00:00",
+          "finished_at": "2026-10-19T16:12:47.77+00:00"
+        },
+        {
+          "id": "ORD-101",
+          "table_id": "B02",
+          "table_name": "Bàn 02",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 3,
+          "items": [
+            {
+              "name": "Cà phê Sữa đá Sài Gòn",
+              "size": "L",
+              "notes": "Ít đường, nhiều đá",
+              "quantity": 2,
+              "sizeName": "Lớn (L)",
+              "toppings": [
+                {
+                  "id": "top-1",
+                  "name": "Trân châu trắng",
+                  "price": 10000,
+                  "quantity": 1
+                }
+              ],
+              "basePrice": 35000,
+              "lineTotal": 94000,
+              "productId": "prod-2",
+              "sizePrice": 0,
+              "unitPrice": 47000,
+              "cartItemId": "item-1"
+            },
+            {
+              "name": "Matcha Latte Cheese",
+              "size": "M",
+              "notes": "70% đường",
+              "quantity": 1,
+              "sizeName": "Vừa (M)",
+              "toppings": [
+                {
+                  "id": "top-2",
+                  "name": "Kem Cheese béo mặn",
+                  "price": 15000,
+                  "quantity": 1
+                }
+              ],
+              "basePrice": 45000,
+              "lineTotal": 60000,
+              "productId": "prod-8",
+              "sizePrice": 0,
+              "unitPrice": 60000,
+              "cartItemId": "item-2"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 154000,
+          "total": 154000,
+          "paid_amount": 154000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 154000,
+              "method": "cash",
+              "paymentId": "PAY-1792426130254",
+              "timestamp": "2026-10-19T16:08:50.254Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-18T15:04:42.85+00:00",
+          "finished_at": "2026-10-19T16:08:50.254+00:00"
+        },
+        {
+          "id": "ORD-286127",
+          "table_id": "B01",
+          "table_name": "Bàn 01",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 2,
+          "items": [
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-17924262752504y9t"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 25000,
+          "total": 25000,
+          "paid_amount": 25000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 25000,
+              "method": "cash",
+              "paymentId": "PAY-1792426294709",
+              "timestamp": "2026-10-19T16:11:34.709Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:11:26.127+00:00",
+          "finished_at": "2026-10-19T16:11:34.709+00:00"
+        },
+        {
+          "id": "ORD-997810",
+          "table_id": "B03",
+          "table_name": "Bàn 03",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê Muối Cố Đô",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [
+                {
+                  "id": "top-2",
+                  "name": "Kem Cheese béo mặn",
+                  "price": 18000,
+                  "quantity": 1
+                }
+              ],
+              "basePrice": 42000,
+              "lineTotal": 60000,
+              "productId": "prod-3",
+              "sizePrice": 0,
+              "unitPrice": 60000,
+              "cartItemId": "draft-1792427996686awm2"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 60000,
+          "total": 60000,
+          "paid_amount": 60000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 60000,
+              "method": "cash",
+              "paymentId": "PAY-1792428242766",
+              "timestamp": "2026-10-19T16:44:02.766Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:39:57.81+00:00",
+          "finished_at": "2026-10-19T16:44:02.766+00:00"
+        },
+        {
+          "id": "ORD-412456",
+          "table_id": "B05",
+          "table_name": "Bàn 05",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 2,
+          "items": [
+            {
+              "name": "Trà Vải Hoa Hồng",
+              "size": "Std",
+              "notes": "",
+              "quantity": 3,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 45000,
+              "lineTotal": 135000,
+              "productId": "prod-6",
+              "sizePrice": 0,
+              "unitPrice": 45000,
+              "cartItemId": "draft-179242639187250lp"
+            },
+            {
+              "name": "Trà Đào Cam Sả",
+              "size": "Std",
+              "notes": "",
+              "quantity": 2,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 45000,
+              "lineTotal": 90000,
+              "productId": "prod-5",
+              "sizePrice": 0,
+              "unitPrice": 45000,
+              "cartItemId": "draft-1792426393360o5zv"
+            },
+            {
+              "name": "Cà phê Muối Cố Đô",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 42000,
+              "lineTotal": 42000,
+              "productId": "prod-3",
+              "sizePrice": 0,
+              "unitPrice": 42000,
+              "cartItemId": "draft-1792426397653omih"
+            },
+            {
+              "name": "Cà phê Sữa đá Sài Gòn",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 35000,
+              "lineTotal": 35000,
+              "productId": "prod-2",
+              "sizePrice": 0,
+              "unitPrice": 35000,
+              "cartItemId": "draft-1792426399198f3m1"
+            },
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-17924264008144pe2"
+            },
+            {
+              "name": "Nước Ép Cam Tươi Nguyên Chất",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 42000,
+              "lineTotal": 42000,
+              "productId": "prod-13",
+              "sizePrice": 0,
+              "unitPrice": 42000,
+              "cartItemId": "draft-179242640259866yg"
+            },
+            {
+              "name": "Cà phê Cốt Dừa Đá Xay",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 52000,
+              "lineTotal": 52000,
+              "productId": "prod-11",
+              "sizePrice": 0,
+              "unitPrice": 52000,
+              "cartItemId": "draft-1792426404053r547"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 421000,
+          "total": 421000,
+          "paid_amount": 421000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 421000,
+              "method": "cash",
+              "paymentId": "PAY-1792426422078",
+              "timestamp": "2026-10-19T16:13:42.078Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:13:32.456+00:00",
+          "finished_at": "2026-10-19T16:13:42.078+00:00"
+        },
+        {
+          "id": "ORD-878516",
+          "table_id": "B06",
+          "table_name": "Bàn 06",
+          "status": "serving",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-1792426875753965x"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 25000,
+          "total": 25000,
+          "paid_amount": 0,
+          "remaining_amount": 25000,
+          "split_payments": [],
+          "payment_method": null,
+          "created_at": "2026-10-19T16:21:18.516+00:00",
+          "finished_at": null
+        },
+        {
+          "id": "ORD-651139",
+          "table_id": "B01",
+          "table_name": "Bàn 01",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 2,
+          "items": [
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-1792426647577txb9"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 25000,
+          "total": 25000,
+          "paid_amount": 25000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 25000,
+              "method": "cash",
+              "paymentId": "PAY-1792427530152",
+              "timestamp": "2026-10-19T16:32:10.152Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:17:31.139+00:00",
+          "finished_at": "2026-10-19T16:32:10.152+00:00"
+        },
+        {
+          "id": "ORD-491250",
+          "table_id": "B06",
+          "table_name": "Bàn 06",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-1792426875753965x"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 25000,
+          "total": 25000,
+          "paid_amount": 25000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 25000,
+              "method": "cash",
+              "paymentId": "PAY-1792427535432",
+              "timestamp": "2026-10-19T16:32:15.432Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:31:31.25+00:00",
+          "finished_at": "2026-10-19T16:32:15.432+00:00"
+        },
+        {
+          "id": "ORD-537608",
+          "table_id": "B06",
+          "table_name": "Bàn 06",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-1792426875753965x"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 25000,
+          "total": 25000,
+          "paid_amount": 25000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 25000,
+              "method": "cash",
+              "paymentId": "PAY-1792427542853",
+              "timestamp": "2026-10-19T16:32:22.853Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:32:17.608+00:00",
+          "finished_at": "2026-10-19T16:32:22.853+00:00"
+        },
+        {
+          "id": "ORD-544933",
+          "table_id": "B06",
+          "table_name": "Bàn 06",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-1792426875753965x"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 25000,
+          "total": 25000,
+          "paid_amount": 25000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 25000,
+              "method": "cash",
+              "paymentId": "PAY-1792427553383",
+              "timestamp": "2026-10-19T16:32:33.383Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:32:24.933+00:00",
+          "finished_at": "2026-10-19T16:32:33.383+00:00"
+        },
+        {
+          "id": "ORD-006384",
+          "table_id": "B07",
+          "table_name": "Bàn 07",
+          "status": "serving",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Bạc Xỉu 3 Tầng",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 38000,
+              "lineTotal": 38000,
+              "productId": "prod-4",
+              "sizePrice": 0,
+              "unitPrice": 38000,
+              "cartItemId": "draft-1792428117279rx0x"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 38000,
+          "total": 38000,
+          "paid_amount": 0,
+          "remaining_amount": 38000,
+          "split_payments": [],
+          "payment_method": null,
+          "created_at": "2026-10-19T16:40:06.384+00:00",
+          "finished_at": null
+        },
+        {
+          "id": "ORD-153659",
+          "table_id": "B08",
+          "table_name": "Bàn 08",
+          "status": "completed",
+          "cashier": "Trần Mai",
+          "customer_count": 6,
+          "items": [
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-17924281910860goc"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 25000,
+          "total": 25000,
+          "paid_amount": 25000,
+          "remaining_amount": 0,
+          "split_payments": [
+            {
+              "note": "Thanh toán trọn gói",
+              "amount": 25000,
+              "method": "cash",
+              "paymentId": "PAY-1792428225719",
+              "timestamp": "2026-10-19T16:43:45.719Z"
+            }
+          ],
+          "payment_method": "cash",
+          "created_at": "2026-10-19T16:42:33.659+00:00",
+          "finished_at": "2026-10-19T16:43:45.719+00:00"
+        },
+        {
+          "id": "ORD-398411",
+          "table_id": "B03",
+          "table_name": "Bàn 03",
+          "status": "serving",
+          "cashier": "Trần Mai",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê Muối Cố Đô",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 42000,
+              "lineTotal": 42000,
+              "productId": "prod-3",
+              "sizePrice": 0,
+              "unitPrice": 42000,
+              "cartItemId": "draft-1792426066574t55q"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 42000,
+          "total": 42000,
+          "paid_amount": 0,
+          "remaining_amount": 42000,
+          "split_payments": [],
+          "payment_method": null,
+          "created_at": "2026-10-19T16:46:38.411+00:00",
+          "finished_at": null
+        },
+        {
+          "id": "ORD-699986",
+          "table_id": "B09",
+          "table_name": "Bàn 09",
+          "status": "serving",
+          "cashier": "Nguyễn Văn Hùng",
+          "customer_count": 4,
+          "items": [
+            {
+              "name": "Cà phê đen đá",
+              "size": "Std",
+              "notes": "",
+              "quantity": 1,
+              "sizeName": "Mặc định",
+              "toppings": [],
+              "basePrice": 25000,
+              "lineTotal": 25000,
+              "productId": "prod-1",
+              "sizePrice": 0,
+              "unitPrice": 25000,
+              "cartItemId": "draft-1792580698130nzkv"
+            }
+          ],
+          "discount_percent": 0,
+          "surcharge": 0,
+          "subtotal": 25000,
+          "total": 25000,
+          "paid_amount": 0,
+          "remaining_amount": 25000,
+          "split_payments": [],
+          "payment_method": null,
+          "created_at": "2026-10-21T11:04:59.986+00:00",
+          "finished_at": null
+        }
+      ]
+    },
+    "settings": {
+      "count": 1,
+      "rows": [
+        {
+          "key": "pos_config",
+          "value": {
+            "hotline": "1900 88 99 22",
+            "shiftName": "Ca Sáng (06:30 - 14:30)",
+            "branchName": "Chi nhánh 01 - Trụ sở chính",
+            "vatPercent": 0,
+            "bankAccount": {
+              "bankCode": "MB",
+              "bankName": "MB Bank (Quân Đội)",
+              "accountNo": "0988776655",
+              "accountHolder": "QUAN CA PHE GOC"
+            },
+            "enableVietQR": true,
+            "wifiPassword": "goccaphe2026",
+            "branchAddress": "124 Nguyễn Du, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh",
+            "currentCashier": "Trần Mai (Mã NV: NV-08)",
+            "autoPrintReceipt": true,
+            "surchargePercent": 0
+          },
+          "updated_at": "2026-10-18T15:39:44.885+00:00"
+        }
+      ]
+    }
+  }
+}

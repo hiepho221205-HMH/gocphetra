@@ -22,7 +22,7 @@ export default function TableGrid({
           (o) => o.tableId === t.id && o.status !== 'completed' && o.status !== 'cancelled'
         )) ||
       null;
-    return Boolean(ord && ord.items && ord.items.length > 0);
+    return t.status === 'occupied' || Boolean(ord && ord.items && ord.items.length > 0);
   };
 
   // 3 Chỉ số thống kê đúng theo yêu cầu (Bỏ "Chờ thanh toán")

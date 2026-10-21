@@ -18,7 +18,7 @@ export default function TableCard({
     null;
 
   // Logic đơn giản: Có order là "Có khách", chưa có là "Trống"
-  const isOccupied = Boolean(activeOrder && activeOrder.items && activeOrder.items.length > 0);
+  const isOccupied = table.status === 'occupied' || Boolean(activeOrder && activeOrder.items && activeOrder.items.length > 0);
   const itemCount = activeOrder?.items?.reduce((sum, it) => sum + it.quantity, 0) || 0;
   const totalAmount = activeOrder?.total || 0;
 

@@ -385,14 +385,10 @@ export function PosProvider({ children }) {
         await syncStaffWithCloud(cloudData.staff || cloudData.staffList || null);
 
         // Reconcile tables, orders, and history atomically according to Table-First Rule
+        // Supabase is Single Source of Truth: cloud orders and cloud history take precedence
         const fetchedTables = cloudData.tables && cloudData.tables.length > 0 ? cloudData.tables : tables;
-        const mergedOrders = cloudData.orders ? { ...cloudData.orders, ...orders } : orders;
-        let mergedHistory = orderHistory;
-        if (cloudData.orderHistory && cloudData.orderHistory.length > 0) {
-          const cloudIds = new Set(cloudData.orderHistory.map((o) => o.id));
-          const localOnly = orderHistory.filter((o) => !cloudIds.has(o.id));
-          mergedHistory = [...cloudData.orderHistory, ...localOnly];
-        }
+        const mergedOrders = cloudData.orders || {};
+        const mergedHistory = cloudData.orderHistory || [];
 
         const reconciled = reconcileTablesAndOrders(fetchedTables, mergedOrders, mergedHistory);
         const today = getVietnamTodayString();
@@ -469,8 +465,8 @@ export function PosProvider({ children }) {
           await syncStaffWithCloud(cloudData?.staff || cloudData?.staffList || null);
 
           const fetchedTables = cloudData.tables && cloudData.tables.length > 0 ? cloudData.tables : tables;
-          const fetchedOrders = cloudData.orders && Object.keys(cloudData.orders).length > 0 ? cloudData.orders : orders;
-          const fetchedHistory = cloudData.orderHistory && cloudData.orderHistory.length > 0 ? cloudData.orderHistory : orderHistory;
+          const fetchedOrders = cloudData.orders ? cloudData.orders : {};
+          const fetchedHistory = cloudData.orderHistory ? cloudData.orderHistory : [];
           const reconciled = reconcileTablesAndOrders(fetchedTables, fetchedOrders, fetchedHistory);
           const today = getVietnamTodayString();
           const rolled = rolloverPastUnpaidOrders(reconciled.reconciledTables, reconciled.reconciledOrders, reconciled.reconciledHistory, today);
@@ -492,17 +488,35 @@ export function PosProvider({ children }) {
 
     // Listen to network changes
     const handleOnline = () => {
+      console.log('[Network] Thiết bị có mạng trở lại, đồng bộ tự động với Cloud...');
       refreshCloudHealth();
       syncFromCloud(false);
     };
     window.addEventListener('online', handleOnline);
 
-    // Setup Realtime
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Visibility] Ứng dụng trở lại foreground, làm mới dữ liệu từ Cloud...');
+        syncFromCloud(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const handleFocus = () => {
+      syncFromCloud(false);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Setup Realtime with full publication coverage & channel lifecycle
     let channel = null;
-    if (isSupabaseConfigured && supabase) {
-      channel = supabase
-        .channel('pos_realtime_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, (payload) => {
+    let reconnectTimeout = null;
+
+    const setupRealtimeChannel = () => {
+      if (!isSupabaseConfigured || !supabase) return null;
+
+      const ch = supabase
+        .channel('pos_realtime_tables')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, async (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const updated = mapTableFromDb(payload.new);
             setTables((prev) => {
@@ -514,104 +528,69 @@ export function PosProvider({ children }) {
               } else {
                 nextTables = [...prev, updated];
               }
-              // If table became empty, cancel any orphan order pointing to it
-              if (updated.status === 'empty' || !updated.activeOrderId) {
-                setOrders((curOrders) => {
-                  const reconciled = reconcileTablesAndOrders(nextTables, curOrders, orderHistory);
-                  if (reconciled.changed) {
-                    setOrderHistory(reconciled.reconciledHistory);
-                    return reconciled.reconciledOrders;
-                  }
-                  return curOrders;
-                });
-              }
               return nextTables;
             });
+
+            // Event-Driven Invalidation: Targeted order fetch for active tables
+            if (updated.activeOrderId && (updated.status === 'occupied' || updated.status === 'awaiting_payment')) {
+              try {
+                const { data: ordData } = await supabase
+                  .from('orders')
+                  .select('*')
+                  .eq('id', updated.activeOrderId)
+                  .maybeSingle();
+                if (ordData) {
+                  const mapped = mapOrderFromDb(ordData);
+                  setOrders((prev) => ({ ...prev, [mapped.id]: mapped }));
+                }
+              } catch (e) {
+                console.warn('Lỗi fetch đơn hàng theo sự kiện Realtime bàn:', e);
+              }
+            } else if (updated.status === 'empty' || !updated.activeOrderId) {
+              setOrders((prev) => {
+                const next = { ...prev };
+                for (const oId in next) {
+                  if (next[oId].tableId === updated.id) {
+                    delete next[oId];
+                  }
+                }
+                return next;
+              });
+            }
           } else if (payload.eventType === 'DELETE') {
             setTables((prev) => prev.filter((t) => t.id !== payload.old.id));
           }
         })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const updated = mapOrderFromDb(payload.new);
-            if (updated.status === 'completed' || updated.status === 'cancelled') {
-              setOrderHistory((prev) => {
-                const exists = prev.some((o) => o.id === updated.id);
-                if (exists) {
-                  return prev.map((o) => (o.id === updated.id ? updated : o));
+        .subscribe((status, err) => {
+          console.log('[Realtime] Subscription status:', status, err ? err.message : '');
+          if (status === 'SUBSCRIBED') {
+            setCloudStatus((prev) => ({ ...prev, connected: true, lastSyncTime: new Date() }));
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            setCloudStatus((prev) => ({ ...prev, connected: false }));
+            if (isMounted) {
+              clearTimeout(reconnectTimeout);
+              reconnectTimeout = setTimeout(() => {
+                console.log('[Realtime] Đang tự động kết nối lại kênh Realtime...');
+                if (channel && supabase) {
+                  supabase.removeChannel(channel);
                 }
-                return [updated, ...prev];
-              });
-              setOrders((prev) => {
-                const copy = { ...prev };
-                delete copy[updated.id];
-                return copy;
-              });
-              // Release matching table atomically
-              setTables((prev) =>
-                prev.map((t) =>
-                  t.activeOrderId === updated.id
-                    ? { ...t, status: 'empty', activeOrderId: null, seatedAt: null, customerCount: 0 }
-                    : t
-                )
-              );
-            } else {
-              setOrders((prev) => ({ ...prev, [updated.id]: updated }));
-              // Ensure table is linked to serving order
-              setTables((prev) =>
-                prev.map((t) =>
-                  t.id === updated.tableId
-                    ? {
-                        ...t,
-                        status: 'occupied',
-                        activeOrderId: updated.id,
-                        customerCount: updated.customerCount || t.customerCount
-                      }
-                    : t
-                )
-              );
+                channel = setupRealtimeChannel();
+              }, 3000);
             }
-          } else if (payload.eventType === 'DELETE') {
-            setOrders((prev) => {
-              const copy = { ...prev };
-              delete copy[payload.old.id];
-              return copy;
-            });
-            setOrderHistory((prev) => prev.filter((o) => o.id !== payload.old.id));
           }
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_profiles' }, (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const mapped = typeof mapStaffProfileFromDb === 'function'
-              ? mapStaffProfileFromDb(payload.new)
-              : {
-                  id: payload.new.id,
-                  name: payload.new.name,
-                  status: payload.new.status,
-                  role: payload.new.role,
-                  branchId: payload.new.branch_id,
-                  createdAt: payload.new.created_at,
-                  updatedAt: payload.new.updated_at
-                };
-            setStaffList((prev) => {
-              const idx = prev.findIndex((s) => s.id === mapped.id);
-              if (idx >= 0) {
-                const copy = [...prev];
-                copy[idx] = { ...copy[idx], ...mapped };
-                return copy;
-              }
-              return [...prev, mapped];
-            });
-          } else if (payload.eventType === 'DELETE') {
-            setStaffList((prev) => prev.filter((s) => s.id !== payload.old.id));
-          }
-        })
-        .subscribe();
-    }
+        });
+
+      return ch;
+    };
+
+    channel = setupRealtimeChannel();
 
     return () => {
       isMounted = false;
+      clearTimeout(reconnectTimeout);
       window.removeEventListener('online', handleOnline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
       if (channel && supabase) {
         supabase.removeChannel(channel);
       }
@@ -1096,20 +1075,21 @@ export function PosProvider({ children }) {
       splitPayments: []
     };
 
+    const updatedTable = {
+      ...table,
+      status: 'occupied',
+      activeOrderId: newOrderId,
+      seatedAt: new Date().toISOString(),
+      customerCount: newOrder.customerCount
+    };
+
     setOrders((prev) => ({ ...prev, [newOrderId]: newOrder }));
     setTables((prev) =>
-      prev.map((t) =>
-        t.id === tableId
-          ? {
-              ...t,
-              status: 'occupied',
-              activeOrderId: newOrderId,
-              seatedAt: new Date().toISOString(),
-              customerCount: newOrder.customerCount
-            }
-          : t
-      )
+      prev.map((t) => (t.id === tableId ? updatedTable : t))
     );
+
+    cloudUpsertOrder(newOrder);
+    cloudUpsertTable(updatedTable);
 
     return newOrder;
   };
@@ -1159,6 +1139,8 @@ export function PosProvider({ children }) {
     });
 
     setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
+    cloudUpsertOrder(updatedOrder);
+    cloudUpsertTable({ ...table, customerCount: updatedOrder.customerCount });
     showToast(`Đã thêm ${itemConfig.name}`, 'success');
   };
 
@@ -1189,6 +1171,8 @@ export function PosProvider({ children }) {
     });
 
     setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
+    cloudUpsertOrder(updatedOrder);
+    cloudUpsertTable({ ...table, customerCount: updatedOrder.customerCount });
   };
 
   const removeItemFromOrder = (tableId, cartItemId) => {
@@ -1204,6 +1188,8 @@ export function PosProvider({ children }) {
     });
 
     setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
+    cloudUpsertOrder(updatedOrder);
+    cloudUpsertTable({ ...table, customerCount: updatedOrder.customerCount });
     showToast('Đã xóa món', 'info');
   };
 
@@ -1220,6 +1206,7 @@ export function PosProvider({ children }) {
     });
 
     setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
+    cloudUpsertOrder(updatedOrder);
     showToast('Đã cập nhật chiết khấu & phụ thu', 'success');
   };
 
