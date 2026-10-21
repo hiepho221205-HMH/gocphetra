@@ -13,6 +13,8 @@ import OrderHistoryView from './components/orders/OrderHistoryView';
 import ReportsView from './components/reports/ReportsView';
 import SettingsView from './components/settings/SettingsView';
 import PageHeader from './components/common/PageHeader';
+import DemoRoleSwitcher from './components/common/DemoRoleSwitcher';
+import AccessDeniedView from './components/common/AccessDeniedView';
 import { Sparkles, ArrowRight } from 'lucide-react';
 
 function PosContent() {
@@ -21,7 +23,11 @@ function PosContent() {
     setActiveTab,
     tables,
     deviceMode,
-    toggleDeviceMode
+    toggleDeviceMode,
+    canManageMenu,
+    canViewReports,
+    canAccessSettings,
+    showToast
   } = usePos();
 
   const [previousTab, setPreviousTab] = useState('tables');
@@ -42,12 +48,16 @@ function PosContent() {
   };
 
   const handleOpenSettings = () => {
+    if (!canAccessSettings) {
+      showToast?.('Từ chối quyền: Nhân viên không được phép truy cập Cài đặt hệ thống!', 'error');
+      return;
+    }
     setPreviousTab(activeTab);
     setActiveTab('settings');
   };
 
   return (
-    <div className={`h-[100dvh] max-h-[100dvh] w-full bg-[#EAEFEA] flex items-center justify-center overflow-hidden transition-all ${deviceMode === 'mobile' ? 'p-0 sm:py-6 sm:px-4' : 'p-0'}`}>
+    <div className={`h-[100dvh] max-h-[100dvh] w-full bg-[#EAEFEA] flex flex-col items-center justify-center overflow-hidden transition-all ${deviceMode === 'mobile' ? 'p-0 sm:py-3 sm:px-4' : 'p-0'}`}>
       {/* Mobile Device Frame Container */}
       <div
         className={`w-full bg-[#F4F6F4] flex flex-col relative transition-all duration-300 shadow-2xl overflow-hidden h-[100dvh] max-h-[100dvh] ${
@@ -65,6 +75,9 @@ function PosContent() {
           </div>
         )}
 
+        {/* DEMO ROLE SWITCHER (Only in Dev/Staging, hidden in Production) */}
+        <DemoRoleSwitcher />
+
         {/* Global Toast Notifications */}
         <Toast />
 
@@ -78,7 +91,7 @@ function PosContent() {
             <button
               type="button"
               onClick={() => setShowUpdateConfirm(true)}
-              className="px-2 py-0.5 bg-white text-forest-900 rounded-md font-extrabold text-[10.5px] hover:bg-emerald-50 transition-colors flex items-center gap-1"
+              className="px-2 py-0.5 bg-white text-forest-900 rounded-md font-extrabold text-[10.5px] hover:bg-emerald-50 transition-colors flex items-center gap-1 cursor-pointer"
             >
               <span>Cập nhật</span>
               <ArrowRight className="w-3 h-3" />
@@ -140,10 +153,17 @@ function PosContent() {
             </>
           )}
 
-          {/* TAB 2: THỰC ĐƠN (MENU MANAGEMENT) */}
+          {/* TAB 2: THỰC ĐƠN (MENU MANAGEMENT) - RBAC GUARD */}
           {activeTab === 'menu' && (
             <div className="animate-fadeIn">
-              <MenuManagementView />
+              {canManageMenu ? (
+                <MenuManagementView />
+              ) : (
+                <AccessDeniedView
+                  requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
+                  onBack={() => setActiveTab('tables')}
+                />
+              )}
             </div>
           )}
 
@@ -164,22 +184,36 @@ function PosContent() {
             </div>
           )}
 
-          {/* TAB 4: BÁO CÁO (REPORTS) */}
+          {/* TAB 4: BÁO CÁO (REPORTS) - RBAC GUARD */}
           {activeTab === 'reports' && (
             <div className="animate-fadeIn">
-              <ReportsView />
+              {canViewReports ? (
+                <ReportsView />
+              ) : (
+                <AccessDeniedView
+                  requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
+                  onBack={() => setActiveTab('tables')}
+                />
+              )}
             </div>
           )}
 
-          {/* TAB 5: CÀI ĐẶT & QUẢN LÝ (SETTINGS - Truy cập qua Avatar Header) */}
+          {/* TAB 5: CÀI ĐẶT & QUẢN LÝ (SETTINGS) - RBAC GUARD */}
           {activeTab === 'settings' && (
             <div className="animate-fadeIn">
-              <SettingsView onBack={() => setActiveTab(previousTab || 'tables')} />
+              {canAccessSettings ? (
+                <SettingsView onBack={() => setActiveTab(previousTab || 'tables')} />
+              ) : (
+                <AccessDeniedView
+                  requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
+                  onBack={() => setActiveTab('tables')}
+                />
+              )}
             </div>
           )}
         </main>
 
-        {/* Bottom Navigation (Chỉ hiện trên 4 tab chính, ẩn khi đang gọi món hoặc vào Cài đặt) */}
+        {/* Bottom Navigation (Chỉ hiện trên các tab chính, ẩn khi đang gọi món hoặc vào Cài đặt) */}
         {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab) && (
           <BottomNav />
         )}

@@ -30,7 +30,9 @@ import {
   Layers,
   HelpCircle,
   Lock,
-  Archive
+  Archive,
+  Store,
+  Check
 } from 'lucide-react';
 
 /**
@@ -46,11 +48,16 @@ export default function DataCleanupSection() {
   const {
     orderHistory = [],
     cleanupCompletedOrders,
-    showToast
+    showToast,
+    currentRole,
+    settings = {},
+    payments = []
   } = usePos();
 
-  // Scope Mode State: 'range' | 'before_date' | 'all_completed'
-  const [cleanupMode, setCleanupMode] = useState('range');
+  const storeName = settings?.branchName || settings?.storeName || 'Chi nhánh 01 - Trụ sở chính';
+
+  // Scope Mode State: 'range' | 'before_date' | 'all_completed' | null (Defaults to null per Zero-Trust Admin safety)
+  const [cleanupMode, setCleanupMode] = useState(null);
 
   // Dynamic Date Inputs State (defaults: last 7 days for range, today for before_date)
   const todayStr = getVietnamTodayString();
@@ -64,6 +71,7 @@ export default function DataCleanupSection() {
   const [backupDownloaded, setBackupDownloaded] = useState(false);
   const [downloadedFileName, setDownloadedFileName] = useState('');
   const [isConfirmedChecked, setIsConfirmedChecked] = useState(false);
+  const [confirmDeleteText, setConfirmDeleteText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Accessibility IDs
@@ -84,24 +92,40 @@ export default function DataCleanupSection() {
       return calculateCleanupPreview(orderHistory, cleanupMode, {
         fromDate,
         toDate,
-        beforeDate
+        beforeDate,
+        includeHistoricalStatuses: true,
+        allPayments: payments
       });
     } catch (err) {
       console.error('Lỗi tính toán xem trước dọn dẹp:', err);
-      return { targetOrders: [], count: 0, totalRevenue: 0, cashTotal: 0, qrTotal: 0 };
+      return {
+        targetOrders: [],
+        count: 0,
+        totalRevenue: 0,
+        cashTotal: 0,
+        qrTotal: 0,
+        hasCrossDatePayments: false,
+        crossDatePaymentCount: 0
+      };
     }
-  }, [orderHistory, cleanupMode, fromDate, toDate, beforeDate]);
+  }, [orderHistory, cleanupMode, fromDate, toDate, beforeDate, payments]);
 
   // Check if initiation is allowed
-  const canInitiate = preview.count > 0 && !isInvertedRange && !isDeleting;
+  const isAdmin = currentRole === 'admin';
+  const canInitiate = isAdmin && cleanupMode !== null && preview.count > 0 && !isInvertedRange && !isDeleting;
 
   // Open Modal Handler
   const handleOpenModal = () => {
+    if (!isAdmin) {
+      showToast?.('Chỉ Quản trị viên (Admin) mới có quyền xóa hoặc lưu trữ dữ liệu lịch sử!', 'error');
+      return;
+    }
     if (!canInitiate) return;
     setModalStep(1);
     setBackupDownloaded(false);
     setDownloadedFileName('');
     setIsConfirmedChecked(false);
+    setConfirmDeleteText('');
     setIsDeleting(false);
     setIsModalOpen(true);
   };
@@ -112,6 +136,7 @@ export default function DataCleanupSection() {
     setIsModalOpen(false);
     setModalStep(1);
     setIsConfirmedChecked(false);
+    setConfirmDeleteText('');
   };
 
   // Step 3 (Modal Step 1): Trigger Backup Download
@@ -144,7 +169,7 @@ export default function DataCleanupSection() {
 
   // Step 4 (Modal Step 2): Execute Irreversible Deletion
   const handleExecuteDelete = async () => {
-    if (!isConfirmedChecked || isDeleting || preview.count === 0) return;
+    if (!isConfirmedChecked || confirmDeleteText.trim() !== 'XÓA DỮ LIỆU' || isDeleting || preview.count === 0) return;
 
     setIsDeleting(true);
     try {
@@ -169,17 +194,19 @@ export default function DataCleanupSection() {
 
       // Call PosContext cleanup action
       if (typeof cleanupCompletedOrders === 'function') {
-        await cleanupCompletedOrders(targetOrderIds, metadata);
+        const res = await cleanupCompletedOrders(targetOrderIds, metadata);
+        if (res && res.success === false) {
+          throw new Error(res.message || 'Không thể dọn dẹp dữ liệu');
+        }
       } else {
         // Fallback safety log
         console.warn('cleanupCompletedOrders is not yet registered in PosContext');
       }
 
-      showToast?.(`Đã dọn dẹp thành công ${preview.count} hóa đơn!`, 'success');
       handleCloseModal();
     } catch (err) {
       console.error('Lỗi khi thực hiện dọn dẹp hóa đơn:', err);
-      showToast?.('Có lỗi xảy ra khi dọn dẹp dữ liệu!', 'error');
+      showToast?.(err?.message || 'Có lỗi xảy ra khi dọn dẹp dữ liệu!', 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -211,6 +238,19 @@ export default function DataCleanupSection() {
           </div>
         </div>
       </div>
+
+      {/* Non-Admin Locked Alert */}
+      {!isAdmin && (
+        <div
+          data-testid="cleanup-non-admin-alert"
+          className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-amber-950 animate-fadeIn"
+        >
+          <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="leading-relaxed text-[11px]">
+            <strong>Tính năng giới hạn:</strong> Thao tác xóa và lưu trữ dữ liệu bán hàng yêu cầu quyền <strong>Quản trị viên (Admin)</strong>. Vai trò hiện tại (<strong>{currentRole?.toUpperCase()}</strong>) không được phép thực hiện.
+          </div>
+        </div>
+      )}
 
       {/* 2. SCOPE MODE SELECTOR TABS (3 Modes) */}
       <div className="space-y-1.5">
@@ -270,6 +310,18 @@ export default function DataCleanupSection() {
 
       {/* 3. DYNAMIC DATE PICKERS */}
       <div className="space-y-2">
+        {cleanupMode === null && (
+          <div
+            data-testid="cleanup-no-mode-selected"
+            className="p-3.5 rounded-2xl bg-forest-50/50 border border-forest-200/50 text-forest-900 text-xs flex items-center gap-2.5 animate-fadeIn"
+          >
+            <HelpCircle className="w-4 h-4 text-forest-700 shrink-0" />
+            <span className="font-medium text-[11.5px]">
+              Vui lòng chọn 1 trong 3 chế độ ở trên để tải bản xem trước dữ liệu cần dọn dẹp.
+            </span>
+          </div>
+        )}
+
         {cleanupMode === 'range' && (
           <div data-testid="cleanup-range-inputs" className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
@@ -525,7 +577,7 @@ export default function DataCleanupSection() {
             <div className="flex items-center justify-between pb-2 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-xl bg-forest-50 text-forest-800 flex items-center justify-center">
-                  <Archive className="w-4 h-4 text-forest-800" />
+                  <Trash2 className="w-4 h-4 text-rose-700" />
                 </div>
                 <div>
                   <h3
@@ -534,10 +586,10 @@ export default function DataCleanupSection() {
                   >
                     {modalStep === 1
                       ? 'Bước 1/2: Tải sao lưu & Kiểm tra'
-                      : 'Bước 2/2: Xác nhận Lưu trữ an toàn'}
+                      : 'Bước 2/2: Xác nhận Xóa vĩnh viễn dữ liệu bán hàng'}
                   </h3>
                   <p id={modalDescId} className="text-[10px] text-gray-400">
-                    Quy trình kiểm soát an toàn nhiều bước GÓC POS
+                    Quy trình kiểm soát an toàn nhiều bước GÓC POS & Supabase Cloud
                   </p>
                 </div>
               </div>
@@ -568,10 +620,13 @@ export default function DataCleanupSection() {
                   </div>
                   <div className="space-y-1 text-[11px] text-gray-700 pl-5">
                     <div>
+                      • Cửa hàng: <strong className="text-forest-950">{storeName}</strong>
+                    </div>
+                    <div>
                       • Chế độ: <strong>
                         {cleanupMode === 'range' && `Theo khoảng ngày (${formatShortDate(fromDate)} – ${formatShortDate(toDate)})`}
                         {cleanupMode === 'before_date' && `Trước ngày ${formatShortDate(beforeDate)}`}
-                        {cleanupMode === 'all_completed' && 'Toàn bộ lịch sử hoàn tất'}
+                        {(cleanupMode === 'all_completed' || cleanupMode === 'all') && 'Toàn bộ lịch sử bán hàng'}
                       </strong>
                     </div>
                     <div>
@@ -580,6 +635,11 @@ export default function DataCleanupSection() {
                     <div>
                       • Doanh thu: <strong className="text-forest-900">{formatVND(preview.totalRevenue)}</strong>
                     </div>
+                    {preview.hasCrossDatePayments && (
+                      <div className="text-amber-800 font-semibold">
+                        • Cảnh báo: Có {preview.crossDatePaymentCount} đơn thanh toán lệch ngày
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -644,26 +704,87 @@ export default function DataCleanupSection() {
               </div>
             )}
 
-            {/* MODAL STEP 2: ARCHIVE SAFETY ALERT & EXPLICIT CONFIRMATION */}
+            {/* MODAL STEP 2: DANGER ALERT & EXPLICIT CONFIRMATION */}
             {modalStep === 2 && (
               <div className="space-y-3.5">
-                {/* Archive Safety Banner */}
+                {/* Permanent Deletion Danger Banner */}
                 <div
                   data-testid="cleanup-danger-alert"
-                  className="bg-forest-50 border border-forest-200 rounded-2xl p-3.5 space-y-2 text-forest-950"
+                  className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 space-y-2 text-rose-950"
                 >
-                  <div className="flex items-center gap-2 text-forest-800 font-extrabold text-xs">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>LƯU TRỮ DỮ LIỆU AN TOÀN (ARCHIVE)</span>
+                  <div className="flex items-center gap-2 text-rose-800 font-extrabold text-xs">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>CẢNH BÁO: XÓA VĨNH VIỄN DỮ LIỆU BÁN HÀNG</span>
                   </div>
                   <p className="text-[11px] text-gray-800 leading-relaxed">
-                    Hệ thống sẽ chuyển <strong>{preview.count} hóa đơn</strong> với tổng doanh thu <strong>{formatVND(preview.totalRevenue)}</strong> sang kho Lưu trữ an toàn (Soft-delete).
+                    Thao tác này sẽ xóa vĩnh viễn dữ liệu bán hàng trên Supabase Cloud và máy cục bộ. <strong>Hành động không thể hoàn tác!</strong>
                   </p>
-                  <ul className="text-[10.5px] text-forest-900/90 space-y-1 list-disc list-inside">
-                    <li>Dữ liệu được ẩn khỏi danh sách vận hành quầy và báo cáo doanh thu thường nhật.</li>
-                    <li>Toàn bộ chi tiết hóa đơn đã được xuất an toàn vào tệp sao lưu JSON trên máy của bạn.</li>
-                    <li>Bảo vệ nguyên vẹn 100% các bàn đang phục vụ, danh mục món và dữ liệu nhân viên.</li>
-                  </ul>
+
+                  {/* Scope Details Summary */}
+                  <div className="bg-white/80 p-2.5 rounded-xl border border-rose-100 space-y-1 text-[11px] text-gray-800">
+                    <div className="font-semibold text-forest-950 flex items-center gap-1.5">
+                      <Store className="w-3.5 h-3.5 text-forest-800" />
+                      <span>Cửa hàng: <strong>{storeName}</strong></span>
+                    </div>
+                    <div>
+                      • Phạm vi: <strong>
+                        {cleanupMode === 'range' && `Theo khoảng ngày (${formatShortDate(fromDate)} – ${formatShortDate(toDate)})`}
+                        {cleanupMode === 'before_date' && `Trước ngày ${formatShortDate(beforeDate)}`}
+                        {(cleanupMode === 'all_completed' || cleanupMode === 'all') && 'Toàn bộ lịch sử bán hàng'}
+                      </strong>
+                    </div>
+                    <div>
+                      • Số lượng đơn sẽ xóa: <strong className="text-rose-700">{preview.count} đơn hàng</strong>
+                    </div>
+                    <div>
+                      • Doanh thu ước tính bị giảm: <strong className="text-rose-700">{formatVND(preview.totalRevenue)}</strong>
+                    </div>
+                  </div>
+
+                  {/* Cross-date payment notice if applicable */}
+                  {preview.hasCrossDatePayments && (
+                    <div
+                      data-testid="cleanup-cross-date-warning"
+                      className="p-2 rounded-xl bg-amber-100/80 border border-amber-300 text-amber-900 text-[10.5px] leading-relaxed"
+                    >
+                      <strong>Lưu ý giao dịch lệch ngày:</strong> Có {preview.crossDatePaymentCount} đơn có giao dịch thanh toán khác ngày hoàn thành. Toàn bộ các giao dịch này sẽ bị xóa khỏi lịch sử đối soát thanh toán.
+                    </div>
+                  )}
+
+                  {/* Scope of tables affected vs preserved */}
+                  <div className="text-[10px] space-y-1 text-gray-600 border-t border-rose-200/50 pt-2">
+                    <div>• <strong>Bảng bị xóa vĩnh viễn:</strong> Đơn hàng (<code>orders</code>), chi tiết món, giao dịch thanh toán liên quan (<code>payments</code>).</div>
+                    <div>• <strong>Bảo toàn nguyên vẹn 100%:</strong> Tài khoản, nhân viên (<code>staff_profiles</code>), phân quyền, thực đơn, danh mục, bàn ăn (<code>tables</code>), cấu hình quán, máy in.</div>
+                  </div>
+                </div>
+
+                {/* Type Confirmation Input: "XÓA DỮ LIỆU" */}
+                <div className="space-y-1.5 p-3 rounded-2xl bg-gray-50 border border-gray-200">
+                  <label
+                    htmlFor="cleanup-confirm-text-input"
+                    className="block text-[11px] font-bold text-gray-800"
+                  >
+                    Nhập chính xác cụm từ <span className="text-rose-600 font-black tracking-wide">XÓA DỮ LIỆU</span> để xác nhận:
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="cleanup-confirm-text-input"
+                      type="text"
+                      data-testid="cleanup-confirm-input"
+                      value={confirmDeleteText}
+                      onChange={(e) => setConfirmDeleteText(e.target.value)}
+                      placeholder="Nhập XÓA DỮ LIỆU"
+                      className={`glass-input w-full px-3 py-2 rounded-xl text-xs font-bold ${
+                        confirmDeleteText.trim() === 'XÓA DỮ LIỆU'
+                          ? 'border-emerald-500 bg-emerald-50/30 text-emerald-900'
+                          : 'text-gray-900 border-gray-300'
+                      }`}
+                      autoComplete="off"
+                    />
+                    {confirmDeleteText.trim() === 'XÓA DỮ LIỆU' && (
+                      <Check className="w-4 h-4 text-emerald-600 absolute right-2.5 top-2.5" />
+                    )}
+                  </div>
                 </div>
 
                 {/* Explicit Confirmation Checkbox */}
@@ -676,7 +797,7 @@ export default function DataCleanupSection() {
                     className="mt-0.5 w-4 h-4 text-forest-700 rounded border-gray-300 focus:ring-forest-500"
                   />
                   <span className="text-[11px] text-gray-800 leading-snug font-medium">
-                    Tôi đã tải và kiểm tra tệp sao lưu dữ liệu. Tôi xác nhận chuyển <strong>{preview.count} hóa đơn</strong> này vào kho Lưu trữ an toàn.
+                    Tôi xác nhận đã tải tệp sao lưu và đồng ý xóa vĩnh viễn <strong>{preview.count} đơn hàng</strong> này khỏi Supabase Cloud và máy POS.
                   </span>
                 </label>
 
@@ -695,19 +816,19 @@ export default function DataCleanupSection() {
                   <button
                     type="button"
                     data-testid="cleanup-execute-delete-btn"
-                    disabled={!isConfirmedChecked || isDeleting}
+                    disabled={!isConfirmedChecked || confirmDeleteText.trim() !== 'XÓA DỮ LIỆU' || isDeleting || preview.count === 0}
                     onClick={handleExecuteDelete}
-                    className="touch-target btn-press flex-1 py-2.5 bg-forest-800 hover:bg-forest-900 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs transition-colors shadow-xs flex items-center justify-center gap-1.5"
+                    className="touch-target btn-press flex-1 py-2.5 bg-rose-700 hover:bg-rose-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs transition-colors shadow-xs flex items-center justify-center gap-1.5"
                   >
                     {isDeleting ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Đang lưu trữ...</span>
+                        <span>Đang xóa Supabase...</span>
                       </>
                     ) : (
                       <>
-                        <Archive className="w-3.5 h-3.5 text-emerald-300" />
-                        <span>Xác nhận Lưu trữ an toàn</span>
+                        <Trash2 className="w-3.5 h-3.5 text-white" />
+                        <span>Xóa vĩnh viễn dữ liệu</span>
                       </>
                     )}
                   </button>

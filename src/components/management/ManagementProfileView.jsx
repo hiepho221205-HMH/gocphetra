@@ -1,14 +1,22 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { usePos } from '../../store/PosContext';
 import { useVersionChecker } from '../../hooks/useVersionChecker';
 import { APP_VERSION, BUILD_DATE, RELEASE_NAME } from '../../config/version';
 import { exportPosBackup } from '../../utils/storageMigrator';
+import ProfileEditSubpage from './ProfileEditSubpage';
 import StaffManagementSection from './StaffManagementSection';
+import StaffListPage from './StaffListPage';
+import StaffCreatePage from './StaffCreatePage';
 import StoreConfigSubpage from './StoreConfigSubpage';
 import DataCleanupSection from './DataCleanupSection';
 import RbacPermissionsTable from './RbacPermissionsTable';
+import RbacMainPage from '../rbac/RbacMainPage';
+import StaffDetailSubpage from '../rbac/StaffDetailSubpage';
+import RoleChangeSubpage from '../rbac/RoleChangeSubpage';
+import RoleAuditLogSection from '../rbac/RoleAuditLogSection';
 import SafeLogoutModal from './SafeLogoutModal';
 import ProfileNavCard from './ProfileNavCard';
+import AccessDeniedView from '../common/AccessDeniedView';
 import {
   User,
   Users,
@@ -31,7 +39,17 @@ export default function ManagementProfileView({ onBack }) {
     toggleDeviceMode,
     resetAllData,
     setActiveTab,
-    cloudStatus
+    cloudStatus,
+    currentRole,
+    currentUser,
+    userProfiles = {},
+    updateCurrentUserProfile,
+    canManageStaff,
+    canConfigureStore,
+    canCleanupData,
+    canChangeUserRole,
+    currentRoute = '/settings',
+    navigate
   } = usePos();
 
   const fileInputRef = useRef(null);
@@ -40,34 +58,41 @@ export default function ManagementProfileView({ onBack }) {
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Subpage Navigation: 'main' | 'staff' | 'store-config' | 'data-cleanup' | 'rbac'
+  // Subpage Navigation: 'main' | 'profile' | 'staff' | 'store-config' | 'data-cleanup' | 'rbac'
   const [currentView, setCurrentView] = useState('main');
+
+  // Tự động đồng bộ currentView về 'main' khi route là /settings
+  useEffect(() => {
+    if (currentRoute === '/settings') {
+      setCurrentView('main');
+    }
+  }, [currentRoute]);
 
   const handleConfirmLogout = () => {
     setShowLogoutModal(false);
-    showToast('Đã đăng xuất phiên làm việc Quản lý', 'info');
+    showToast('Đã đăng xuất phiên làm việc POS', 'info');
     setActiveTab('tables');
   };
 
-  const cashierRaw = settings?.currentCashier || 'Trần Mai (Mã NV: NV-08)';
-  const displayName = cashierRaw.split('(')[0].trim() || 'Trần Mai';
-  const branchName = settings?.branchName || 'Chi nhánh 01 - Trụ sở chính';
-  const shiftName = settings?.shiftName || 'Ca Sáng (06:30 - 14:30)';
-  const shiftDisplay = shiftName.split('(')[0].trim() || 'Ca Sáng';
-  const avatarUrl = settings?.avatarUrl || null;
+  const activeId = currentUser?.id || (currentRole === 'admin' ? 'staff-01' : currentRole === 'manager' ? 'staff-02' : 'staff-03');
+  const userProfile = userProfiles[activeId] || {};
 
-  // Xử lý upload ảnh đại diện
+  const cashierRaw = settings?.currentCashier || 'Trần Mai (Mã NV: NV-08)';
+  const displayName = userProfile.name || currentUser?.name || cashierRaw.split('(')[0].trim() || 'Trần Mai';
+  const avatarUrl = userProfile.avatarUrl !== undefined ? userProfile.avatarUrl : (settings?.avatarUrl || null);
+
+  // Xử lý upload ảnh đại diện nhanh qua camera icon
   const handlePhotoUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      showToast('Vui lòng chọn file hình ảnh hợp lệ (PNG, JPG, WebP)', 'error');
+      showToast?.('Vui lòng chọn file hình ảnh hợp lệ (PNG, JPG, WebP)', 'error');
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      showToast('Dung lượng ảnh tối đa là 2MB', 'error');
+      showToast?.('Dung lượng ảnh tối đa là 2MB', 'error');
       return;
     }
 
@@ -76,30 +101,99 @@ export default function ManagementProfileView({ onBack }) {
       const base64Data = event.target?.result;
       if (base64Data) {
         setImageError(false);
-        updateSettings({ avatarUrl: base64Data });
-        showToast('Đã cập nhật ảnh đại diện thành công!', 'success');
+        if (typeof updateCurrentUserProfile === 'function') {
+          updateCurrentUserProfile({ avatarUrl: base64Data });
+        } else {
+          updateSettings({ avatarUrl: base64Data });
+        }
       }
     };
     reader.onerror = () => {
-      showToast('Không thể đọc file ảnh. Vui lòng thử lại.', 'error');
+      showToast?.('Không thể đọc file ảnh. Vui lòng thử lại.', 'error');
     };
     reader.readAsDataURL(file);
   };
 
   const handleRemovePhoto = () => {
-    updateSettings({ avatarUrl: null });
+    if (typeof updateCurrentUserProfile === 'function') {
+      updateCurrentUserProfile({ avatarUrl: null });
+    } else {
+      updateSettings({ avatarUrl: null });
+    }
     setImageError(false);
-    showToast('Đã xóa ảnh đại diện, chuyển về mặc định', 'info');
   };
 
-  // Subpage 1: Quản lý nhân viên
-  if (currentView === 'staff') {
+  // Subpage 0: Quản lý Profile (All Roles)
+  if (currentView === 'profile') {
+    return (
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <ProfileEditSubpage onBack={() => setCurrentView('main')} />
+      </div>
+    );
+  }
+
+  // Route Guard: Nếu Staff truy cập /staff* trực tiếp -> Hiển thị AccessDeniedView
+  if (currentRoute.startsWith('/staff') && !canManageStaff) {
+    return (
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <AccessDeniedView
+          requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
+          onBack={() => {
+            setCurrentView('main');
+            navigate('/settings');
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Subpage 1B: Danh sách nhân viên (/staff/list)
+  if (currentRoute === '/staff/list') {
+    return (
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <StaffListPage />
+      </div>
+    );
+  }
+
+  // Subpage 1C: Thêm / Sửa nhân viên (/staff/create)
+  if (currentRoute === '/staff/create') {
+    return (
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <StaffCreatePage />
+      </div>
+    );
+  }
+
+  // Subpage 1A: Quản lý nhân viên - Hub chính (/staff hoặc currentView === 'staff')
+  if (currentRoute === '/staff' || currentView === 'staff') {
+    if (!canManageStaff) {
+      return (
+        <div className="px-4 pt-3.5 pb-24 text-xs text-center space-y-3">
+          <p className="text-rose-600 font-bold">Từ chối quyền: Bạn không có quyền quản lý nhân viên.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentView('main');
+              navigate('/settings');
+            }}
+            className="px-3 py-1.5 bg-gray-100 rounded-xl font-bold"
+          >
+            Quay lại
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs space-y-4 animate-slideInRight">
         <div className="flex items-center gap-2.5 pb-2 border-b border-gray-100">
           <button
             type="button"
-            onClick={() => setCurrentView('main')}
+            data-testid="staff-subpage-back-btn"
+            onClick={() => {
+              setCurrentView('main');
+              navigate('/settings');
+            }}
             className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -109,7 +203,7 @@ export default function ManagementProfileView({ onBack }) {
               Quản lý Nhân viên
             </h2>
             <p className="text-[11px] text-gray-500 mt-0.5">
-              Danh sách & trạng thái hoạt động thu ngân
+              Điều hướng chức năng & tổng quan nhân sự
             </p>
           </div>
         </div>
@@ -119,8 +213,22 @@ export default function ManagementProfileView({ onBack }) {
     );
   }
 
-  // Subpage 2: Cấu hình quán & VietQR
+  // Subpage 2: Cấu hình quán & VietQR (Admin & Manager)
   if (currentView === 'store-config') {
+    if (!canConfigureStore) {
+      return (
+        <div className="px-4 pt-3.5 pb-24 text-xs text-center space-y-3">
+          <p className="text-rose-600 font-bold">Từ chối quyền: Bạn không có quyền cấu hình quán.</p>
+          <button
+            type="button"
+            onClick={() => setCurrentView('main')}
+            className="px-3 py-1.5 bg-gray-100 rounded-xl font-bold"
+          >
+            Quay lại
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs">
         <StoreConfigSubpage onBack={() => setCurrentView('main')} />
@@ -128,13 +236,28 @@ export default function ManagementProfileView({ onBack }) {
     );
   }
 
-  // Subpage 3: Dữ liệu bán hàng
+  // Subpage 3: Dữ liệu bán hàng (Admin Only)
   if (currentView === 'data-cleanup') {
+    if (!canCleanupData) {
+      return (
+        <div className="px-4 pt-3.5 pb-24 text-xs text-center space-y-3">
+          <p className="text-rose-600 font-bold">Từ chối quyền: Chỉ Quản trị viên (Admin) mới có quyền dọn dẹp dữ liệu!</p>
+          <button
+            type="button"
+            onClick={() => setCurrentView('main')}
+            className="px-3 py-1.5 bg-gray-100 rounded-xl font-bold"
+          >
+            Quay lại
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs space-y-4 animate-slideInRight">
         <div className="flex items-center gap-2.5 pb-2 border-b border-gray-100">
           <button
             type="button"
+            data-testid="staff-subpage-back-btn"
             onClick={() => setCurrentView('main')}
             className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
           >
@@ -155,29 +278,73 @@ export default function ManagementProfileView({ onBack }) {
     );
   }
 
-  // Subpage 4: Phân quyền tài khoản
-  if (currentView === 'rbac') {
+  // Route Guard: Nếu Staff hoặc Manager truy cập /rbac* trực tiếp -> Hiển thị AccessDeniedView
+  if (currentRoute.startsWith('/rbac') && !canChangeUserRole) {
     return (
-      <div className="px-4 pt-3.5 pb-24 text-xs space-y-4 animate-slideInRight">
-        <div className="flex items-center gap-2.5 pb-2 border-b border-gray-100">
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <AccessDeniedView
+          requiredRole="Quản trị viên (Admin)"
+          onBack={() => {
+            setCurrentView('main');
+            navigate('/settings');
+          }}
+        />
+      </div>
+    );
+  }
+
+  // RBAC Subpage 4B: Chi tiết nhân viên (/rbac/detail)
+  if (currentRoute === '/rbac/detail') {
+    return (
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <StaffDetailSubpage />
+      </div>
+    );
+  }
+
+  // RBAC Subpage 4C: Thay đổi vai trò (/rbac/role)
+  if (currentRoute === '/rbac/role') {
+    return (
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <RoleChangeSubpage />
+      </div>
+    );
+  }
+
+  // RBAC Subpage 4D: Nhật ký phân quyền (/rbac/audit)
+  if (currentRoute === '/rbac/audit') {
+    return (
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <RoleAuditLogSection />
+      </div>
+    );
+  }
+
+  // RBAC Subpage 4A: Trang chính phân quyền (/rbac hoặc currentView === 'rbac')
+  if (currentRoute === '/rbac' || currentView === 'rbac') {
+    if (!canChangeUserRole) {
+      return (
+        <div className="px-4 pt-3.5 pb-24 text-xs text-center space-y-3">
+          <p className="text-rose-600 font-bold">Từ chối quyền: Chỉ Quản trị viên (Admin) mới có quyền phân quyền hệ thống!</p>
           <button
             type="button"
-            onClick={() => setCurrentView('main')}
-            className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
+            onClick={() => {
+              setCurrentView('main');
+              navigate('/settings');
+            }}
+            className="px-3 py-1.5 bg-gray-100 rounded-xl font-bold"
           >
-            <ArrowLeft className="w-4 h-4" />
+            Quay lại
           </button>
-          <div>
-            <h2 className="text-base font-black text-forest-900 tracking-tight leading-none">
-              Phân quyền Tài khoản
-            </h2>
-            <p className="text-[11px] text-gray-500 mt-0.5">
-              Ma trận quyền hạn Quản lý (Admin) & Nhân viên
-            </p>
-          </div>
         </div>
-
-        <RbacPermissionsTable />
+      );
+    }
+    return (
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <RbacMainPage onBack={() => {
+          setCurrentView('main');
+          navigate('/settings');
+        }} />
       </div>
     );
   }
@@ -262,19 +429,25 @@ export default function ManagementProfileView({ onBack }) {
           </button>
         )}
 
-        {/* Tên quản lý lấy từ dữ liệu hiện tại (spacing 8-12px) */}
+        {/* Tên quản lý/nhân viên lấy từ profile đồng bộ */}
         <h2 className="text-lg font-black text-gray-900 tracking-tight mt-2.5">
           {displayName}
         </h2>
 
-        {/* Badge "Quản lý • Admin" (spacing 8-12px) */}
+        {/* Badge Vai trò theo phiên làm việc (Admin / Manager / Staff) */}
         <div className="mt-1.5">
           <span
-            data-role="Quản lý (Admin)"
-            title="Quản lý (Admin)"
-            className="inline-flex items-center px-3 py-0.5 rounded-full bg-forest-50 text-forest-800 border border-forest-200/80 text-[11.5px] font-bold shadow-2xs"
+            data-role={currentRole === 'admin' ? 'Quản lý (Admin)' : currentRole === 'manager' ? 'Cửa hàng trưởng (Manager)' : 'Thu ngân (Staff)'}
+            title={currentRole === 'admin' ? 'Quản lý (Admin)' : currentRole === 'manager' ? 'Cửa hàng trưởng (Manager)' : 'Thu ngân (Staff)'}
+            className={`inline-flex items-center px-3 py-0.5 rounded-full text-[11.5px] font-bold shadow-2xs ${
+              currentRole === 'admin'
+                ? 'bg-forest-50 text-forest-800 border border-forest-200/80'
+                : currentRole === 'manager'
+                ? 'bg-blue-50 text-blue-800 border border-blue-200/80'
+                : 'bg-amber-50 text-amber-800 border border-amber-200/80'
+            }`}
           >
-            Quản lý • Admin
+            {currentRole === 'admin' ? 'Quản lý • Admin' : currentRole === 'manager' ? 'Cửa hàng trưởng • Manager' : 'Thu ngân • Staff'}
           </span>
         </div>
 
@@ -285,56 +458,82 @@ export default function ManagementProfileView({ onBack }) {
       </div>
 
       {/* ========================================================= */}
-      {/* 2. DANH SÁCH 4 CARD CHỨC NĂNG PASTEL ĐỘC LẬP              */}
+      {/* 2. DANH SÁCH CARD CHỨC NĂNG PHÂN THEO ROLE (AUTO COLLAPSE) */}
       {/* ========================================================= */}
       <div className="mt-5 space-y-3">
-        {/* Card 1: Quản lý nhân viên (Pastel Xanh lá nhạt #EAF5ED) */}
+        {/* Card 0: Quản lý Profile (All Roles: Admin, Manager, Staff) */}
         <ProfileNavCard
-          title="Quản lý nhân viên"
-          description="Danh sách & trạng thái thu ngân"
-          icon={Users}
-          bgColor="#EAF5ED"
-          iconColor="#214E34"
-          iconBgColor="rgba(33, 78, 52, 0.12)"
-          onClick={() => setCurrentView('staff')}
-          testId="staff-management-nav-card"
+          title="Quản lý Profile"
+          description="Chỉnh sửa ảnh đại diện, tên hiển thị & thông tin cá nhân"
+          icon={User}
+          bgColor="#F0F4FF"
+          iconColor="#4F46E5"
+          iconBgColor="rgba(79, 70, 229, 0.12)"
+          onClick={() => setCurrentView('profile')}
+          testId="profile-management-nav-card"
         />
 
-        {/* Card 2: Cấu hình quán & VietQR (Pastel Xanh dương nhạt #EAF3FA) */}
-        <ProfileNavCard
-          title="Cấu hình quán & VietQR"
-          description="Chi nhánh, ca làm việc, WiFi & VietQR"
-          icon={Store}
-          bgColor="#EAF3FA"
-          iconColor="#1D4ED8"
-          iconBgColor="rgba(29, 78, 216, 0.12)"
-          onClick={() => setCurrentView('store-config')}
-          testId="store-config-nav-card"
-        />
+        {/* Card 1: Quản lý nhân viên (Admin & Manager) */}
+        {canManageStaff && (
+          <ProfileNavCard
+            title="Quản lý nhân viên"
+            description="Danh sách & trạng thái thu ngân"
+            icon={Users}
+            bgColor="#EAF5ED"
+            iconColor="#214E34"
+            iconBgColor="rgba(33, 78, 52, 0.12)"
+            onClick={() => {
+              setCurrentView('staff');
+              navigate('/staff');
+            }}
+            testId="staff-management-nav-card"
+          />
+        )}
 
-        {/* Card 3: Dữ liệu bán hàng (Pastel Cam nhạt #FFF4E5) */}
-        <ProfileNavCard
-          title="Dữ liệu bán hàng"
-          description="Dọn dẹp an toàn & sao lưu đơn hàng lịch sử"
-          icon={Database}
-          bgColor="#FFF4E5"
-          iconColor="#D97706"
-          iconBgColor="rgba(217, 119, 6, 0.12)"
-          onClick={() => setCurrentView('data-cleanup')}
-          testId="data-cleanup-nav-card"
-        />
+        {/* Card 2: Cấu hình quán & VietQR (Admin & Manager) */}
+        {canConfigureStore && (
+          <ProfileNavCard
+            title="Cấu hình quán & VietQR"
+            description="Chi nhánh, ca làm việc, WiFi & VietQR"
+            icon={Store}
+            bgColor="#EAF3FA"
+            iconColor="#1D4ED8"
+            iconBgColor="rgba(29, 78, 216, 0.12)"
+            onClick={() => setCurrentView('store-config')}
+            testId="store-config-nav-card"
+          />
+        )}
 
-        {/* Card 4: Phân quyền (Pastel Tím nhạt #F1EDFA) */}
-        <ProfileNavCard
-          title="Phân quyền"
-          description="Ma trận quyền hạn Quản lý (Admin) & Nhân viên"
-          icon={ShieldCheck}
-          bgColor="#F1EDFA"
-          iconColor="#7C3AED"
-          iconBgColor="rgba(124, 58, 237, 0.12)"
-          onClick={() => setCurrentView('rbac')}
-          testId="rbac-permissions-nav-card"
-        />
+        {/* Card 3: Dữ liệu bán hàng (Admin Only) */}
+        {canCleanupData && (
+          <ProfileNavCard
+            title="Dữ liệu bán hàng"
+            description="Dọn dẹp an toàn & sao lưu đơn hàng lịch sử"
+            icon={Database}
+            bgColor="#FFF4E5"
+            iconColor="#D97706"
+            iconBgColor="rgba(217, 119, 6, 0.12)"
+            onClick={() => setCurrentView('data-cleanup')}
+            testId="data-cleanup-nav-card"
+          />
+        )}
+
+        {/* Card 4: Phân quyền (Admin Only) */}
+        {canChangeUserRole && (
+          <ProfileNavCard
+            title="Phân quyền"
+            description="Quản trị vai trò & bảo mật tài khoản nhân sự"
+            icon={ShieldCheck}
+            bgColor="#F1EDFA"
+            iconColor="#7C3AED"
+            iconBgColor="rgba(124, 58, 237, 0.12)"
+            onClick={() => {
+              setCurrentView('rbac');
+              navigate('/rbac');
+            }}
+            testId="rbac-permissions-nav-card"
+          />
+        )}
       </div>
 
       {/* ========================================================= */}

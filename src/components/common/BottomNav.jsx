@@ -3,19 +3,26 @@ import { usePos } from '../../store/PosContext';
 import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3 } from 'lucide-react';
 
 export default function BottomNav() {
-  const { activeTab, setActiveTab, orders } = usePos();
+  const { activeTab, setActiveTab, orders, currentRole } = usePos();
 
   // Đếm bàn đang phục vụ
   const activeOrderCount = Object.keys(orders).length;
 
-  const navItems = [
+  const isStaff = currentRole === 'staff';
+
+  const allNavItems = [
     { id: 'tables', label: 'Bàn', icon: LayoutGrid, badge: activeOrderCount > 0 ? activeOrderCount : null },
     { id: 'menu', label: 'Thực đơn', icon: UtensilsCrossed },
     { id: 'orders', label: 'Đơn hàng', icon: ClipboardList },
     { id: 'reports', label: 'Báo cáo', icon: BarChart3 },
   ];
 
-  // Tính toán index của tab đang chọn để di chuyển highlight (-1 nếu không thuộc 4 tab)
+  // RBAC Filter: Staff chỉ truy cập Sơ đồ bàn ('tables') và Đơn hàng ('orders')
+  const navItems = isStaff
+    ? [allNavItems[0], allNavItems[2]]
+    : allNavItems;
+
+  // Tính toán index của tab đang chọn để di chuyển highlight (-1 nếu không thuộc danh sách)
   const activeIndex = navItems.findIndex((item) => item.id === activeTab);
 
   // Danh sách các tab áp dụng hiệu ứng tự động trượt ẩn/hiện khi cuộn
@@ -29,7 +36,6 @@ export default function BottomNav() {
 
   // Theo dõi sự kiện cuộn trên scroll container
   useEffect(() => {
-    // Luôn luôn hiển thị khi chuyển sang tab không nằm trong danh sách tự ẩn
     if (!shouldAutoHide) {
       setIsVisible(true);
       return;
@@ -37,7 +43,6 @@ export default function BottomNav() {
 
     const scrollContainer = document.querySelector('main');
 
-    // Khởi tạo lại lastScrollY tương ứng với vị trí hiện tại của container
     const getScrollTop = () => {
       if (scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight && scrollContainer.scrollTop > 0) {
         return scrollContainer.scrollTop;
@@ -47,7 +52,6 @@ export default function BottomNav() {
 
     lastScrollY.current = getScrollTop();
 
-    // Ngưỡng cuộn thực sự (10px) để chống rung giật khi chạm nhẹ
     const SCROLL_THRESHOLD = 10;
     const TOP_THRESHOLD = 15;
 
@@ -57,11 +61,9 @@ export default function BottomNav() {
           const currentScrollY = getScrollTop();
           const delta = currentScrollY - lastScrollY.current;
 
-          // 1. Khi ở đầu danh sách (hoặc danh sách ngắn không thể cuộn sâu), luôn luôn hiển thị
           if (currentScrollY <= TOP_THRESHOLD) {
             setIsVisible(true);
           } else if (Math.abs(delta) >= SCROLL_THRESHOLD) {
-            // 2. Cuộn xuống -> trượt ẩn hoàn toàn; Cuộn lên -> trượt hiện
             if (delta > 0) {
               setIsVisible(false);
             } else {
@@ -77,7 +79,6 @@ export default function BottomNav() {
       }
     };
 
-    // Lắng nghe sự kiện yêu cầu hiện lại Navigation (ví dụ khi đổi tab con hoặc đổi bộ lọc ngày)
     const handleShowNav = () => {
       setIsVisible(true);
       lastScrollY.current = getScrollTop();
@@ -102,13 +103,12 @@ export default function BottomNav() {
   useEffect(() => {
     const syncTabFromUrl = () => {
       const hash = window.location.hash.replace('#', '');
-      const validTabs = ['tables', 'menu', 'orders', 'reports'];
+      const validTabs = ['tables', 'menu', 'orders', 'reports', 'settings'];
       if (validTabs.includes(hash) && hash !== activeTab) {
         setActiveTab(hash);
       }
     };
 
-    // Đồng bộ ngay khi mount hoặc reload trang
     syncTabFromUrl();
 
     window.addEventListener('popstate', syncTabFromUrl);
@@ -117,7 +117,7 @@ export default function BottomNav() {
       window.removeEventListener('popstate', syncTabFromUrl);
       window.removeEventListener('hashchange', syncTabFromUrl);
     };
-  }, [activeTab, setActiveTab]);
+  }, [activeTab, setActiveTab, isStaff]);
 
   return (
     <nav
@@ -138,11 +138,11 @@ export default function BottomNav() {
           isVisible ? 'pointer-events-auto' : 'pointer-events-none'
         }`}
       >
-        {/* Track Grid 4 cột đồng bộ tọa độ tuyệt đối giữa highlight và các nút bấm */}
-        <div className="relative w-full h-full grid grid-cols-4 items-center">
-          {/* Khối Highlight Circle 44x44px nền xanh trượt ngang mượt mà (220ms) */}
+        {/* Track Grid phân bổ theo số tab (2 cột cho Staff, 4 cột cho Manager/Admin) */}
+        <div className={`relative w-full h-full grid ${isStaff ? 'grid-cols-2' : 'grid-cols-4'} items-center`}>
+          {/* Khối Highlight Circle 44x44px nền xanh trượt ngang mượt mà */}
           <div
-            className={`absolute top-0 bottom-0 left-0 w-1/4 flex items-center justify-center pointer-events-none transition-all duration-220 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            className={`absolute top-0 bottom-0 left-0 ${isStaff ? 'w-1/2' : 'w-1/4'} flex items-center justify-center pointer-events-none transition-all duration-220 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               activeIndex >= 0 ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
@@ -152,7 +152,7 @@ export default function BottomNav() {
             <div className="w-11 h-11 rounded-full bg-forest-800 animate-fadeIn shadow-md shadow-forest-800/30 flex items-center justify-center" />
           </div>
 
-          {/* Danh sách 4 icon chức năng chia đều 4 cột Grid */}
+          {/* Danh sách icon chức năng */}
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -172,12 +172,10 @@ export default function BottomNav() {
                   }
                   setActiveTab(item.id);
                 }}
-                className="touch-target col-span-1 h-full min-h-[44px] flex items-center justify-center relative z-10 active:scale-95 transition-transform duration-150 outline-none focus-visible:ring-2 focus-visible:ring-forest-800/40 rounded-full"
+                className="touch-target col-span-1 h-full min-h-[44px] flex items-center justify-center relative z-10 active:scale-95 transition-transform duration-150 outline-none focus-visible:ring-2 focus-visible:ring-forest-800/40 rounded-full cursor-pointer"
               >
-                {/* Nhãn ẩn dành riêng cho hỗ trợ tiếp cận (Screen reader / a11y) */}
                 <span className="sr-only">{item.label}</span>
 
-                {/* Vùng hiển thị Icon và Badge: 44x44px đồng bộ tâm tuyệt đối với highlight */}
                 <div className="relative flex items-center justify-center w-11 h-11">
                   <Icon
                     className={`w-[23px] h-[23px] transition-all duration-200 ${
@@ -187,7 +185,6 @@ export default function BottomNav() {
                     }`}
                   />
 
-                  {/* Badge số lượng bàn đang phục vụ trên Tab Bàn */}
                   {item.badge && (
                     <span className="absolute -top-0.5 -right-1 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm ring-2 ring-white/90 leading-none animate-fadeIn">
                       {item.badge}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Check, User, Shield, AlertCircle } from 'lucide-react';
+import { X, Check, User, Shield, AlertCircle, Lock } from 'lucide-react';
+import { usePos } from '../../store/PosContext';
 
 export default function StaffBottomSheet({
   isOpen,
@@ -7,6 +8,9 @@ export default function StaffBottomSheet({
   staffToEdit = null,
   onSave
 }) {
+  const { currentRole, showToast } = usePos();
+  const isAdmin = currentRole === 'admin';
+
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState('staff'); // 'admin' | 'staff'
   const [status, setStatus] = useState('active'); // 'active' | 'inactive'
@@ -35,10 +39,17 @@ export default function StaffBottomSheet({
       return;
     }
 
+    // RBAC: Manager is strictly forbidden from granting 'admin' role!
+    const effectiveRole = isAdmin ? role : (staffToEdit ? staffToEdit.role : 'staff');
+    if (!isAdmin && role === 'admin' && (!staffToEdit || staffToEdit.role !== 'admin')) {
+      showToast?.('Từ chối quyền: Chỉ Quản trị viên (Admin) mới có quyền cấp vai trò Quản lý!', 'error');
+      return;
+    }
+
     onSave({
       id: staffToEdit ? staffToEdit.id : null,
       name: cleanName,
-      role,
+      role: effectiveRole,
       status
     });
     onClose();
@@ -112,33 +123,55 @@ export default function StaffBottomSheet({
           {/* Vai trò */}
           <div>
             <label className="block text-gray-700 font-bold mb-1">Vai trò phục vụ</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setRole('staff')}
-                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  role === 'staff'
-                    ? 'bg-forest-50 border-forest-600 text-forest-900 shadow-2xs'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Nhân viên ca</span>
-              </button>
+            {isAdmin ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  data-testid="role-option-staff"
+                  onClick={() => setRole('staff')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    role === 'staff'
+                      ? 'bg-forest-50 border-forest-600 text-forest-900 shadow-2xs'
+                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Nhân viên ca</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setRole('admin')}
-                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  role === 'admin'
-                    ? 'bg-emerald-50 border-emerald-600 text-emerald-900 shadow-2xs'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                }`}
+                <button
+                  type="button"
+                  data-testid="role-option-admin"
+                  onClick={() => setRole('admin')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    role === 'admin'
+                      ? 'bg-emerald-50 border-emerald-600 text-emerald-900 shadow-2xs'
+                      : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Quản lý ca</span>
+                </button>
+              </div>
+            ) : (
+              <div
+                data-testid="locked-role-display"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-200"
               >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Quản lý ca</span>
-              </button>
-            </div>
+                <span className="font-bold text-gray-700 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-forest-700" />
+                  {staffToEdit?.role === 'admin'
+                    ? 'Quản lý (Admin)'
+                    : staffToEdit?.role === 'manager'
+                    ? 'Cửa hàng trưởng (Manager)'
+                    : 'Nhân viên ca (Staff)'}
+                </span>
+                <span className="text-[10.5px] text-gray-400 flex items-center gap-1 font-medium">
+                  <Lock className="w-3 h-3 text-gray-400" />
+                  <span>Chỉ Admin đổi vai trò</span>
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Trạng thái hoạt động */}

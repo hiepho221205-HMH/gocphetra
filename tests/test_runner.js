@@ -16,11 +16,18 @@ const testFiles = [
   path.join(__dirname, 'tier1_feature_coverage.test.js'),
   path.join(__dirname, 'tier2_boundary_corner.test.js'),
   path.join(__dirname, 'tier3_cross_feature.test.js'),
-  path.join(__dirname, 'tier4_real_world.test.js')
+  path.join(__dirname, 'tier4_real_world.test.js'),
+  path.join(__dirname, 'rbac_permission_guards.test.js'),
+  path.join(__dirname, 'simulation_7days_rbac.test.js'),
+  path.join(__dirname, 'settings_rbac_roles.test.js'),
+  path.join(__dirname, 'staff_management_redesign.test.js'),
+  path.join(__dirname, 'staff_hub_navigation.test.js'),
+  path.join(__dirname, 'rbac_remake.test.js'),
+  path.join(__dirname, 'supabase_sales_cleanup.test.js')
 ];
 
 console.log('\n============================================================');
-console.log('  GÓC Coffee POS — Automated E2E Test Suite (Tiers 1 - 4)');
+console.log('  GÓC Coffee POS — Master E2E & RBAC 7-Day Test Suite');
 console.log('============================================================\n');
 
 const startTime = Date.now();
@@ -59,7 +66,7 @@ testStream.on('end', () => {
     console.error('❌ E2E Test Suite FAILED!\n');
     process.exit(1);
   } else {
-    console.log('✅ ALL E2E TEST TIERS PASSED SUCCESSFULLY!\n');
+    console.log('✅ ALL E2E & RBAC TEST TIERS PASSED SUCCESSFULLY!\n');
     process.exit(0);
   }
 });

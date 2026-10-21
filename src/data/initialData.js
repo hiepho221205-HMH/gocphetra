@@ -492,6 +492,11 @@ export const INITIAL_STAFF = [
     name: 'Trần Mai',
     status: 'active',
     role: 'admin',
+    email: 'admin@gocpos.vn',
+    phone: '0901234567',
+    branchId: 'main',
+    shiftName: 'Ca Sáng (06:30 - 14:30)',
+    notes: 'Quản trị viên hệ thống GÓC POS',
     createdAt: '2026-10-18T00:00:00.000Z',
     updatedAt: '2026-10-18T00:00:00.000Z'
   },
@@ -499,7 +504,12 @@ export const INITIAL_STAFF = [
     id: 'staff-02',
     name: 'Nguyễn Văn Hùng',
     status: 'active',
-    role: 'staff',
+    role: 'manager',
+    email: 'manager@gocpos.vn',
+    phone: '0912345678',
+    branchId: 'main',
+    shiftName: 'Ca Chiều (14:30 - 22:30)',
+    notes: 'Cửa hàng trưởng ca chiều',
     createdAt: '2026-10-18T00:00:00.000Z',
     updatedAt: '2026-10-18T00:00:00.000Z'
   },
@@ -508,8 +518,113 @@ export const INITIAL_STAFF = [
     name: 'Lê Hoàng Nam',
     status: 'active',
     role: 'staff',
+    email: 'staff@gocpos.vn',
+    phone: '0987654321',
+    branchId: 'main',
+    shiftName: 'Ca Sáng (06:30 - 14:30)',
+    notes: 'Thu ngân ca sáng',
     createdAt: '2026-10-18T00:00:00.000Z',
     updatedAt: '2026-10-18T00:00:00.000Z'
   }
 ];
+
+export const DEMO_ACCOUNTS = {
+  admin: {
+    id: 'staff-01',
+    uid: '00000000-0000-0000-0000-000000000001',
+    name: 'Trần Mai',
+    email: 'admin@gocpos.vn',
+    role: 'admin',
+    branchId: 'main',
+    avatarUrl: null,
+    phone: '0901234567',
+    notes: 'Quản trị viên hệ thống GÓC POS',
+    isDemo: true
+  },
+  manager: {
+    id: 'staff-02',
+    uid: '00000000-0000-0000-0000-000000000002',
+    name: 'Nguyễn Văn Hùng',
+    email: 'manager@gocpos.vn',
+    role: 'manager',
+    branchId: 'main',
+    avatarUrl: null,
+    phone: '0912345678',
+    notes: 'Cửa hàng trưởng ca chiều',
+    isDemo: true
+  },
+  staff: {
+    id: 'staff-03',
+    uid: '00000000-0000-0000-0000-000000000003',
+    name: 'Lê Hoàng Nam',
+    email: 'staff@gocpos.vn',
+    role: 'staff',
+    branchId: 'main',
+    avatarUrl: null,
+    phone: '0987654321',
+    notes: 'Thu ngân ca sáng',
+    isDemo: true
+  }
+};
+
+export const INITIAL_USER_PROFILES = {
+  'staff-01': {
+    id: 'staff-01',
+    name: 'Trần Mai',
+    role: 'admin',
+    avatarUrl: null,
+    phone: '0901234567',
+    notes: 'Quản trị viên hệ thống GÓC POS'
+  },
+  'staff-02': {
+    id: 'staff-02',
+    name: 'Nguyễn Văn Hùng',
+    role: 'manager',
+    avatarUrl: null,
+    phone: '0912345678',
+    notes: 'Cửa hàng trưởng ca chiều'
+  },
+  'staff-03': {
+    id: 'staff-03',
+    name: 'Lê Hoàng Nam',
+    role: 'staff',
+    avatarUrl: null,
+    phone: '0987654321',
+    notes: 'Thu ngân ca sáng'
+  }
+};
+
+
+export const INITIAL_AUDIT_LOGS = [
+  {
+    id: 'audit-001',
+    userId: '00000000-0000-0000-0000-000000000001',
+    role: 'admin',
+    action: 'role_change',
+    resource: 'user_roles',
+    resourceId: 'staff-02',
+    details: {
+      targetName: 'Nguyễn Văn Hùng',
+      oldRole: 'staff',
+      newRole: 'manager',
+      note: 'Bổ nhiệm Quản lý ca trực chiều'
+    },
+    createdAt: '2026-10-19T08:30:00.000Z'
+  },
+  {
+    id: 'audit-002',
+    userId: '00000000-0000-0000-0000-000000000001',
+    role: 'admin',
+    action: 'price_change',
+    resource: 'menu_items',
+    resourceId: 'prod-1',
+    details: {
+      productName: 'Cà phê Đen Đá',
+      oldPrice: 22000,
+      newPrice: 25000
+    },
+    createdAt: '2026-10-19T14:15:00.000Z'
+  }
+];
+
 

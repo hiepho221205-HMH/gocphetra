@@ -108,3 +108,21 @@ export function formatDayLabel(dateStr, includeWeekday = false) {
   const wd = weekdayNames[d.getDay()];
   return `${wd} ${short}`;
 }
+
+/**
+ * Định dạng ngày giờ chi tiết 'HH:mm DD/MM/YYYY' theo giờ Việt Nam
+ */
+export function formatVietnamDateTime(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: VIETNAM_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour12: false
+  }).format(d);
+}

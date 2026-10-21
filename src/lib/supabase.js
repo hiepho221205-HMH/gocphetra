@@ -13,7 +13,7 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
+      auth: { persistSession: true },
       realtime: {
         params: {
           eventsPerSecond: 10
@@ -173,6 +173,11 @@ export function mapOrderToDb(o) {
     payment_status: o.paymentStatus || (o.status === 'completed' ? 'paid' : (Number(o.paidAmount) > 0 ? 'partial' : 'unpaid')),
     paid_at: o.paidAt || (o.status === 'completed' ? (o.finishedAt || o.createdAt) : null),
     payment_business_date: o.paymentBusinessDate || null,
+    is_deleted: Boolean(o.isDeleted),
+    deleted_at: o.deletedAt || null,
+    deleted_by: o.deletedBy || null,
+    is_demo: Boolean(o.isDemo),
+    branch_id: o.branchId || 'main',
     created_at: o.createdAt || new Date().toISOString(),
     finished_at: o.finishedAt || null
   };
@@ -200,6 +205,11 @@ export function mapOrderFromDb(o) {
     paymentStatus: o.payment_status || (o.status === 'completed' ? 'paid' : 'unpaid'),
     paidAt: o.paid_at || (o.status === 'completed' ? (o.finished_at || o.created_at) : null),
     paymentBusinessDate: o.payment_business_date || null,
+    isDeleted: Boolean(o.is_deleted),
+    deletedAt: o.deleted_at || null,
+    deletedBy: o.deleted_by || null,
+    isDemo: Boolean(o.is_demo),
+    branchId: o.branch_id || 'main',
     createdAt: o.created_at,
     finishedAt: o.finished_at
   };
@@ -979,5 +989,180 @@ export async function fetchPaymentsByBusinessDate(businessDate) {
   } catch (e) {
     console.warn('Lỗi fetchPaymentsByBusinessDate (exception):', e);
     return [];
+  }
+}
+
+// ============================================================================
+// AUDIT LOGS & RBAC RPC HELPERS
+// ============================================================================
+
+export function mapAuditLogToDb(log) {
+  return {
+    id: log.id || undefined,
+    user_id: log.userId || null,
+    role: log.role || 'staff',
+    action: log.action || 'system',
+    resource: log.resource || 'unknown',
+    resource_id: log.resourceId || null,
+    details: log.details || {},
+    ip_address: log.ipAddress || null,
+    created_at: log.createdAt || new Date().toISOString()
+  };
+}
+
+export function mapAuditLogFromDb(r) {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    role: r.role,
+    action: r.action,
+    resource: r.resource,
+    resourceId: r.resource_id,
+    details: r.details || {},
+    ipAddress: r.ip_address,
+    createdAt: r.created_at
+  };
+}
+
+export async function adminChangeUserRoleRpc(targetUserId, newRole) {
+  if (!supabase) return { success: false, error: new Error('Supabase client not initialized') };
+  try {
+    const { data, error } = await supabase.rpc('admin_change_user_role', {
+      p_target_user_id: targetUserId,
+      p_new_role: newRole
+    });
+    if (error) {
+      console.warn('Lỗi adminChangeUserRoleRpc:', error.message);
+      return { success: false, error };
+    }
+    return { success: true, data };
+  } catch (err) {
+    console.warn('Lỗi adminChangeUserRoleRpc (exception):', err?.message || err);
+    return { success: false, error: err };
+  }
+}
+
+export async function adminArchiveOrdersRpc(orderIds, reason = 'Dọn dẹp lưu trữ an toàn') {
+  if (!supabase) return { success: false, error: new Error('Supabase client not initialized') };
+  try {
+    const { data, error } = await supabase.rpc('admin_archive_orders', {
+      p_order_ids: orderIds,
+      p_reason: reason
+    });
+    if (error) {
+      console.warn('Lỗi adminArchiveOrdersRpc:', error.message);
+      return { success: false, error };
+    }
+    return { success: true, data };
+  } catch (err) {
+    console.warn('Lỗi adminArchiveOrdersRpc (exception):', err?.message || err);
+    return { success: false, error: err };
+  }
+}
+
+/**
+ * Hard delete sales data via Supabase RPC 'admin_hard_delete_sales_data'.
+ * Atomic execution:
+ * 1. Verifies caller is Admin and matches branch_id.
+ * 2. Shields active dining tables.
+ * 3. Deletes child payments rows.
+ * 4. Unlinks tables active_order_id.
+ * 5. Deletes parent orders rows.
+ * 6. Records immutable audit entry in data_cleanup_jobs and audit_logs.
+ *
+ * @param {Array<string>} orderIds List of order IDs to hard delete
+ * @param {Object} metadata { mode, criteria, expectedCount, reason, backupFileName }
+ * @returns {Promise<{ success: boolean, count: number, error?: any, message?: string, data?: any }>}
+ */
+export async function adminHardDeleteSalesDataRpc(orderIds = [], metadata = {}) {
+  let ids = [];
+  if (Array.isArray(orderIds)) {
+    ids = orderIds
+      .map((item) => (typeof item === 'object' && item !== null ? item.id : item))
+      .filter((id) => typeof id === 'string' && id.trim().length > 0);
+  } else if (typeof orderIds === 'string' && orderIds.trim().length > 0) {
+    ids = [orderIds.trim()];
+  }
+
+  if (ids.length === 0) {
+    return { success: true, count: 0, error: null, message: 'Không có đơn hàng nào cần xóa.' };
+  }
+
+  if (!supabase) {
+    return {
+      success: false,
+      count: 0,
+      error: new Error('Supabase client is not configured or offline'),
+      message: 'Supabase chưa được cấu hình hoặc đang ngoại tuyến'
+    };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('admin_hard_delete_sales_data', {
+      p_order_ids: ids,
+      p_mode: metadata.mode || metadata.cleanupMode || 'range',
+      p_criteria: metadata.criteria || metadata.dateRange || {},
+      p_expected_count: metadata.ordersCount ?? metadata.expectedCount ?? ids.length,
+      p_reason: metadata.reason || 'Xóa vĩnh viễn dữ liệu bán hàng',
+      p_backup_filename: metadata.backupFileName || metadata.backup_file_name || null
+    });
+
+    if (error) {
+      console.error('Lỗi khi gọi admin_hard_delete_sales_data RPC:', error.message || error);
+      return {
+        success: false,
+        count: 0,
+        error,
+        message: error.message || 'Lỗi từ máy chủ cơ sở dữ liệu'
+      };
+    }
+
+    const res = typeof data === 'object' && data !== null ? data : {};
+    return {
+      success: res.success !== false,
+      count: res.count ?? res.deleted_orders_count ?? 0,
+      deletedOrdersCount: res.deleted_orders_count ?? 0,
+      deletedPaymentsCount: res.deleted_payments_count ?? 0,
+      unlinkedTablesCount: res.unlinked_tables_count ?? 0,
+      totalRevenue: res.total_revenue ?? 0,
+      message: res.message || 'Xóa dữ liệu thành công',
+      data: res
+    };
+  } catch (err) {
+    console.error('Ngoại lệ khi gọi adminHardDeleteSalesDataRpc:', err?.message || err);
+    return {
+      success: false,
+      count: 0,
+      error: err,
+      message: err?.message || 'Lỗi ngoại lệ khi thực hiện xóa dữ liệu'
+    };
+  }
+}
+
+export async function fetchAuditLogs(limit = 100) {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) {
+      console.warn('Lỗi fetchAuditLogs:', error.message);
+      return [];
+    }
+    return (data || []).map(mapAuditLogFromDb);
+  } catch (err) {
+    console.warn('Lỗi fetchAuditLogs (exception):', err?.message || err);
+    return [];
+  }
+}
+
+export async function cloudRecordAuditLog(log) {
+  if (!supabase || !log) return;
+  try {
+    await supabase.from('audit_logs').insert(mapAuditLogToDb(log));
+  } catch (e) {
+    console.warn('Lỗi cloudRecordAuditLog:', e);
   }
 }

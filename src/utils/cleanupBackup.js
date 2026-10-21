@@ -12,7 +12,8 @@ import { getVietnamDateString, VIETNAM_TIMEZONE } from './dateTime.js';
 export const CLEANUP_MODES = {
   RANGE: 'range',
   BEFORE_DATE: 'before_date',
-  ALL_COMPLETED: 'all_completed'
+  ALL_COMPLETED: 'all_completed',
+  ALL: 'all'
 };
 
 export const CLEANUP_SCHEMA_VERSION = 5;
@@ -27,6 +28,13 @@ export const CLEANUP_APP_VERSION = '1.0.0';
 export function getOrderCompletionDate(order) {
   if (!order || typeof order !== 'object') return '';
 
+  if (order.businessDate && /^\d{4}-\d{2}-\d{2}$/.test(order.businessDate)) {
+    return order.businessDate;
+  }
+  if (order.business_date && /^\d{4}-\d{2}-\d{2}$/.test(order.business_date)) {
+    return order.business_date;
+  }
+
   const timestamp =
     order.finishedAt ||
     order.finished_at ||
@@ -39,6 +47,45 @@ export function getOrderCompletionDate(order) {
     order.created_at;
 
   return getVietnamDateString(timestamp);
+}
+
+/**
+ * Kiểm tra xem đơn hàng có giao dịch thanh toán lệch ngày hay không
+ * (Ví dụ tạo/hoàn tất hôm trước nhưng thanh toán hôm sau, hoặc split payment khác ngày)
+ */
+export function checkOrderCrossDatePayment(order, allPayments = []) {
+  if (!order || typeof order !== 'object') return false;
+  const orderDate = getOrderCompletionDate(order);
+  if (!orderDate) return false;
+
+  // 1. Kiểm tra thuộc tính paymentBusinessDate trên chính đơn
+  if (order.paymentBusinessDate && order.businessDate && order.paymentBusinessDate !== order.businessDate) {
+    return true;
+  }
+
+  // 2. Kiểm tra danh sách splitPayments trên đơn
+  const splitPayments = Array.isArray(order.splitPayments) ? order.splitPayments : [];
+  for (const p of splitPayments) {
+    const pDate = p.businessDate || (p.timestamp ? getVietnamDateString(p.timestamp) : '');
+    if (pDate && pDate !== orderDate) {
+      return true;
+    }
+  }
+
+  // 3. Đối soát với danh sách payments độc lập nếu có
+  if (Array.isArray(allPayments) && allPayments.length > 0) {
+    const linkedPayments = allPayments.filter(
+      (p) => (p.orderId && p.orderId === order.id) || (p.order_id && p.order_id === order.id)
+    );
+    for (const p of linkedPayments) {
+      const pDate = p.businessDate || (p.paidAt || p.created_at ? getVietnamDateString(p.paidAt || p.created_at) : '');
+      if (pDate && pDate !== orderDate) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -71,15 +118,24 @@ export function generateBackupFilename(date = new Date()) {
 /**
  * Tính toán số liệu Xem trước (Preview) cho thao tác dọn dẹp
  * @param {Array} orderHistory Danh sách đơn hàng lịch sử
- * @param {string} mode 'range' | 'before_date' | 'all_completed'
- * @param {Object} options { fromDate, toDate, beforeDate }
- * @returns {Object} { targetOrders, count, totalRevenue, cashTotal, qrTotal, error? }
+ * @param {string|null} mode 'range' | 'before_date' | 'all_completed' | 'all' | null
+ * @param {Object} options { fromDate, toDate, beforeDate, includeHistoricalStatuses, allPayments }
+ * @returns {Object} { targetOrders, count, totalRevenue, cashTotal, qrTotal, hasCrossDatePayments, crossDatePaymentCount, error? }
  */
 export function calculateCleanupPreview(orderHistory = [], mode = CLEANUP_MODES.RANGE, options = {}) {
-  const { fromDate, toDate, beforeDate } = options || {};
+  const { fromDate, toDate, beforeDate, includeHistoricalStatuses = false, allPayments = [] } = options || {};
 
-  if (!Array.isArray(orderHistory) || orderHistory.length === 0) {
-    return { targetOrders: [], count: 0, totalRevenue: 0, cashTotal: 0, qrTotal: 0 };
+  // Nếu mode chưa được chọn (initial null state) hoặc danh sách trống
+  if (!mode || !Array.isArray(orderHistory) || orderHistory.length === 0) {
+    return {
+      targetOrders: [],
+      count: 0,
+      totalRevenue: 0,
+      cashTotal: 0,
+      qrTotal: 0,
+      hasCrossDatePayments: false,
+      crossDatePaymentCount: 0
+    };
   }
 
   // Xử lý phạm vi ngày đảo ngược (Từ ngày > Đến ngày)
@@ -90,20 +146,34 @@ export function calculateCleanupPreview(orderHistory = [], mode = CLEANUP_MODES.
       totalRevenue: 0,
       cashTotal: 0,
       qrTotal: 0,
+      hasCrossDatePayments: false,
+      crossDatePaymentCount: 0,
       error: 'INVERTED_RANGE'
     };
   }
 
   const targetOrders = orderHistory.filter((ord) => {
-    // 1. Tuyệt đối chỉ xử lý đơn hàng đã hoàn tất (status === 'completed')
-    if (ord.status !== 'completed') return false;
+    // 1. Tuyệt đối không chọn đơn đang phục vụ khách tại bàn
+    if (ord.status === 'serving' || ord.status === 'awaiting_payment') return false;
 
-    // 2. Trích xuất ngày theo múi giờ Việt Nam
+    // 2. Kiểm tra điều kiện trạng thái đơn
+    const isCompleted = ord.status === 'completed';
+    const isHistoricalSales = ['cancelled', 'unpaid_carried_over'].includes(ord.status);
+
+    if (mode === CLEANUP_MODES.ALL_COMPLETED) {
+      if (!isCompleted) return false;
+    } else if (includeHistoricalStatuses || mode === CLEANUP_MODES.ALL || mode === 'all' || mode === 'all_history') {
+      if (!isCompleted && !isHistoricalSales) return false;
+    } else {
+      if (!isCompleted) return false;
+    }
+
+    // 3. Trích xuất ngày theo múi giờ Việt Nam
     const orderDate = getOrderCompletionDate(ord);
     // Nếu đơn hàng bị lỗi không có bất kỳ mốc thời gian nào, bỏ qua để bảo vệ dữ liệu
     if (!orderDate) return false;
 
-    // 3. Đánh giá theo chế độ phạm vi
+    // 4. Đánh giá theo chế độ phạm vi
     if (mode === CLEANUP_MODES.RANGE) {
       if (!fromDate || !toDate) return false;
       return orderDate >= fromDate && orderDate <= toDate;
@@ -114,7 +184,7 @@ export function calculateCleanupPreview(orderHistory = [], mode = CLEANUP_MODES.
       return orderDate < beforeDate;
     }
 
-    if (mode === CLEANUP_MODES.ALL_COMPLETED) {
+    if (mode === CLEANUP_MODES.ALL_COMPLETED || mode === CLEANUP_MODES.ALL || mode === 'all' || mode === 'all_history') {
       return true;
     }
 
@@ -125,6 +195,7 @@ export function calculateCleanupPreview(orderHistory = [], mode = CLEANUP_MODES.
   let totalRevenue = 0;
   let cashTotal = 0;
   let qrTotal = 0;
+  let crossDatePaymentCount = 0;
 
   for (const ord of targetOrders) {
     const amt = Number(ord.total) || 0;
@@ -135,6 +206,10 @@ export function calculateCleanupPreview(orderHistory = [], mode = CLEANUP_MODES.
     } else {
       cashTotal += amt;
     }
+
+    if (checkOrderCrossDatePayment(ord, allPayments)) {
+      crossDatePaymentCount++;
+    }
   }
 
   return {
@@ -142,7 +217,9 @@ export function calculateCleanupPreview(orderHistory = [], mode = CLEANUP_MODES.
     count: targetOrders.length,
     totalRevenue,
     cashTotal,
-    qrTotal
+    qrTotal,
+    hasCrossDatePayments: crossDatePaymentCount > 0,
+    crossDatePaymentCount
   };
 }
 
