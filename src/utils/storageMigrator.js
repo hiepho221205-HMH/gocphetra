@@ -1,5 +1,5 @@
 // LocalStorage Schema Migrator & Safe Storage Manager
-export const LOCAL_SCHEMA_VERSION = 5;
+export const LOCAL_SCHEMA_VERSION = 6;
 const VERSION_KEY = 'goc_storage_schema_version';
 
 export function runStorageMigrations() {
@@ -11,28 +11,39 @@ export function runStorageMigrations() {
       console.info(`[Migrator] Nâng cấp cấu trúc dữ liệu từ schema v${savedVersion} lên v${LOCAL_SCHEMA_VERSION}...`);
 
       // Migration v4 -> v5: Đảm bảo các đơn hàng có trường splitPayments và notes an toàn
-      const rawOrders = localStorage.getItem('goc_pos_orders_v4');
-      if (rawOrders) {
-        try {
-          const parsed = JSON.parse(rawOrders);
-          let changed = false;
-          Object.keys(parsed).forEach((orderId) => {
-            const ord = parsed[orderId];
-            if (!Array.isArray(ord.splitPayments)) {
-              ord.splitPayments = [];
-              changed = true;
+      if (savedVersion < 5) {
+        const rawOrders = localStorage.getItem('goc_pos_orders_v4');
+        if (rawOrders) {
+          try {
+            const parsed = JSON.parse(rawOrders);
+            let changed = false;
+            Object.keys(parsed).forEach((orderId) => {
+              const ord = parsed[orderId];
+              if (!Array.isArray(ord.splitPayments)) {
+                ord.splitPayments = [];
+                changed = true;
+              }
+              if (ord.discountPercent === undefined) {
+                ord.discountPercent = 0;
+                changed = true;
+              }
+            });
+            if (changed) {
+              localStorage.setItem('goc_pos_orders_v4', JSON.stringify(parsed));
             }
-            if (ord.discountPercent === undefined) {
-              ord.discountPercent = 0;
-              changed = true;
-            }
-          });
-          if (changed) {
-            localStorage.setItem('goc_pos_orders_v4', JSON.stringify(parsed));
+          } catch (e) {
+            console.warn('[Migrator] Lỗi khi migrate orders v4:', e);
           }
-        } catch (e) {
-          console.warn('[Migrator] Lỗi khi migrate orders v4:', e);
         }
+      }
+
+      // Migration v5 -> v6: Dọn dẹp sạch cache bán hàng cục bộ cũ để đồng bộ 100% từ Supabase PostgreSQL SSOT
+      if (savedVersion < 6) {
+        console.info('[Migrator] Nâng cấp schema v6: Làm sạch cache cục bộ cũ để thiết lập Supabase SSOT...');
+        localStorage.removeItem('goc_pos_orders_v4');
+        localStorage.removeItem('goc_pos_history_v4');
+        localStorage.removeItem('goc_pos_tables_v4');
+        localStorage.removeItem('goc_pos_menu_v4');
       }
 
       // Đánh dấu đã nâng cấp thành công

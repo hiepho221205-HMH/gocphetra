@@ -1,4 +1,4 @@
 // App Version & Release Configuration
-export const APP_VERSION = '1.1.0';
-export const BUILD_DATE = '2026-10-18';
-export const RELEASE_NAME = 'Supabase Cloud Realtime Foundation';
+export const APP_VERSION = '1.2.0';
+export const BUILD_DATE = '2026-10-21';
+export const RELEASE_NAME = 'Supabase Cloud SSOT & Realtime Invalidation';
