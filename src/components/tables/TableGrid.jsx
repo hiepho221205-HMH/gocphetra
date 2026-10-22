@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { usePos } from '../../store/PosContext';
 import TableCard from './TableCard';
 import { Plus, Search, Layers, CheckCircle2, Users, Coffee } from 'lucide-react';
@@ -13,17 +13,22 @@ export default function TableGrid({
   const [selectedStatus, setSelectedStatus] = useState('all'); // 'all' | 'empty' | 'occupied'
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Quy ước logic an toàn:
-  // Bàn nào có order với số món > 0 thì là "Có khách", còn lại là "Bàn trống"
+  // Quy ước logic an toàn theo Task 5:
+  // Bàn nào có order đang phục vụ với số món > 0 thì là "Có khách", còn lại là "Bàn trống"
   const isTableOccupied = (t) => {
     const ord =
-      (t.activeOrderId && orders[t.activeOrderId]) ||
-      (t.status === 'occupied' &&
-        Object.values(orders).find(
-          (o) => o.tableId === t.id && o.status !== 'completed' && o.status !== 'cancelled'
-        )) ||
-      null;
-    return t.status === 'occupied' || Boolean(ord && ord.items && ord.items.length > 0);
+      (t.activeOrderId && orders[t.activeOrderId] && orders[t.activeOrderId].status !== 'completed' && orders[t.activeOrderId].status !== 'cancelled')
+        ? orders[t.activeOrderId]
+        : Object.values(orders).find(
+            (o) => o.tableId === t.id && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+          );
+    return Boolean(ord && Array.isArray(ord.items) && ord.items.length > 0);
+  };
+
+  // Trích xuất số tự nhiên từ tên bàn (Bàn 01 -> 1, Bàn 12 -> 12)
+  const getTableNaturalNumber = (t) => {
+    const match = (t.name || t.id || '').match(/\d+/);
+    return match ? parseInt(match[0], 10) : 9999;
   };
 
   // 3 Chỉ số thống kê đúng theo yêu cầu (Bỏ "Chờ thanh toán")
@@ -31,21 +36,44 @@ export default function TableGrid({
   const occupiedCount = tables.filter((t) => isTableOccupied(t)).length;
   const emptyCount = totalCount - occupiedCount;
 
-  // Lọc bàn
-  const filteredTables = tables.filter((t) => {
-    const occupied = isTableOccupied(t);
-    const matchesStatus =
-      selectedStatus === 'all' ||
-      (selectedStatus === 'occupied' && occupied) ||
-      (selectedStatus === 'empty' && !occupied);
+  // Lọc và sắp xếp danh sách bàn:
+  // Tab "Tất cả": Ưu tiên nhóm "CÓ KHÁCH" lên đầu, nhóm "TRỐNG" xếp sau.
+  // Trong từng nhóm (và ở các tab riêng): sắp xếp theo thứ tự số tự nhiên tăng dần (01, 02, 03...)
+  const filteredTables = useMemo(() => {
+    const list = tables.filter((t) => {
+      const occupied = isTableOccupied(t);
+      const matchesStatus =
+        selectedStatus === 'all' ||
+        (selectedStatus === 'occupied' && occupied) ||
+        (selectedStatus === 'empty' && !occupied);
 
-    const matchesSearch =
-      searchQuery.trim() === '' ||
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.id.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch =
+        searchQuery.trim() === '' ||
+        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.id.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesStatus && matchesSearch;
-  });
+      return matchesStatus && matchesSearch;
+    });
+
+    return [...list].sort((a, b) => {
+      const numA = getTableNaturalNumber(a);
+      const numB = getTableNaturalNumber(b);
+
+      if (selectedStatus === 'all') {
+        const occA = isTableOccupied(a) ? 0 : 1;
+        const occB = isTableOccupied(b) ? 0 : 1;
+        if (occA !== occB) {
+          return occA - occB; // Bàn có khách (0) trước, bàn trống (1) sau
+        }
+      }
+
+      // Trong cùng nhóm: sắp xếp tăng dần theo số tự nhiên (Bàn 01, Bàn 02, Bàn 03...)
+      if (numA !== numB) {
+        return numA - numB;
+      }
+      return (a.name || a.id).localeCompare(b.name || b.id, 'vi', { numeric: true });
+    });
+  }, [tables, orders, selectedStatus, searchQuery]);
 
   const handleStatusChange = (status) => {
     triggerHaptic('light');

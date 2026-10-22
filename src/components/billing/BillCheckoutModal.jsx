@@ -41,17 +41,17 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
   const [isPrePrint, setIsPrePrint] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  if (!isOpen || !table) return null;
-
-  // Phase 1: Billing Lock acquisition and cleanup
+  // Phase 1: Billing Lock acquisition and cleanup - Always called in the same hook order
   useEffect(() => {
-    if (isOpen && table) {
+    if (isOpen && table?.id) {
       acquireBillingLock?.(table.id);
       return () => {
         releaseBillingLock?.(table.id);
       };
     }
-  }, [isOpen, table?.id]);
+  }, [isOpen, table?.id, acquireBillingLock, releaseBillingLock]);
+
+  if (!isOpen || !table) return null;
 
   const activeLock = isTableBillingLocked ? isTableBillingLocked(table) : null;
   const isLockedByOther = activeLock && activeLock.lockedById !== (currentUser?.id || currentUser?.uid);
@@ -104,7 +104,7 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
     ) ||
     null;
 
-  if (!order || !order.items.length) {
+  if (!order || !Array.isArray(order.items) || order.items.length === 0) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
         <div className="w-full max-w-sm clay-card p-6 text-center space-y-3">

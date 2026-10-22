@@ -3,6 +3,7 @@ import { PosProvider, usePos } from './store/PosContext';
 import { useVersionChecker } from './hooks/useVersionChecker';
 import BottomNav from './components/common/BottomNav';
 import Toast from './components/common/Toast';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import TableGrid from './components/tables/TableGrid';
 import TableActionModal from './components/tables/TableActionModal';
 import AddEditTableModal from './components/tables/AddEditTableModal';
@@ -291,7 +292,21 @@ function PosContent() {
 }
 
 function PosAppRoot() {
-  const { isAuthenticated, isAuthLoading } = usePos();
+  const { isAuthenticated, isAuthLoading, currentRoute, navigate } = usePos();
+
+  React.useEffect(() => {
+    if (!isAuthLoading) {
+      if (!isAuthenticated) {
+        if (currentRoute !== '/login') {
+          navigate('/login');
+        }
+      } else {
+        if (currentRoute === '/login') {
+          navigate('/tables');
+        }
+      }
+    }
+  }, [isAuthenticated, isAuthLoading, currentRoute, navigate]);
 
   if (isAuthLoading) {
     return (
@@ -307,10 +322,18 @@ function PosAppRoot() {
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return (
+      <ErrorBoundary>
+        <LoginPage />
+      </ErrorBoundary>
+    );
   }
 
-  return <PosContent />;
+  return (
+    <ErrorBoundary>
+      <PosContent />
+    </ErrorBoundary>
+  );
 }
 
 export default function App() {

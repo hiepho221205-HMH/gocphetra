@@ -143,10 +143,9 @@ export default function ManagementProfileView({ onBack }) {
     }
   }, [currentRoute]);
 
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
     setShowLogoutModal(false);
-    showToast('Đã đăng xuất phiên làm việc Quản lý', 'info');
-    setActiveTab('tables');
+    await logoutUser();
   };
 
   const branchName = settings?.branchName || 'Chi nhánh 01 - Trụ sở chính';

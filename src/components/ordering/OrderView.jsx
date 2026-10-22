@@ -49,7 +49,9 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     categories,
     orders,
     saveOrderForTable,
-    showToast
+    showToast,
+    isTableBillingLocked,
+    currentUser
   } = usePos();
 
   // Active Category: 'all' is the virtual category (default)
@@ -68,9 +70,9 @@ export default function OrderView({ table, onBack, onGoToBill }) {
 
   // Track previous table ID to differentiate table switching vs state re-render
   const prevTableIdRef = useRef(table?.id);
-  const loadedOrderVersionRef = useRef(table?.activeOrderId && orders[table.activeOrderId] ? (orders[table.activeOrderId].version || 1) : 1);
+  const loadedOrderVersionRef = useRef(table?.activeOrderId && orders?.[table.activeOrderId] ? (orders[table.activeOrderId].version || 1) : 1);
 
-  const activeBillingLock = isTableBillingLocked ? isTableBillingLocked(table) : null;
+  const activeBillingLock = typeof isTableBillingLocked === 'function' ? isTableBillingLocked(table) : null;
   const isLockedByOther = Boolean(activeBillingLock && activeBillingLock.lockedById !== (currentUser?.id || currentUser?.uid));
 
   // Initialize draft cart from active order if table is already occupied

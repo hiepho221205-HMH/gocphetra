@@ -82,7 +82,7 @@ describe('GÓC POS - Internal Authentication & RBAC V1 Comprehensive Test Suite'
       canAccessOrders: true,
       canManageMenu: ['admin', 'manager'].includes(role),
       canViewReports: ['admin', 'manager'].includes(role),
-      canAccessSettings: ['admin', 'manager'].includes(role),
+      canAccessSettings: ['admin', 'manager', 'staff'].includes(role),
       canManageStaff: ['admin', 'manager'].includes(role),
       canConfigureStore: ['admin', 'manager'].includes(role),
       canChangeUserRole: role === 'admin',
@@ -90,13 +90,15 @@ describe('GÓC POS - Internal Authentication & RBAC V1 Comprehensive Test Suite'
       visibleNavTabs: role === 'staff' ? ['tables', 'orders'] : ['tables', 'menu', 'orders', 'reports']
     });
 
-    it('2.1 - Staff permissions: Sơ đồ bàn & Đơn hàng hôm nay ONLY, BottomNav 2 tabs, Menu/Reports/Settings BLOCKED', () => {
+    it('2.1 - Staff permissions: Sơ đồ bàn & Đơn hàng hôm nay & Cài đặt cá nhân, Menu/Reports BLOCKED, Quản trị cửa hàng BLOCKED', () => {
       const p = getPermissionsForRole('staff');
       assert.equal(p.canAccessTables, true);
       assert.equal(p.canAccessOrders, true);
       assert.equal(p.canManageMenu, false, 'Staff không được quản lý Menu');
       assert.equal(p.canViewReports, false, 'Staff không được xem Báo cáo');
-      assert.equal(p.canAccessSettings, false, 'Staff không được truy cập Cài đặt');
+      assert.equal(p.canAccessSettings, true, 'Staff được truy cập Cài đặt cá nhân');
+      assert.equal(p.canManageStaff, false, 'Staff không được quản lý nhân viên');
+      assert.equal(p.canConfigureStore, false, 'Staff không được cấu hình quán');
       assert.equal(p.canChangeUserRole, false, 'Staff không được đổi vai trò');
       assert.equal(p.canCleanupData, false, 'Staff không được xóa lịch sử bán hàng');
       assert.deepEqual(p.visibleNavTabs, ['tables', 'orders'], 'BottomNav của Staff chỉ có 2 tab');

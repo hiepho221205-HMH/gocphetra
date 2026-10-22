@@ -21,10 +21,10 @@ export default function SafeLogoutModal({ isOpen, onClose, onConfirm }) {
         {/* Modal Headings */}
         <div className="space-y-1.5">
           <h3 className="font-extrabold text-forest-900 text-sm">
-            Xác nhận thoát phiên Quản lý?
+            Xác nhận đăng xuất tài khoản?
           </h3>
           <p className="text-gray-500 text-xs leading-relaxed">
-            Bạn đang chuẩn bị đăng xuất khỏi tài khoản <strong>Quản lý (Admin)</strong>. Hệ thống sẽ kết thúc phiên quản trị và đưa bạn về màn hình <strong>Sơ đồ bàn</strong>.
+            Bạn đang chuẩn bị kết thúc phiên làm việc hiện tại. Hệ thống sẽ đóng phiên an toàn và chuyển về màn hình <strong>Đăng nhập</strong>.
           </p>
         </div>
 

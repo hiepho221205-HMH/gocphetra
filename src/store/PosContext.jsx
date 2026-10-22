@@ -570,13 +570,28 @@ export function PosProvider({ children }) {
   };
 
   const logoutUser = async () => {
+    if (realtimeChannelRef.current) {
+      try {
+        supabase?.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      } catch (_) {}
+    }
     await signOutUser();
     setSession(null);
     setAuthUser(null);
     setCurrentUser(null);
     setCurrentRole(null);
     setCurrentUserProfile(null);
-    setActiveTab('tables');
+    try {
+      localStorage.removeItem(STORAGE_KEYS.ROLE);
+      localStorage.removeItem('goc_pos_demo_account');
+    } catch (_) {}
+    navigate('/login');
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.replaceState(null, '', '#/login');
+      } catch (_) {}
+    }
     showToast?.('Đã đăng xuất phiên làm việc an toàn', 'info');
   };
 
@@ -821,10 +836,18 @@ export function PosProvider({ children }) {
     // Listen to network changes
     const handleOnline = () => {
       console.log('[Network] Thiết bị có mạng trở lại, đồng bộ tự động với Cloud...');
+      setIsOnline(true);
       refreshCloudHealth();
       syncFromCloud(false);
     };
     window.addEventListener('online', handleOnline);
+
+    const handleOffline = () => {
+      console.log('[Network] Mất kết nối mạng, chuyển sang chế độ ngoại tuyến...');
+      setIsOnline(false);
+      setCloudStatus((prev) => ({ ...prev, connected: false }));
+    };
+    window.addEventListener('offline', handleOffline);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -2279,7 +2302,8 @@ export function PosProvider({ children }) {
       status: 'empty',
       activeOrderId: null,
       seatedAt: null,
-      customerCount: 0
+      customerCount: 0,
+      billingLock: null
     };
 
     setTables((prev) =>
@@ -2287,6 +2311,15 @@ export function PosProvider({ children }) {
         t.id === tableId ? resetTable : t
       )
     );
+
+    try {
+      const currentTables = loadStorage(STORAGE_KEYS.TABLES, tables);
+      const nextTables = currentTables.map((t) => (t.id === tableId ? resetTable : t));
+      localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(nextTables));
+      dualWriteToIndexedDB('tables', nextTables);
+    } catch (e) {
+      console.warn('Sync table storage error:', e);
+    }
 
     const paymentId = 'PAY_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     const payRecord = {
@@ -3312,7 +3345,7 @@ export function PosProvider({ children }) {
     canConfigureStore: ['admin', 'manager'].includes(currentRole),
     canChangeUserRole: currentRole === 'admin',
     canCleanupData: currentRole === 'admin',
-    canAccessSettings: ['admin', 'manager'].includes(currentRole),
+    canAccessSettings: ['admin', 'manager', 'staff'].includes(currentRole),
     userProfiles,
     updateCurrentUserProfile,
     allOrderHistory: orderHistory,

@@ -198,9 +198,9 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
     <div className="px-3.5 pt-3 pb-28 text-gray-800">
       {/* ================= 1. DATE FILTER BAR ================= */}
       <div className="mb-3.5 clay-card p-3 space-y-2.5">
-        {/* Row 1: Calendar selector + Quick nav arrows + Today button */}
-        <div className="flex items-center justify-between gap-1.5">
-          {/* Main Date Picker Trigger Button */}
+        {/* Row 1: Simplified Date Filter Bar - Only Date Card + Single Back Button */}
+        <div className="flex items-center gap-2">
+          {/* Main Date Picker Trigger Button (Displays Date, Day of Week, Status) */}
           <button
             type="button"
             onClick={() => {
@@ -208,72 +208,34 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
               setIsDatePickerOpen(true);
             }}
             aria-label="Chọn ngày xem đơn"
-            className="flex-1 min-h-[44px] px-3.5 py-2 rounded-[16px] clay-inset transition-all flex items-center justify-between gap-2 text-left cursor-pointer active:scale-98"
+            className="flex-1 min-h-[46px] px-3.5 py-2 rounded-[16px] clay-inset transition-all flex items-center justify-between text-left cursor-pointer active:scale-98"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full clay-disc-base clay-disc-blue text-white flex items-center justify-center shrink-0">
-                <Calendar className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-full clay-disc-base clay-disc-green text-white flex items-center justify-center shrink-0">
+                <Calendar className="w-4 h-4 text-emerald-200" />
               </div>
               <div className="min-w-0">
-                <div className="text-[10px] uppercase font-black text-[#214E34] tracking-wider">
+                <div className="text-[10px] uppercase font-black text-[#214E34] tracking-wider leading-tight">
                   {isToday ? 'Hôm nay' : isPast ? 'Quá khứ' : 'Tương lai'}
                 </div>
-                <div className="text-xs font-black truncate text-gray-900">
+                <div className="text-xs font-black truncate text-gray-900 leading-tight mt-0.5">
                   {formatVietnamDisplayDate(selectedDate)}
                 </div>
               </div>
             </div>
-            <span className="text-[10.5px] font-extrabold text-[#214E34] px-2 py-0.5 rounded-full bg-white shadow-xs shrink-0">
-              Đổi
-            </span>
           </button>
 
-          {/* Previous Day (<) */}
+          {/* Single Back Day Navigation Button (<) */}
           <button
             type="button"
             onClick={handlePrevDay}
             aria-label="Lùi 1 ngày"
             title="Lùi 1 ngày"
-            className="w-10 h-10 rounded-[14px] clay-pill-btn flex items-center justify-center shrink-0 text-gray-700 cursor-pointer"
+            data-testid="order-date-prev-btn"
+            className="w-11 h-[46px] rounded-[16px] clay-pill-btn flex items-center justify-center shrink-0 text-forest-800 hover:text-forest-900 active:scale-95 transition-all cursor-pointer shadow-xs"
           >
-            <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+            <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
           </button>
-
-          {/* Quick "Hôm nay" CTA button (visible when not on today) */}
-          {!isToday ? (
-            <button
-              type="button"
-              onClick={handleGoToday}
-              aria-label="Về ngày hôm nay"
-              title="Về ngày hôm nay"
-              className="px-3 h-10 clay-btn-primary text-xs font-black flex items-center justify-center gap-1 shrink-0 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-emerald-300 stroke-[2.5]" />
-              <span className="hidden xs:inline">Hôm nay</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleNextDay}
-              aria-label="Tiến 1 ngày"
-              title="Tiến 1 ngày"
-              className="w-10 h-10 rounded-[14px] clay-pill-btn flex items-center justify-center shrink-0 text-gray-700 cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-            </button>
-          )}
-
-          {!isToday && (
-            <button
-              type="button"
-              onClick={handleNextDay}
-              aria-label="Tiến 1 ngày"
-              title="Tiến 1 ngày"
-              className="w-10 h-10 rounded-[14px] clay-pill-btn flex items-center justify-center shrink-0 text-gray-700 cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-            </button>
-          )}
         </div>
 
         {/* Row 2: Daily Stat Summary Bar */}
@@ -428,7 +390,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
               {filteredServingOrders.length > 0 ? (
                 <div className="space-y-3">
                   {filteredServingOrders.map((ord) => {
-                    const itemCount = ord.items.reduce((s, it) => s + (it.quantity || 1), 0);
+                    const itemCount = (ord.items || []).reduce((s, it) => s + (it.quantity || 1), 0);
                     const timeStr = new Date(ord.createdAt).toLocaleTimeString('vi-VN', {
                       hour: '2-digit',
                       minute: '2-digit'
@@ -456,7 +418,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                         </div>
 
                         <div className="text-[11.5px] text-gray-600 line-clamp-1 font-medium">
-                          {ord.items.map((it) => `${it.name} (x${it.quantity})`).join(', ')}
+                          {(ord.items || []).map((it) => `${it.name} (x${it.quantity})`).join(', ')}
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-gray-100">
@@ -508,7 +470,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
               {filteredUnpaidOrders.length > 0 ? (
                 <div className="space-y-3">
                   {filteredUnpaidOrders.map((ord) => {
-                    const itemCount = ord.items.reduce((s, it) => s + (it.quantity || 1), 0);
+                    const itemCount = (ord.items || []).reduce((s, it) => s + (it.quantity || 1), 0);
                     const timeStr = ord.createdAt
                       ? new Date(ord.createdAt).toLocaleTimeString('vi-VN', {
                           hour: '2-digit',
@@ -537,7 +499,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                         </div>
 
                         <div className="text-[11.5px] text-gray-600 line-clamp-1 font-medium">
-                          {ord.items.map((it) => `${it.name} (x${it.quantity})`).join(', ')}
+                          {(ord.items || []).map((it) => `${it.name} (x${it.quantity})`).join(', ')}
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-gray-100">
@@ -600,7 +562,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
               {filteredCompletedOrders.length > 0 ? (
                 <div className="space-y-3">
                   {filteredCompletedOrders.map((ord) => {
-                    const itemCount = ord.items.reduce((s, it) => s + (it.quantity || 1), 0);
+                    const itemCount = (ord.items || []).reduce((s, it) => s + (it.quantity || 1), 0);
                     const paidIso = ord.paid_at || ord.paidAt || ord.completed_at || ord.completedAt || ord.finishedAt;
                     const paymentTimeStr = paidIso
                       ? new Date(paidIso).toLocaleTimeString('vi-VN', {
@@ -643,7 +605,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                         </div>
 
                         <div className="text-[11.5px] text-gray-600 line-clamp-1 font-medium">
-                          {ord.items.map((it) => `${it.name} (x${it.quantity})`).join(', ')}
+                          {(ord.items || []).map((it) => `${it.name} (x${it.quantity})`).join(', ')}
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-gray-100">

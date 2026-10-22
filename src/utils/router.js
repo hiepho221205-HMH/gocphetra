@@ -13,7 +13,7 @@ export function parseRouteFromLocation(loc = (typeof window !== 'undefined' ? wi
     } else if (loc.pathname && loc.pathname !== '/') {
       const segments = loc.pathname.split('/').filter(Boolean);
       const last = segments[segments.length - 1];
-      if (['tables', 'menu', 'orders', 'reports', 'settings'].includes(last)) {
+      if (['tables', 'menu', 'orders', 'reports', 'settings', 'login'].includes(last)) {
         path = `/${last}`;
       } else {
         path = '/tables';
@@ -44,6 +44,7 @@ export function getTabFromRoute(path) {
   if (path === '/orders') return 'orders';
   if (path === '/reports') return 'reports';
   if (path.startsWith('/staff') || path.startsWith('/rbac') || path === '/settings') return 'settings';
+  if (path === '/login') return 'login';
   return 'tables';
 }
 

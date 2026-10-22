@@ -14,24 +14,20 @@ export default function TableCard({
   const isLocked = Boolean(activeLock);
   const isLockedByOther = isLocked && activeLock.lockedById !== (currentUser?.id || currentUser?.uid);
   const activeOrder =
-    (table.activeOrderId && orders[table.activeOrderId]) ||
-    Object.values(orders).find(
-      (o) => o.tableId === table.id && o.status === 'serving'
-    ) ||
-    (table.status === 'occupied' &&
-      Object.values(orders).find(
-        (o) => o.tableId === table.id && o.status !== 'completed' && o.status !== 'cancelled'
-      )) ||
-    null;
+    (table.activeOrderId && orders[table.activeOrderId] && orders[table.activeOrderId].status !== 'completed' && orders[table.activeOrderId].status !== 'cancelled')
+      ? orders[table.activeOrderId]
+      : Object.values(orders).find(
+          (o) => o.tableId === table.id && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+        ) || null;
 
-  // Logic đơn giản: Có order là "Có khách", chưa có là "Trống"
-  const isOccupied = table.status === 'occupied' || Boolean(activeOrder && activeOrder.items && activeOrder.items.length > 0);
+  // Logic đơn giản: Có order đang phục vụ và có món là "Có khách", còn lại là "Trống"
+  const isOccupied = Boolean(activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0);
   const itemCount = activeOrder?.items?.reduce((sum, it) => sum + it.quantity, 0) || 0;
   const totalAmount = activeOrder?.total || 0;
 
-  const resolvedTable = activeOrder && (!table.activeOrderId || table.status !== 'occupied')
+  const resolvedTable = activeOrder
     ? { ...table, status: 'occupied', activeOrderId: activeOrder.id }
-    : table;
+    : { ...table, status: 'empty', activeOrderId: null };
 
   const handleCardClick = () => {
     triggerHaptic('light');
