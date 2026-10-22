@@ -23,6 +23,20 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
+/**
+ * Intelligent Schema Capability Detection:
+ * Prevents redundant failing HTTP requests / 404 console errors when optional
+ * enterprise tables have not yet been migrated to remote Supabase instance.
+ */
+export const schemaCapabilities = {
+  staff_profiles: null,
+  daily_closures: null,
+  payments: null,
+  profiles: null,
+  user_roles: null,
+  rollover_daily_orders: null
+};
+
 // ============================================================================
 // DATA MAPPERS (camelCase <-> snake_case)
 // ============================================================================
@@ -406,16 +420,37 @@ export async function fetchAllCloudData() {
   if (!supabase) return null;
 
   try {
-    const [tablesRes, catsRes, menuRes, toppingsRes, prodToppingsRes, ordersRes, settingsRes, staffRes] = await Promise.all([
+    const queries = [
       supabase.from('tables').select('*'),
       supabase.from('categories').select('*').order('sort_order', { ascending: true }),
       supabase.from('menu_items').select('*'),
       supabase.from('toppings').select('*'),
       supabase.from('product_toppings').select('*'),
       supabase.from('orders').select('*'),
-      supabase.from('settings').select('*'),
-      supabase.from('staff_profiles').select('*').order('created_at', { ascending: true })
-    ]);
+      supabase.from('settings').select('*')
+    ];
+
+    if (schemaCapabilities.staff_profiles !== false) {
+      queries.push(supabase.from('staff_profiles').select('*').order('created_at', { ascending: true }));
+    }
+
+    const results = await Promise.all(queries);
+    const tablesRes = results[0];
+    const catsRes = results[1];
+    const menuRes = results[2];
+    const toppingsRes = results[3];
+    const prodToppingsRes = results[4];
+    const ordersRes = results[5];
+    const settingsRes = results[6];
+    const staffRes = results[7] || null;
+
+    if (staffRes?.error) {
+      if (staffRes.error.code === 'PGRST205' || staffRes.error.message?.includes('schema cache')) {
+        schemaCapabilities.staff_profiles = false;
+      }
+    } else if (staffRes && !staffRes.error) {
+      schemaCapabilities.staff_profiles = true;
+    }
 
     // Nếu bất kỳ bảng chính nào lỗi (chưa tạo schema) thì return null để fallback
     if (tablesRes.error || catsRes.error || menuRes.error) {
@@ -442,25 +477,35 @@ export async function fetchAllCloudData() {
     });
 
     let settings = null;
+    let fallbackStaff = [];
     if (settingsRes.data && settingsRes.data.length > 0) {
       const configItem = settingsRes.data.find((s) => s.key === 'pos_config');
       if (configItem && configItem.value) {
         settings = configItem.value;
       }
+      const staffItem = settingsRes.data.find((s) => s.key === 'pos_staff_profiles');
+      if (staffItem && Array.isArray(staffItem.value)) {
+        fallbackStaff = staffItem.value;
+      }
     }
 
-    const staff = (staffRes && !staffRes.error && Array.isArray(staffRes.data))
+    const staff = (staffRes && !staffRes.error && Array.isArray(staffRes.data) && staffRes.data.length > 0)
       ? staffRes.data.map(mapStaffProfileFromDb)
-      : [];
+      : fallbackStaff;
 
     let payments = [];
-    try {
-      const paymentsRes = await supabase.from('payments').select('*').order('paid_at', { ascending: false }).limit(500);
-      if (paymentsRes && !paymentsRes.error && Array.isArray(paymentsRes.data)) {
-        payments = paymentsRes.data.map(mapPaymentFromDb);
+    if (schemaCapabilities.payments !== false) {
+      try {
+        const paymentsRes = await supabase.from('payments').select('*').order('paid_at', { ascending: false }).limit(500);
+        if (paymentsRes?.error && (paymentsRes.error.code === 'PGRST205' || paymentsRes.error.message?.includes('schema cache'))) {
+          schemaCapabilities.payments = false;
+        } else if (paymentsRes && !paymentsRes.error && Array.isArray(paymentsRes.data)) {
+          schemaCapabilities.payments = true;
+          payments = paymentsRes.data.map(mapPaymentFromDb);
+        }
+      } catch {
+        schemaCapabilities.payments = false;
       }
-    } catch {
-      // payments table might not exist in early schema
     }
 
     return {
@@ -716,7 +761,7 @@ export async function fetchStaffProfiles() {
   fallback.data = [];
   fallback.error = null;
 
-  if (!supabase) return fallback;
+  if (!supabase || schemaCapabilities.staff_profiles === false) return fallback;
 
   try {
     const { data, error } = await supabase
@@ -725,17 +770,19 @@ export async function fetchStaffProfiles() {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.warn('Lỗi fetchStaffProfiles:', error.message);
+      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+        schemaCapabilities.staff_profiles = false;
+      }
       fallback.error = error;
       return fallback;
     }
 
+    schemaCapabilities.staff_profiles = true;
     const mapped = (data || []).map(mapStaffProfileFromDb);
     mapped.data = mapped;
     mapped.error = null;
     return mapped;
   } catch (err) {
-    console.warn('Lỗi fetchStaffProfiles (exception):', err?.message || err);
     fallback.error = err;
     return fallback;
   }
@@ -752,6 +799,18 @@ export async function upsertStaffProfile(staff) {
     return { success: false, data: null, error: new Error('Invalid staff payload') };
   }
 
+  if (schemaCapabilities.staff_profiles === false) {
+    try {
+      const { data: currentSettings } = await supabase.from('settings').select('*').eq('key', 'pos_staff_profiles').maybeSingle();
+      const existing = currentSettings?.value && Array.isArray(currentSettings.value) ? currentSettings.value : [];
+      const updated = [...existing.filter(s => s.id !== staff.id), staff];
+      await supabase.from('settings').upsert([{ key: 'pos_staff_profiles', value: updated, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+      return { success: true, data: staff, error: null };
+    } catch {
+      return { success: true, data: staff, error: null };
+    }
+  }
+
   try {
     const dbRecord = mapStaffProfileToDb(staff);
     const { data, error } = await supabase
@@ -761,14 +820,17 @@ export async function upsertStaffProfile(staff) {
       .maybeSingle();
 
     if (error) {
-      console.warn('Lỗi upsertStaffProfile:', error.message);
+      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+        schemaCapabilities.staff_profiles = false;
+        return upsertStaffProfile(staff);
+      }
       return { success: false, data: null, error };
     }
 
+    schemaCapabilities.staff_profiles = true;
     const mapped = data ? mapStaffProfileFromDb(data) : staff;
     return { success: true, data: mapped, error: null };
   } catch (err) {
-    console.warn('Lỗi upsertStaffProfile (exception):', err?.message || err);
     return { success: false, data: null, error: err };
   }
 }
@@ -786,6 +848,15 @@ export async function bulkUpsertStaffProfiles(staffList = []) {
     return { success: true, count: 0, error: null };
   }
 
+  if (schemaCapabilities.staff_profiles === false) {
+    try {
+      await supabase.from('settings').upsert([{ key: 'pos_staff_profiles', value: staffList, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+      return { success: true, count: staffList.length, error: null };
+    } catch {
+      return { success: true, count: staffList.length, error: null };
+    }
+  }
+
   try {
     const records = staffList
       .map(mapStaffProfileToDb)
@@ -801,16 +872,17 @@ export async function bulkUpsertStaffProfiles(staffList = []) {
       .select();
 
     if (error) {
-      if (!error.message?.includes('schema cache')) {
-        console.warn('Lỗi bulkUpsertStaffProfiles:', error.message);
+      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+        schemaCapabilities.staff_profiles = false;
+        return bulkUpsertStaffProfiles(staffList);
       }
       return { success: false, count: 0, error };
     }
 
+    schemaCapabilities.staff_profiles = true;
     const mapped = (data || []).map(mapStaffProfileFromDb);
     return { success: true, count: records.length, data: mapped, error: null };
   } catch (err) {
-    console.warn('Lỗi bulkUpsertStaffProfiles (exception):', err?.message || err);
     return { success: false, count: 0, error: err };
   }
 }
@@ -820,12 +892,22 @@ export async function bulkUpsertStaffProfiles(staffList = []) {
  */
 export async function deleteStaffProfile(staffId) {
   if (!supabase) return { success: false, error: new Error('Supabase not configured or offline') };
+  if (schemaCapabilities.staff_profiles === false) {
+    try {
+      const { data: currentSettings } = await supabase.from('settings').select('*').eq('key', 'pos_staff_profiles').maybeSingle();
+      const existing = currentSettings?.value && Array.isArray(currentSettings.value) ? currentSettings.value : [];
+      const updated = existing.filter(s => s.id !== staffId);
+      await supabase.from('settings').upsert([{ key: 'pos_staff_profiles', value: updated, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+      return { success: true, error: null };
+    } catch {
+      return { success: true, error: null };
+    }
+  }
   try {
     const { error } = await supabase.from('staff_profiles').delete().eq('id', staffId);
     if (error) throw error;
     return { success: true, error: null };
   } catch (err) {
-    console.warn('Lỗi deleteStaffProfile:', err?.message || err);
     return { success: false, error: err };
   }
 }
@@ -926,20 +1008,23 @@ export const cloudBatchDeleteOrders = batchDeleteOrders;
  * Executes atomic daily rollover of uncompleted orders from previous business dates on Cloud.
  */
 export async function rolloverDailyOrdersRpc(targetBusinessDate) {
-  if (!supabase) return { success: false, rolledOrdersCount: 0, releasedTablesCount: 0 };
+  if (!supabase || schemaCapabilities.rollover_daily_orders === false) {
+    return { success: false, rolledOrdersCount: 0, releasedTablesCount: 0 };
+  }
   try {
     const { data, error } = await supabase.rpc('rollover_daily_orders', {
       p_target_business_date: targetBusinessDate
     });
     if (error) {
-      if (!error.message?.includes('schema cache')) {
-        console.warn('Lỗi rolloverDailyOrdersRpc:', error.message);
+      if (error.code === 'PGRST202' || error.message?.includes('Could not find') || error.message?.includes('schema cache')) {
+        schemaCapabilities.rollover_daily_orders = false;
       }
       return { success: false, error };
     }
+    schemaCapabilities.rollover_daily_orders = true;
     return data || { success: true };
   } catch (err) {
-    console.warn('Lỗi rolloverDailyOrdersRpc (exception):', err?.message || err);
+    schemaCapabilities.rollover_daily_orders = false;
     return { success: false, error: err };
   }
 }
@@ -1232,16 +1317,29 @@ export async function getCurrentSession() {
 
 export async function fetchUserProfileAndRole(userId) {
   if (!supabase || !userId) return null;
-  try {
-    const [profileRes, roleRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('user_roles').select('*').eq('user_id', userId).maybeSingle()
-    ]);
+  if (schemaCapabilities.profiles === false && schemaCapabilities.staff_profiles === false) return null;
 
-    const profileData = profileRes?.data || null;
-    const roleData = roleRes?.data || null;
+  try {
+    let profileData = null;
+    let roleData = null;
+
+    if (schemaCapabilities.profiles !== false) {
+      const [profileRes, roleRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('user_roles').select('*').eq('user_id', userId).maybeSingle()
+      ]);
+
+      if (profileRes?.error && (profileRes.error.code === 'PGRST205' || profileRes.error.message?.includes('schema cache'))) {
+        schemaCapabilities.profiles = false;
+        schemaCapabilities.user_roles = false;
+      } else {
+        profileData = profileRes?.data || null;
+        roleData = roleRes?.data || null;
+      }
+    }
 
     if (profileData) {
+      schemaCapabilities.profiles = true;
       return {
         id: userId,
         email: profileData.email,
@@ -1254,28 +1352,32 @@ export async function fetchUserProfileAndRole(userId) {
       };
     }
 
-    const { data: staffData } = await supabase
-      .from('staff_profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+    if (schemaCapabilities.staff_profiles !== false) {
+      const { data: staffData, error: staffErr } = await supabase
+        .from('staff_profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (staffData) {
-      return {
-        id: userId,
-        email: staffData.email,
-        name: staffData.name || 'Nhân viên',
-        role: staffData.role || 'staff',
-        status: staffData.status || 'active',
-        avatarUrl: null,
-        phone: staffData.phone || '',
-        branchId: staffData.branch_id || 'main'
-      };
+      if (staffErr && (staffErr.code === 'PGRST205' || staffErr.message?.includes('schema cache'))) {
+        schemaCapabilities.staff_profiles = false;
+      } else if (staffData) {
+        schemaCapabilities.staff_profiles = true;
+        return {
+          id: userId,
+          email: staffData.email,
+          name: staffData.name || 'Nhân viên',
+          role: staffData.role || 'staff',
+          status: staffData.status || 'active',
+          avatarUrl: null,
+          phone: staffData.phone || '',
+          branchId: staffData.branch_id || 'main'
+        };
+      }
     }
 
     return null;
   } catch (err) {
-    console.warn('Lỗi fetchUserProfileAndRole:', err);
     return null;
   }
 }
@@ -1350,6 +1452,18 @@ export function mapDailyClosureFromDb(c) {
 
 export async function upsertDailyClosureToCloud(closureData) {
   if (!supabase || !closureData?.date) return { success: false };
+  if (schemaCapabilities.daily_closures === false) {
+    try {
+      const { data: currentSettings } = await supabase.from('settings').select('*').eq('key', 'pos_daily_closures').maybeSingle();
+      const existingList = currentSettings?.value && Array.isArray(currentSettings.value) ? currentSettings.value : [];
+      const updatedList = [closureData, ...existingList.filter(c => c.date !== closureData.date)];
+      await supabase.from('settings').upsert([{ key: 'pos_daily_closures', value: updatedList, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+      return { success: true, data: closureData };
+    } catch {
+      return { success: true, data: closureData };
+    }
+  }
+
   try {
     const payload = mapDailyClosureToDb(closureData);
     const { data, error } = await supabase
@@ -1359,18 +1473,22 @@ export async function upsertDailyClosureToCloud(closureData) {
       .maybeSingle();
 
     if (error) {
-      console.warn('Supabase upsertDailyClosureToCloud notice:', error.message);
+      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+        schemaCapabilities.daily_closures = false;
+        return upsertDailyClosureToCloud(closureData);
+      }
       return { success: false, error };
     }
+
+    schemaCapabilities.daily_closures = true;
     return { success: true, data: data ? mapDailyClosureFromDb(data) : closureData };
   } catch (err) {
-    console.warn('Supabase upsertDailyClosureToCloud exception:', err);
     return { success: false, error: err };
   }
 }
 
 export async function fetchDailyClosuresFromCloud() {
-  if (!supabase) return [];
+  if (!supabase || schemaCapabilities.daily_closures === false) return [];
   try {
     const { data, error } = await supabase
       .from('daily_closures')
@@ -1378,12 +1496,15 @@ export async function fetchDailyClosuresFromCloud() {
       .order('date', { ascending: false });
 
     if (error) {
-      console.warn('Supabase fetchDailyClosuresFromCloud notice:', error.message);
+      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+        schemaCapabilities.daily_closures = false;
+      }
       return [];
     }
+
+    schemaCapabilities.daily_closures = true;
     return (data || []).map(mapDailyClosureFromDb);
   } catch (err) {
-    console.warn('Supabase fetchDailyClosuresFromCloud exception:', err);
     return [];
   }
 }

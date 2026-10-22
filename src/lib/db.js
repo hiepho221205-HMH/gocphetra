@@ -26,14 +26,15 @@ db.version(2).stores({
 export async function migrateFromLocalStorage(STORAGE_KEYS) {
   if (typeof window === 'undefined' || !localStorage) return;
   try {
-    const tableCount = await db.tables.count();
+    const tablesStore = db.table('tables');
+    const tableCount = await tablesStore.count();
     if (tableCount === 0) {
       // 1. Tables
       const savedTables = localStorage.getItem(STORAGE_KEYS.TABLES);
       if (savedTables) {
         const parsed = JSON.parse(savedTables);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          await db.tables.bulkPut(parsed);
+          await tablesStore.bulkPut(parsed);
         }
       }
 
@@ -76,15 +77,16 @@ export async function migrateFromLocalStorage(STORAGE_KEYS) {
  */
 export async function dualWriteToIndexedDB(tableName, records) {
   try {
-    if (!db[tableName]) return;
+    const store = db.table(tableName);
+    if (!store) return;
     if (Array.isArray(records)) {
       if (records.length > 0) {
-        await db[tableName].bulkPut(records);
+        await store.bulkPut(records);
       }
     } else if (records && typeof records === 'object') {
       const recordsArr = Object.values(records);
       if (recordsArr.length > 0) {
-        await db[tableName].bulkPut(recordsArr);
+        await store.bulkPut(recordsArr);
       }
     }
   } catch (err) {
