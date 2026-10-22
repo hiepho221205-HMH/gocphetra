@@ -246,7 +246,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-64px)] sm:h-[780px] ambient-clay-bg overflow-hidden select-none relative">
+    <div className="flex flex-col h-full ambient-clay-bg overflow-hidden select-none relative">
       {/* ================= 1. HEADER TRANG GỌI MÓN ================= */}
       <header className="px-3.5 py-3 bg-white/95 backdrop-blur-md border-b border-gray-100 flex items-center justify-between shrink-0 z-20 shadow-xs">
         <div className="flex items-center gap-2.5">
@@ -279,29 +279,14 @@ export default function OrderView({ table, onBack, onGoToBill }) {
             </p>
           </div>
         </div>
-
-        {/* Thanh toán nhanh nếu bàn đã có đơn */}
-        {table.status === 'occupied' && onGoToBill && (
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('medium');
-              onGoToBill(table);
-            }}
-            className="px-3 py-1.5 bg-gradient-to-r from-amber-50 to-amber-100 text-amber-900 border border-amber-200 rounded-[14px] text-xs font-black flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer"
-          >
-            <Receipt className="w-3.5 h-3.5 text-amber-700 stroke-[2.2]" />
-            <span>Thanh toán</span>
-          </button>
-        )}
       </header>
 
       {/* ================= 2. BỐ CỤC 2 CỘT POS (SIDEBAR TRÁI + DANH SÁCH PHẢI) ================= */}
-      <div className="flex flex-1 overflow-hidden pb-16">
+      <div className="flex flex-1 overflow-hidden">
         {/* ================= CỘT TRÁI: SIDEBAR DANH MỤC (~114px) ================= */}
         <aside className="w-[114px] sm:w-[124px] shrink-0 border-r border-gray-100 bg-white/90 backdrop-blur-md flex flex-col justify-between overflow-hidden">
           {/* Danh sách danh mục cuộn dọc */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-1.5 space-y-1.5">
+          <div className="flex-1 overflow-y-auto no-scrollbar p-1.5 space-y-1.5 pb-20">
             {/* TAB HỆ THỐNG CỐ ĐỊNH: "Tất cả" */}
             <div
               onClick={() => {
@@ -375,13 +360,6 @@ export default function OrderView({ table, onBack, onGoToBill }) {
               );
             })}
           </div>
-
-          {/* Footer sidebar */}
-          <div className="p-2 border-t border-gray-100 text-center bg-[#F5F7F4]/60">
-            <span className="text-[10px] text-gray-400 font-bold block">
-              {menu.length} món
-            </span>
-          </div>
         </aside>
 
         {/* ================= CỘT PHẢI: DANH SÁCH MÓN (~276px) ================= */}
@@ -420,7 +398,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
           </div>
 
           {/* Scrollable Products List */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-2.5 space-y-2.5 pb-8">
+          <div className="flex-1 overflow-y-auto no-scrollbar p-2.5 space-y-2.5 pb-24">
             {filteredMenu.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-gray-400">
                 <Coffee className="w-10 h-10 mb-2 stroke-[1.5] text-gray-300" />

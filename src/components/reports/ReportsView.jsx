@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { usePos } from '../../store/PosContext';
 import {
-  TrendingUp,
   Banknote,
   QrCode,
   Calendar,
@@ -11,7 +10,6 @@ import {
   Receipt,
   Info,
   Clock,
-  CheckCircle2,
   AlertCircle
 } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
@@ -206,38 +204,6 @@ export default function ReportsView() {
             </button>
           );
         })}
-      </div>
-
-      {/* ================= 3. HERO REVENUE CARD (3D SOFT CLAY) ================= */}
-      <div className="clay-card bg-gradient-to-br from-[#214E34] via-[#265A3C] to-[#1E452E] text-white p-5 relative overflow-hidden space-y-3 shadow-lg">
-        {/* Soft specular ambient glow */}
-        <div className="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-emerald-400/20 blur-2xl pointer-events-none" />
-
-        <div className="flex items-center justify-between text-xs text-emerald-200">
-          <span className="flex items-center gap-1.5 font-black uppercase tracking-wider text-[11px]">
-            <TrendingUp className="w-4 h-4 text-emerald-300 stroke-[2.5]" />
-            Tổng doanh thu thực thu
-          </span>
-          <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-[10px] font-black text-white">
-            {activeFilter.desc}
-          </span>
-        </div>
-
-        {/* Large Currency Display */}
-        <div className="text-3xl font-black tracking-tight text-white font-mono">
-          {formatVND(totalRevenue)}
-        </div>
-
-        {/* Breakdown sub-summary */}
-        <div className="flex items-center justify-between text-[11px] text-emerald-200/90 pt-2.5 border-t border-white/20 font-bold">
-          <span className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-            {totalOrdersCount} đơn đã thanh toán
-          </span>
-          <span>
-            AOV: <b className="text-white font-black">{formatVND(averageOrderValue)}</b>/đơn
-          </span>
-        </div>
       </div>
 
       {/* ================= 4. PAYMENT METHOD BREAKDOWN ================= */}
