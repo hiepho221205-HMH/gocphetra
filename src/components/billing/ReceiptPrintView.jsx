@@ -227,56 +227,64 @@ export default function ReceiptPrintView({
             }}
           >
             {/* Header Section */}
-            <div className="text-center pb-2 border-b border-dashed border-gray-400 space-y-1">
+            <div className="text-center pb-1.5 border-b border-dashed border-gray-400">
               {/* Thermal Logo (Square, minimum 50mm x 50mm) */}
               {model.settings.showLogo && (model.store.logoThermalUrl || '/default-logo.png') && (
-                <div className="flex justify-center pb-2 pt-0.5">
+                <div className="flex justify-center pt-0.5 pb-0">
                   <img
                     src={model.store.logoThermalUrl || model.store.logoOriginalUrl || '/default-logo.png'}
                     alt="Logo GÓC - PHÊ & TRÀ"
                     className={`receipt-thermal-logo-img ${
-                      is80 ? 'w-[220px] h-[220px]' : 'w-[195px] h-[195px]'
-                    } object-contain mx-auto block filter contrast-125`}
+                      is80 ? 'w-[210px]' : 'w-[175px]'
+                    } h-auto max-h-[190px] object-contain mx-auto block filter contrast-125`}
                   />
                 </div>
               )}
 
-              {/* Store Name */}
-              {model.settings.showStoreName && (
-                <h2 className="font-black text-sm tracking-tight uppercase text-black font-sans leading-none pt-0.5">
-                  {model.store.storeName || 'GÓC • PHÊ & TRÀ'}
-                </h2>
+              {/* Store Name: Only shown if logo is disabled/missing to eliminate duplicate text and save paper */}
+              {(!model.settings.showLogo || !(model.store.logoThermalUrl || '/default-logo.png')) &&
+                model.settings.showStoreName && (
+                  <h2 className="font-black text-sm tracking-tight uppercase text-black font-sans leading-none pb-1">
+                    {model.store.storeName || 'GÓC • PHÊ & TRÀ'}
+                  </h2>
               )}
 
-              {/* Address */}
-              {model.settings.showAddress && model.store.storeAddress && (
-                <p className="text-[9.5px] text-gray-600 font-sans leading-tight">
-                  {model.store.storeAddress}
-                </p>
-              )}
+              {/* Unified Brand Metadata Block (Address, Hotline, Wifi) */}
+              {(Boolean(model.settings.showAddress && model.store.storeAddress) ||
+                Boolean(model.settings.showPhone && model.store.contactPhone) ||
+                Boolean(model.settings.showWifi && model.store.wifiPassword && model.store.wifiOnReceipt)) && (
+                <div className="receipt-brand-meta space-y-1 text-[9.5px] text-gray-700 font-sans leading-tight mt-1.5">
+                  {/* Address */}
+                  {model.settings.showAddress && model.store.storeAddress && (
+                    <p className="m-0 p-0 leading-tight">
+                      {model.store.storeAddress}
+                    </p>
+                  )}
 
-              {/* Hotline */}
-              {model.settings.showPhone && model.store.contactPhone && (
-                <p className="text-[9.5px] text-gray-600 font-sans">
-                  Hotline: {model.store.contactPhone}
-                </p>
-              )}
+                  {/* Hotline */}
+                  {model.settings.showPhone && model.store.contactPhone && (
+                    <p className="m-0 p-0">
+                      Hotline: {model.store.contactPhone}
+                    </p>
+                  )}
 
-              {/* Wifi */}
-              {model.settings.showWifi && model.store.wifiPassword && model.store.wifiOnReceipt && (
-                <p className="text-[9.5px] text-gray-600 font-sans">
-                  Wifi: <span className="font-bold text-black">{model.store.wifiPassword}</span>
-                </p>
+                  {/* Wifi */}
+                  {model.settings.showWifi && model.store.wifiPassword && model.store.wifiOnReceipt && (
+                    <p className="m-0 p-0">
+                      Wifi: <span className="font-bold text-black">{model.store.wifiPassword}</span>
+                    </p>
+                  )}
+                </div>
               )}
 
               {/* Receipt Title */}
-              <div className="mt-1 pt-1 border-t border-dashed border-gray-300 font-extrabold text-[11px] uppercase tracking-wide text-black">
+              <div className="receipt-title-box mt-1.5 pt-1.5 border-t border-dashed border-gray-300 font-extrabold text-[11px] uppercase tracking-wide text-black">
                 {isPrePrint ? '--- PHIẾU TẠM TÍNH ---' : '--- HÓA ĐƠN THANH TOÁN ---'}
               </div>
 
               {/* Reprint Warning Badge */}
               {model.isReprint && (
-                <div className="text-[9.5px] font-bold text-gray-500 tracking-wider">
+                <div className="text-[9.5px] font-bold text-gray-500 tracking-wider pt-0.5">
                   [IN LẠI LẦN {model.reprintCount}]
                 </div>
               )}
@@ -454,21 +462,32 @@ export default function ReceiptPrintView({
             width: ${is80 ? '78mm' : '56mm'} !important;
             max-width: ${is80 ? '78mm' : '56mm'} !important;
             margin: 0 !important;
-            padding: 2mm 3mm !important;
+            padding: 1.5mm 2.5mm !important;
             box-shadow: none !important;
             border: none !important;
             background: white !important;
           }
           #printable-receipt .receipt-thermal-logo-img {
             width: ${is80 ? '60mm' : '50mm'} !important;
-            height: ${is80 ? '60mm' : '50mm'} !important;
-            min-width: ${is80 ? '60mm' : '50mm'} !important;
-            min-height: ${is80 ? '60mm' : '50mm'} !important;
-            max-width: ${is80 ? '60mm' : '50mm'} !important;
+            height: auto !important;
             max-height: ${is80 ? '60mm' : '50mm'} !important;
+            min-width: unset !important;
+            min-height: unset !important;
             object-fit: contain !important;
-            margin: 0 auto 2.5mm auto !important;
+            margin: 0 auto 1.5mm auto !important;
             display: block !important;
+          }
+          #printable-receipt .receipt-brand-meta {
+            margin-top: 1mm !important;
+            padding-top: 0 !important;
+          }
+          #printable-receipt .receipt-brand-meta p {
+            margin: 0.6mm 0 !important;
+            line-height: 1.25 !important;
+          }
+          #printable-receipt .receipt-title-box {
+            margin-top: 1.2mm !important;
+            padding-top: 1mm !important;
           }
         }
       `}</style>

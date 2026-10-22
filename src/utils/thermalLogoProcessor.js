@@ -108,6 +108,106 @@ export function isDarkBackground(imageData) {
 }
 
 /**
+ * Computes content bounding box for an image data buffer
+ * to automatically crop transparent or white background margins.
+ * @param {ImageData|{data: Uint8ClampedArray, width: number, height: number}} imageData
+ * @param {boolean} isDark
+ * @returns {{ minX: number, minY: number, maxX: number, maxY: number, hasContent: boolean }}
+ */
+export function findContentBoundingBox(imageData, isDark = false) {
+  const { data, width, height } = imageData;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  let hasContent = false;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const a = data[idx + 3];
+
+      let isContent = false;
+      if (a > 30) {
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (isDark) {
+          isContent = lum > 45 || (g > r * 1.15 && g > b * 1.15);
+        } else {
+          isContent = lum < 235;
+        }
+      }
+
+      if (isContent) {
+        hasContent = true;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  return { minX, minY, maxX, maxY, hasContent };
+}
+
+/**
+ * Crops whitespace and margins from an HTMLCanvasElement tightly around content
+ * @param {HTMLCanvasElement} sourceCanvas
+ * @param {number} padding
+ * @returns {HTMLCanvasElement}
+ */
+export function cropWhitespaceFromCanvas(sourceCanvas, padding = 8) {
+  if (!sourceCanvas || typeof document === 'undefined') {
+    return sourceCanvas;
+  }
+
+  const width = sourceCanvas.width;
+  const height = sourceCanvas.height;
+  const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const isDark = isDarkBackground(imgData);
+
+  const { minX, minY, maxX, maxY, hasContent } = findContentBoundingBox(imgData, isDark);
+
+  if (!hasContent) {
+    return sourceCanvas;
+  }
+
+  const contentW = maxX - minX + 1;
+  const contentH = maxY - minY + 1;
+
+  // If bounding box already occupies more than 96% of canvas, no need to crop
+  if (contentW >= width * 0.96 && contentH >= height * 0.96) {
+    return sourceCanvas;
+  }
+
+  const pad = Math.max(0, padding);
+  const croppedW = contentW + pad * 2;
+  const croppedH = contentH + pad * 2;
+
+  const croppedCanvas = document.createElement('canvas');
+  croppedCanvas.width = croppedW;
+  croppedCanvas.height = croppedH;
+  const croppedCtx = croppedCanvas.getContext('2d');
+
+  if (isDark) {
+    croppedCtx.fillStyle = '#000000';
+    croppedCtx.fillRect(0, 0, croppedW, croppedH);
+  }
+
+  croppedCtx.drawImage(
+    sourceCanvas,
+    minX, minY, contentW, contentH,
+    pad, pad, contentW, contentH
+  );
+
+  return croppedCanvas;
+}
+
+/**
  * Processes an HTMLCanvasElement or ImageData into a 1-bit monochrome thermal bitmap
  * using Floyd-Steinberg error diffusion dithering.
  *
@@ -279,7 +379,19 @@ export async function processThermalLogo(imageSource, options = {}) {
 
   const origWidth = img.naturalWidth || img.width;
   const origHeight = img.naturalHeight || img.height;
-  const aspectRatio = origHeight / origWidth;
+
+  // Step 1: Draw to raw canvas to analyze and auto-crop whitespace/margins
+  const rawCanvas = document.createElement('canvas');
+  rawCanvas.width = origWidth;
+  rawCanvas.height = origHeight;
+  const rawCtx = rawCanvas.getContext('2d', { willReadFrequently: true });
+  rawCtx.drawImage(img, 0, 0);
+
+  // Auto-crop transparent / white margins tightly around actual logo content
+  const croppedCanvas = cropWhitespaceFromCanvas(rawCanvas, options.padding ?? 8);
+  const croppedWidth = croppedCanvas.width;
+  const croppedHeight = croppedCanvas.height;
+  const aspectRatio = croppedHeight / croppedWidth;
 
   // Process 58mm (Target 384px or scaled appropriately)
   const targetW58 = options.width58 || Math.min(360, THERMAL_WIDTH_58MM);
@@ -291,7 +403,7 @@ export async function processThermalLogo(imageSource, options = {}) {
   const ctx58 = canvas58.getContext('2d', { willReadFrequently: true });
   ctx58.fillStyle = '#FFFFFF';
   ctx58.fillRect(0, 0, targetW58, targetH58);
-  ctx58.drawImage(img, 0, 0, targetW58, targetH58);
+  ctx58.drawImage(croppedCanvas, 0, 0, targetW58, targetH58);
 
   const imgData58 = ctx58.getImageData(0, 0, targetW58, targetH58);
   const isDark = isDarkBackground(imgData58);
@@ -310,7 +422,7 @@ export async function processThermalLogo(imageSource, options = {}) {
   const ctx80 = canvas80.getContext('2d', { willReadFrequently: true });
   ctx80.fillStyle = '#FFFFFF';
   ctx80.fillRect(0, 0, targetW80, targetH80);
-  ctx80.drawImage(img, 0, 0, targetW80, targetH80);
+  ctx80.drawImage(croppedCanvas, 0, 0, targetW80, targetH80);
 
   const imgData80 = ctx80.getImageData(0, 0, targetW80, targetH80);
   const dithered80 = applyThermalDithering(imgData80, isDark);

@@ -14,7 +14,8 @@ import {
   validateLogoFile,
   isDarkBackground,
   applyThermalDithering,
-  imageToEscPosRasterBytes
+  imageToEscPosRasterBytes,
+  findContentBoundingBox
 } from '../src/utils/thermalLogoProcessor.js';
 import {
   mapStoreSettingsFromDb,
@@ -214,6 +215,27 @@ describe('GÓC POS — Store Configuration, Receipt Engine & Thermal Printing Su
       assert.equal(model.store.logoThermalUrl, '/default-logo.png');
       assert.equal(model.store.logoOriginalUrl, '/default-logo.png');
       assert.equal(model.settings.showLogo, true);
+    });
+
+    test('2.6 - findContentBoundingBox detects and crops excess transparent/white margins accurately', () => {
+      // 10x10 canvas: content only in (3, 3) to (6, 6)
+      const width = 10;
+      const height = 10;
+      const data = new Uint8ClampedArray(width * height * 4);
+      // Initialize with white background (255, 255, 255, 255)
+      data.fill(255);
+      // Place black pixels at [3,3] and [6,6]
+      const idx1 = (3 * width + 3) * 4;
+      data[idx1] = 0; data[idx1 + 1] = 0; data[idx1 + 2] = 0; data[idx1 + 3] = 255;
+      const idx2 = (6 * width + 6) * 4;
+      data[idx2] = 0; data[idx2 + 1] = 0; data[idx2 + 2] = 0; data[idx2 + 3] = 255;
+
+      const bbox = findContentBoundingBox({ data, width, height }, false);
+      assert.equal(bbox.hasContent, true);
+      assert.equal(bbox.minX, 3);
+      assert.equal(bbox.minY, 3);
+      assert.equal(bbox.maxX, 6);
+      assert.equal(bbox.maxY, 6);
     });
   });
 
