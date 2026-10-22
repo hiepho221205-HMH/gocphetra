@@ -306,11 +306,6 @@ export default function ReceiptPrintView({
                 </div>
               )}
 
-              <div className="flex justify-between">
-                <span>Thu ngân:</span>
-                <span>{model.cashier}</span>
-              </div>
-
               {model.settings.showOrderTime && (
                 <div className="flex justify-between">
                   <span>Giờ gọi món:</span>

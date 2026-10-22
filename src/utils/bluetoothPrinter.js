@@ -343,7 +343,6 @@ export function buildReceipt57mmBytes(order, settings = {}, options = {}) {
   addBytes(ESC_POS.ALIGN_LEFT);
   addLine(formatKeyValue57mm('So HD:', order.id || 'N/A'));
   addLine(formatKeyValue57mm('Ban:', order.tableName || 'Mang ve'));
-  addLine(formatKeyValue57mm('Thu ngan:', order.cashier || 'Thu ngan'));
   addLine(formatKeyValue57mm('Gio vao:', (order.createdAt || '').slice(11, 16) || '--:--'));
   addLine(formatKeyValue57mm('Gio ra:', new Date().toTimeString().slice(0, 5)));
   addLine(separator57mm('-'));
@@ -575,7 +574,6 @@ export function buildReceiptThermalBytes(model, options = {}) {
   if (model.settings?.showTable !== false) {
     addLine(kv('Ban:', model.tableName || 'Mang ve'));
   }
-  addLine(kv('Thu ngan:', model.cashier || 'Thu ngan'));
   if (model.settings?.showOrderTime !== false) {
     addLine(kv('Gio goi mon:', model.orderCreatedAtFormatted || '--:--'));
   }

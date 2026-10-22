@@ -317,6 +317,7 @@ export function createReceiptSnapshotRecord(order, storeSettings, paperWidth = '
       createdAt: order.created_at || order.createdAt || now,
       finishedAt: order.finished_at || order.finishedAt || now
     },
+    cashier: order.cashier || 'Thu ngân',
     paper_width: paperWidth,
     issued_at: now,
     reprint_count: 0,

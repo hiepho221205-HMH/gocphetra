@@ -428,6 +428,25 @@ describe('GÓC POS — Store Configuration, Receipt Engine & Thermal Printing Su
       // Revenue is undisturbed
       assert.equal(revenueBefore, 1000000);
     });
+
+    test('4.4 - Cashier identity is preserved in snapshot and model for auditing, but omitted from printed metadata', () => {
+      const order = {
+        id: 'ORD-AUDIT-99',
+        tableName: 'Bàn 05',
+        cashier: 'Nguyễn Văn Thu Ngân',
+        staffName: 'Nguyễn Văn Thu Ngân',
+        total: 50000,
+        items: []
+      };
+
+      const snapshot = createReceiptSnapshotRecord(order, { currentCashier: 'Nguyễn Văn Thu Ngân' });
+      // Database snapshot STILL securely retains cashier
+      assert.equal(snapshot.cashier, 'Nguyễn Văn Thu Ngân');
+      assert.equal(snapshot.order_snapshot.cashier, 'Nguyễn Văn Thu Ngân');
+
+      const model = buildReceiptModel({ order });
+      assert.equal(model.cashier, 'Nguyễn Văn Thu Ngân');
+    });
   });
 
   // =========================================================================
@@ -467,6 +486,29 @@ describe('GÓC POS — Store Configuration, Receipt Engine & Thermal Printing Su
 
       const row80 = formatTableRow80mm('Trà tắc hạt chia thơm mát mùa hè', '5', '100.000đ');
       assert.equal(row80.length, 48);
+    });
+
+    test('5.3 - buildReceiptThermalBytes strictly omits cashier line on printed receipt', () => {
+      const order = {
+        id: 'ORD-NOCASHIER',
+        tableName: 'Bàn 02',
+        cashier: 'Trần Văn Nhân Viên',
+        items: [{ name: 'Trà đào', quantity: 1, lineTotal: 30000 }],
+        total: 30000
+      };
+
+      const model = buildReceiptModel({ order, overridePaperWidth: '58mm' });
+      const bytes = buildReceiptThermalBytes(model);
+      const decodedText = new TextDecoder().decode(bytes);
+
+      // Verify "Thu ngan:" or cashier name is NOT in the thermal print output
+      assert.equal(decodedText.includes('Thu ngan:'), false);
+      assert.equal(decodedText.includes('Tran Van Nhan Vien'), false);
+      // But verify essential metadata remains
+      assert.equal(decodedText.includes('So HD:'), true);
+      assert.equal(decodedText.includes('Ban:'), true);
+      assert.equal(decodedText.includes('Gio goi mon:'), true);
+      assert.equal(decodedText.includes('Gio xuat HD:'), true);
     });
   });
 });
