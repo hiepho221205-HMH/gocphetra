@@ -244,7 +244,7 @@ async function run() {
 
     // 7. Device A mở đơn và tiến hành thanh toán
     console.log('\n--- BƯỚC 6: Device A thanh toán hoàn tất đơn hàng ---');
-    const payBtnA = pageA.locator(`[data-table-id="${TEST_TABLE_ID}"] button:has-text("Thanh toán")`).or(pageA.locator('button:has-text("Thanh toán")')).first();
+    const payBtnA = pageA.locator(`[data-table-id="${TEST_TABLE_ID}"] button:has-text("Thanh toán")`).first();
     await payBtnA.waitFor({ state: 'visible', timeout: 5000 });
     await payBtnA.click();
     await pageA.waitForTimeout(1200);

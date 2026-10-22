@@ -797,7 +797,9 @@ export async function bulkUpsertStaffProfiles(staffList = []) {
       .select();
 
     if (error) {
-      console.warn('Lỗi bulkUpsertStaffProfiles:', error.message);
+      if (!error.message?.includes('schema cache')) {
+        console.warn('Lỗi bulkUpsertStaffProfiles:', error.message);
+      }
       return { success: false, count: 0, error };
     }
 
@@ -926,7 +928,9 @@ export async function rolloverDailyOrdersRpc(targetBusinessDate) {
       p_target_business_date: targetBusinessDate
     });
     if (error) {
-      console.warn('Lỗi rolloverDailyOrdersRpc:', error.message);
+      if (!error.message?.includes('schema cache')) {
+        console.warn('Lỗi rolloverDailyOrdersRpc:', error.message);
+      }
       return { success: false, error };
     }
     return data || { success: true };

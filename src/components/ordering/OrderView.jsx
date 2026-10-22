@@ -582,9 +582,10 @@ export default function OrderView({ table, onBack, onGoToBill }) {
             // Tiếp tục chọn món trên OrderView
             setIsOrderDetailsOpen(false);
           }}
-          onSave={() => {
+          onSave={(tbl, itemsToSave) => {
             triggerHaptic('success');
-            const res = saveOrderForTable(table.id, cartItems);
+            const items = itemsToSave && Array.isArray(itemsToSave) ? itemsToSave : cartItems;
+            const res = saveOrderForTable(table.id, items);
             if (res && res.success) {
               setIsDirty(false);
               setIsOrderDetailsOpen(false);
@@ -645,31 +646,35 @@ export default function OrderView({ table, onBack, onGoToBill }) {
                 Đơn hàng đang có món chưa lưu. Bạn muốn lưu vào đơn của bàn trước khi thoát hay hủy bỏ?
               </p>
 
-              <div className="grid grid-cols-2 gap-3 w-full">
+              <div className="flex flex-col gap-2.5 w-full">
+                {/* NÚT CHÍNH (PRIMARY CTA): Lưu đơn & Thoát */}
                 <button
                   type="button"
                   onClick={async () => {
+                    triggerHaptic('success');
                     setIsConfirmDiscardOpen(false);
                     await handleSaveOrder();
                   }}
-                  className="w-full min-h-[44px] py-2.5 px-3 rounded-[16px] text-xs font-black text-white clay-btn-primary flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full min-h-[48px] py-3 px-4 rounded-[18px] text-xs font-black text-white clay-btn-primary flex items-center justify-center gap-2 cursor-pointer shadow-float"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
-                  <span>Lưu đơn</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-200 stroke-[2.5]" />
+                  <span>Lưu đơn & Thoát về sơ đồ bàn</span>
                 </button>
+
+                {/* NÚT PHỤ: Hủy các món vừa chọn */}
                 <button
                   type="button"
                   onClick={() => {
-                    triggerHaptic('light');
+                    triggerHaptic('warning');
                     setIsConfirmDiscardOpen(false);
                     setIsDirty(false);
                     setCartItems([]);
                     onBack();
                   }}
-                  className="w-full min-h-[44px] py-2.5 px-3 rounded-[16px] text-xs font-bold text-gray-700 clay-pill-btn flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full min-h-[42px] py-2 px-3 rounded-[16px] text-[11.5px] font-bold text-red-600 bg-red-50/80 hover:bg-red-100/80 border border-red-200/80 flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                 >
-                  <X className="w-3.5 h-3.5" />
-                  <span>Thoát</span>
+                  <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                  <span>Hủy các món vừa chọn (Không lưu)</span>
                 </button>
               </div>
             </div>

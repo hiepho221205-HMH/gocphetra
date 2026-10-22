@@ -11,7 +11,9 @@ export function useVersionChecker() {
     // Only check in production or if version.json is reachable
     setIsChecking(true);
     try {
-      const res = await fetch(`/version.json?t=${Date.now()}`, {
+      const baseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || './';
+      const versionUrl = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}version.json?t=${Date.now()}`;
+      const res = await fetch(versionUrl, {
         cache: 'no-store'
       });
       if (res.ok) {

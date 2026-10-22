@@ -263,11 +263,7 @@ export function PosProvider({ children }) {
 
     if (typeof window !== 'undefined') {
       try {
-        if (window.location.hash && window.location.hash.startsWith('#/')) {
-          window.location.hash = toPath;
-        } else {
-          window.history.pushState({}, '', toPath);
-        }
+        window.location.hash = toPath;
       } catch (e) {
         try {
           window.location.hash = toPath;
@@ -283,11 +279,7 @@ export function PosProvider({ children }) {
     setRouteParams({});
     if (typeof window !== 'undefined') {
       try {
-        if (window.location.hash && window.location.hash.startsWith('#/')) {
-          window.location.hash = targetPath;
-        } else {
-          window.history.pushState({}, '', targetPath);
-        }
+        window.location.hash = targetPath;
       } catch (e) {
         try {
           window.location.hash = targetPath;
@@ -403,6 +395,9 @@ export function PosProvider({ children }) {
       if (!isMounted) return;
       if (newSession?.user) {
         await hydrateUserAndRole(newSession.user, newSession);
+        try {
+          syncFromCloud(false);
+        } catch (_) {}
       } else if (event === 'SIGNED_OUT' || !newSession) {
         setSession(null);
         setAuthUser(null);
@@ -440,6 +435,9 @@ export function PosProvider({ children }) {
 
     setActiveTab('tables');
     showToast?.(`Chào mừng ${hydrated.name} (${hydrated.role.toUpperCase()}) đăng nhập GÓC POS`, 'success');
+    try {
+      syncFromCloud(false);
+    } catch (_) {}
     return { success: true, user: res.user, role: hydrated.role };
   };
 

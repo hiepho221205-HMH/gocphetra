@@ -11,7 +11,13 @@ export function parseRouteFromLocation(loc = (typeof window !== 'undefined' ? wi
       path = parts[0] || '/tables';
       search = parts[1] ? `?${parts[1]}` : '';
     } else if (loc.pathname && loc.pathname !== '/') {
-      path = loc.pathname;
+      const segments = loc.pathname.split('/').filter(Boolean);
+      const last = segments[segments.length - 1];
+      if (['tables', 'menu', 'orders', 'reports', 'settings'].includes(last)) {
+        path = `/${last}`;
+      } else {
+        path = '/tables';
+      }
       search = loc.search || '';
     }
   }
