@@ -18,6 +18,15 @@ import SafeLogoutModal from './SafeLogoutModal';
 import ProfileNavCard from './ProfileNavCard';
 import AccessDeniedView from '../common/AccessDeniedView';
 import {
+  isBluetoothSupported,
+  connectBluetoothPrinter,
+  disconnectBluetoothPrinter,
+  getBluetoothPrinterStatus,
+  printReceipt57mm
+} from '../../utils/bluetoothPrinter';
+import {
+  Bluetooth,
+  Printer,
   User,
   Users,
   Store,
@@ -58,6 +67,71 @@ export default function ManagementProfileView({ onBack }) {
   const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [btStatus, setBtStatus] = useState(() => getBluetoothPrinterStatus());
+  const [isConnectingBt, setIsConnectingBt] = useState(false);
+  const [isTestingBt, setIsTestingBt] = useState(false);
+
+  useEffect(() => {
+    setBtStatus(getBluetoothPrinterStatus());
+  }, []);
+
+  const handleConnectBt = async () => {
+    setIsConnectingBt(true);
+    try {
+      if (!isBluetoothSupported()) {
+        showToast?.('Trình duyệt không hỗ trợ Web Bluetooth. Vui lòng mở bằng Chrome hoặc Edge!', 'error');
+        return;
+      }
+      const res = await connectBluetoothPrinter();
+      setBtStatus(getBluetoothPrinterStatus());
+      showToast?.(`Đã kết nối máy in Bluetooth: ${res.deviceName}`, 'success');
+    } catch (err) {
+      if (err.name !== 'NotFoundError') {
+        showToast?.(err.message || 'Lỗi kết nối máy in Bluetooth', 'error');
+      }
+    } finally {
+      setIsConnectingBt(false);
+    }
+  };
+
+  const handleDisconnectBt = () => {
+    disconnectBluetoothPrinter();
+    setBtStatus(getBluetoothPrinterStatus());
+    showToast?.('Đã ngắt kết nối máy in Bluetooth', 'info');
+  };
+
+  const handleTestPrintBt = async () => {
+    setIsTestingBt(true);
+    try {
+      if (!btStatus.isConnected) {
+        showToast?.('Vui lòng kết nối máy in trước khi in thử!', 'error');
+        return;
+      }
+      const mockTestOrder = {
+        id: 'TEST-57MM',
+        tableName: 'Test In',
+        cashier: displayName,
+        subtotal: 55000,
+        total: 55000,
+        discountPercent: 0,
+        surcharge: 0,
+        paymentMethod: 'cash',
+        items: [
+          { name: 'Cà phê đen đá (Test)', quantity: 1, price: 25000, lineTotal: 25000 },
+          { name: 'Bạc xỉu đặc biệt', quantity: 1, price: 30000, lineTotal: 30000 }
+        ]
+      };
+      await printReceipt57mm(mockTestOrder, settings, {
+        useNoAccents: settings?.printNoAccents !== false
+      });
+      showToast?.('Đã in thử nghiệm 57mm thành công!', 'success');
+    } catch (err) {
+      showToast?.('Lỗi in thử nghiệm: ' + err.message, 'error');
+    } finally {
+      setIsTestingBt(false);
+    }
+  };
+
 
   // Subpage Navigation: 'main' | 'profile' | 'staff' | 'store-config' | 'data-cleanup' | 'rbac'
   const [currentView, setCurrentView] = useState('main');
@@ -580,6 +654,95 @@ export default function ManagementProfileView({ onBack }) {
               </>
             )}
           </button>
+        </div>
+      </div>
+
+            {/* ========================================================= */}
+      {/* 3.5. CẤU HÌNH MÁY IN BLUETOOTH (57MM)                      */}
+      {/* ========================================================= */}
+      <div className="mt-4 clay-card p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className={`w-8 h-8 rounded-[12px] flex items-center justify-center shadow-inner ${
+              btStatus.isConnected
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-blue-50 text-blue-700'
+            }`}>
+              <Bluetooth className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-900 text-xs">Máy in Bluetooth (Khổ 57mm)</h4>
+              <p className="text-[10px] text-gray-400 font-medium">
+                {btStatus.isConnected
+                  ? `Đang kết nối: ${btStatus.deviceName}`
+                  : 'In hóa đơn nhiệt 1 chạm không dây'}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            {btStatus.isConnected ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Đã kết nối</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                Chưa kết nối
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          {btStatus.isConnected ? (
+            <button
+              type="button"
+              onClick={handleDisconnectBt}
+              className="py-2 px-3 text-xs font-bold rounded-xl clay-inset text-rose-700 hover:text-rose-800 cursor-pointer"
+            >
+              Ngắt kết nối
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleConnectBt}
+              disabled={isConnectingBt}
+              className="py-2 px-3 text-xs font-black rounded-xl clay-btn-primary text-white flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Bluetooth className="w-3.5 h-3.5" />
+              <span>{isConnectingBt ? 'Đang tìm...' : 'Tìm & Ghép nối'}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleTestPrintBt}
+            disabled={!btStatus.isConnected || isTestingBt}
+            className={`py-2 px-3 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+              btStatus.isConnected
+                ? 'clay-btn text-forest-900 shadow-xs active:scale-95'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>{isTestingBt ? 'Đang in...' : 'In thử nghiệm'}</span>
+          </button>
+        </div>
+
+        {/* Toggle print without accents */}
+        <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+          <div>
+            <p className="font-bold text-gray-800 text-[11px]">In tiếng Việt không dấu</p>
+            <p className="text-[9.5px] text-gray-400">Khuyến nghị 100% để tránh lỗi font máy in mini</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={settings?.printNoAccents !== false}
+            onChange={(e) => updateSettings({ printNoAccents: e.target.checked })}
+            className="w-4 h-4 rounded text-forest-800 focus:ring-forest-800 cursor-pointer accent-[#214E34]"
+          />
         </div>
       </div>
 

@@ -9,7 +9,10 @@ export default function TableCard({
   onOpenOrder,
   onOpenBill
 }) {
-  const { orders } = usePos();
+  const { orders, isTableBillingLocked, releaseBillingLock, currentUser, currentRole, showToast } = usePos();
+  const activeLock = isTableBillingLocked ? isTableBillingLocked(table) : null;
+  const isLocked = Boolean(activeLock);
+  const isLockedByOther = isLocked && activeLock.lockedById !== (currentUser?.id || currentUser?.uid);
   const activeOrder =
     (table.activeOrderId && orders[table.activeOrderId]) ||
     (table.status === 'occupied' &&
@@ -57,21 +60,44 @@ export default function TableCard({
           {table.name}
         </span>
 
-        {/* Badge trạng thái chuẩn 3D Clay: TRỐNG hoặc CÓ KHÁCH */}
-        <span
-          className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider transition-all ${
-            isOccupied
-              ? 'clay-disc-green ring-2 ring-white shadow-sm'
-              : 'clay-inset text-gray-500 border border-gray-200/60'
-          }`}
-        >
-          {isOccupied ? 'CÓ KHÁCH' : 'TRỐNG'}
-        </span>
+        {/* Badge trạng thái chuẩn 3D Clay: TRỐNG, CÓ KHÁCH hoặc ĐANG TÍNH TIỀN */}
+        {isLocked ? (
+          <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-500 text-white ring-2 ring-white shadow-sm flex items-center gap-1 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-white" />
+            ĐANG TÍNH TIỀN
+          </span>
+        ) : (
+          <span
+            className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider transition-all ${
+              isOccupied
+                ? 'clay-disc-green ring-2 ring-white shadow-sm'
+                : 'clay-inset text-gray-500 border border-gray-200/60'
+            }`}
+          >
+            {isOccupied ? 'CÓ KHÁCH' : 'TRỐNG'}
+          </span>
+        )}
       </div>
 
-      {/* 2. Dòng thông tin giữa: X món • Y đ (nếu có khách) hoặc Sẵn sàng phục vụ (nếu trống) */}
+      {/* 2. Dòng thông tin giữa: X món • Y đ (nếu có khách) hoặc Sẵn sàng phục vụ (nếu trống) hoặc Thông tin Khóa */}
       <div className="text-xs my-auto py-1">
-        {isOccupied ? (
+        {isLocked ? (
+          <div className="flex items-center justify-between text-xs font-bold text-amber-800 bg-amber-50/80 px-2 py-1 rounded-lg border border-amber-200/60">
+            <span className="truncate max-w-[110px] text-[11px]">🔒 {activeLock.staffName}</span>
+            {['admin', 'manager'].includes(currentRole) && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  releaseBillingLock?.(table.id, true);
+                }}
+                className="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-200 hover:bg-amber-300 text-amber-900 shadow-2xs cursor-pointer shrink-0"
+              >
+                Mở khóa
+              </button>
+            )}
+          </div>
+        ) : isOccupied ? (
           <div className="flex items-baseline space-x-1.5 font-bold text-gray-900">
             <span className="text-gray-600 text-[11.5px] font-semibold">{itemCount} món</span>
             <span className="text-gray-400 font-normal">•</span>
@@ -109,14 +135,16 @@ export default function TableCard({
               <span>Xem đơn</span>
             </button>
 
-            {/* Nút "Thanh toán" (nền xanh #214E34 3D) */}
+            {/* Nút "Thanh toán" (nền xanh #214E34 3D hoặc amber nếu đang khóa) */}
             <button
               type="button"
               onClick={handleBillClick}
-              className="touch-target clay-btn-primary py-2 px-2 text-white rounded-[14px] font-black text-xs flex items-center justify-center gap-1 cursor-pointer"
+              className={`touch-target py-2 px-2 text-white rounded-[14px] font-black text-xs flex items-center justify-center gap-1 cursor-pointer ${
+                isLockedByOther ? 'bg-amber-600 hover:bg-amber-700 shadow-md' : 'clay-btn-primary'
+              }`}
             >
               <Receipt className="w-3.5 h-3.5 text-emerald-300 stroke-[2.2]" />
-              <span>Thanh toán</span>
+              <span>{isLockedByOther ? 'Đang tính' : 'Thanh toán'}</span>
             </button>
           </div>
         )}

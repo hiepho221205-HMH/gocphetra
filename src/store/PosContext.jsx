@@ -1,4 +1,18 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { calculateDailySummary } from '../utils/dailySettlement';
+import {
+  db,
+  migrateFromLocalStorage,
+  dualWriteToIndexedDB,
+  enqueueOutbox,
+  getPendingOutbox,
+  getAllOutbox,
+  updateOutboxStatus,
+  removeOutboxItem,
+  saveDailyClosure,
+  getDailyClosure,
+  getAllDailyClosures
+} from '../lib/db';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   INITIAL_TABLES,
   INITIAL_CATEGORIES,
@@ -57,7 +71,9 @@ import {
   signOutUser,
   getCurrentSession,
   fetchUserProfileAndRole,
-  updateUserProfile
+  updateUserProfile,
+  upsertDailyClosureToCloud,
+  fetchDailyClosuresFromCloud
 } from '../lib/supabase';
 import {
   getVietnamTodayString,
@@ -147,6 +163,9 @@ export function mergeStaffProfiles(localList = [], cloudList = []) {
 import { reconcileTablesAndOrders, rolloverPastUnpaidOrders } from '../utils/reconciler';
 export { reconcileTablesAndOrders, rolloverPastUnpaidOrders };
 
+
+export { calculateDailySummary };
+
 export function PosProvider({ children }) {
   // Compute initial reconciled state from storage/fallback + daily rollover catch-up
   const [initialState] = useState(() => {
@@ -232,6 +251,115 @@ export function PosProvider({ children }) {
     lastSyncTime: null
   });
   const [isSyncing, setIsSyncing] = useState(false);
+  const cloudStatusRef = useRef(cloudStatus);
+  useEffect(() => { cloudStatusRef.current = cloudStatus; }, [cloudStatus]);
+  const realtimeChannelRef = useRef(null);
+
+  // Phase 2: Offline-First States
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
+  const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
+  const [isSyncingOutbox, setIsSyncingOutbox] = useState(false);
+
+  
+  // Phase 3: Daily Closures State & Auto-Settlement
+  const [dailyClosures, setDailyClosures] = useState({});
+
+  const autoCloseDailyRevenue = async (historyData = orderHistory) => {
+    try {
+      const today = getVietnamTodayString();
+      const pastDates = new Set();
+      (historyData || []).forEach((ord) => {
+        if (ord.status !== 'completed' && ord.paymentStatus !== 'paid') return;
+        const paidDate =
+          ord.paymentBusinessDate ||
+          (ord.paid_at || ord.paidAt || ord.completed_at || ord.completedAt || ord.finishedAt || ord.created_at || ord.createdAt || '')
+            .substring(0, 10);
+        if (paidDate && paidDate < today) {
+          pastDates.add(paidDate);
+        }
+      });
+
+      if (pastDates.size === 0) return;
+
+      const updatedClosures = { ...dailyClosures };
+      let hasChanges = false;
+
+      for (const pDate of pastDates) {
+        const summary = calculateDailySummary(pDate, historyData);
+        if (summary) {
+          updatedClosures[pDate] = summary;
+          hasChanges = true;
+          await saveDailyClosure(summary);
+          if (isOnline) {
+            upsertDailyClosureToCloud(summary).catch(() => {});
+          }
+        }
+      }
+
+      if (hasChanges) {
+        setDailyClosures(updatedClosures);
+      }
+    } catch (err) {
+      console.warn('Lỗi autoCloseDailyRevenue:', err);
+    }
+  };
+
+  const getDailyCloseReport = (dateStr) => {
+    const today = getVietnamTodayString();
+    if (!dateStr || dateStr === today) {
+      const liveSummary = calculateDailySummary(dateStr || today, orderHistory);
+      return { ...liveSummary, isClosed: false };
+    }
+    if (dailyClosures[dateStr]) {
+      return dailyClosures[dateStr];
+    }
+    const computed = calculateDailySummary(dateStr, orderHistory);
+    if (computed) {
+      saveDailyClosure(computed).catch(() => {});
+    }
+    return computed;
+  };
+
+  useEffect(() => {
+    const initClosures = async () => {
+      try {
+        const localClosures = await getAllDailyClosures();
+        const closuresMap = {};
+        (localClosures || []).forEach((c) => {
+          closuresMap[c.date] = c;
+        });
+
+        if (isSupabaseConfigured) {
+          const cloudClosures = await fetchDailyClosuresFromCloud();
+          (cloudClosures || []).forEach((c) => {
+            if (!closuresMap[c.date] || new Date(c.closedAt) >= new Date(closuresMap[c.date].closedAt)) {
+              closuresMap[c.date] = c;
+              saveDailyClosure(c).catch(() => {});
+            }
+          });
+        }
+
+        setDailyClosures(closuresMap);
+        autoCloseDailyRevenue(orderHistory);
+      } catch (e) {
+        console.warn('Lỗi initClosures:', e);
+      }
+    };
+    initClosures();
+  }, []);
+
+  useEffect(() => {
+    if (orderHistory && orderHistory.length > 0) {
+      autoCloseDailyRevenue(orderHistory);
+    }
+  }, [orderHistory]);
+
+  const refreshPendingOutboxCount = async () => {
+    try {
+      const count = await db.outboxQueue.where('status').anyOf(['pending', 'conflict']).count();
+      setPendingOutboxCount(count);
+    } catch (_) {}
+  };
 
   // UI & Router States
   const initialRouteInfo = parseRouteFromLocation();
@@ -453,14 +581,14 @@ export function PosProvider({ children }) {
   };
 
   // Auto-save effects
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(tables)); }, [tables]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(tables)); dualWriteToIndexedDB('tables', tables); }, [tables]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories)); }, [categories]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(menu)); }, [menu]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.TOPPINGS, JSON.stringify(toppings)); }, [toppings]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.PRODUCT_TOPPINGS, JSON.stringify(productToppings)); }, [productToppings]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders)); }, [orders]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.ORDER_HISTORY, JSON.stringify(orderHistory)); }, [orderHistory]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments)); }, [payments]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders)); dualWriteToIndexedDB('orders', orders); }, [orders]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.ORDER_HISTORY, JSON.stringify(orderHistory)); dualWriteToIndexedDB('orderHistory', orderHistory); }, [orderHistory]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments)); dualWriteToIndexedDB('payments', payments); }, [payments]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(staffList)); }, [staffList]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ROLE, JSON.stringify(currentRole)); }, [currentRole]);
@@ -617,6 +745,12 @@ export function PosProvider({ children }) {
     return res;
   };
 
+  // Phase 2: Seed IndexedDB from LocalStorage on initial load & track outbox
+  useEffect(() => {
+    migrateFromLocalStorage(STORAGE_KEYS);
+    refreshPendingOutboxCount();
+  }, []);
+
   // Mount Effect: Cloud Health Check & Realtime Subscription
   useEffect(() => {
     let isMounted = true;
@@ -694,8 +828,12 @@ export function PosProvider({ children }) {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[Visibility] Ứng dụng trở lại foreground, làm mới dữ liệu từ Cloud...');
-        syncFromCloud(false);
+        const lastSync = cloudStatusRef.current?.lastSyncTime ? new Date(cloudStatusRef.current.lastSyncTime).getTime() : 0;
+        const now = Date.now();
+        if (now - lastSync >= 5000) {
+          console.log('[Visibility] Ứng dụng trở lại foreground sau khi ngủ >5s, lập tức làm mới dữ liệu từ Cloud...');
+          syncFromCloud(false);
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -714,6 +852,12 @@ export function PosProvider({ children }) {
 
       const ch = supabase
         .channel('pos_realtime_sync_channel')
+        .on('broadcast', { event: 'billing_lock' }, ({ payload }) => {
+          if (!payload || !payload.tableId) return;
+          setTables((prev) =>
+            prev.map((t) => (t.id === payload.tableId ? { ...t, billingLock: payload.billingLock } : t))
+          );
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, async (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const updated = mapTableFromDb(payload.new);
@@ -846,6 +990,7 @@ export function PosProvider({ children }) {
           }
         });
 
+      realtimeChannelRef.current = ch;
       return ch;
     };
 
@@ -855,6 +1000,7 @@ export function PosProvider({ children }) {
       isMounted = false;
       clearTimeout(reconnectTimeout);
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
       if (channel && supabase) {
@@ -904,6 +1050,111 @@ export function PosProvider({ children }) {
     };
   };
 
+
+
+  // =================== PHASE 2: OUTBOX QUEUE & CONFLICT RESOLUTION ===================
+  const replayOutboxQueue = async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return { success: false, message: 'Đang offline' };
+    }
+    setIsSyncingOutbox(true);
+    let syncedCount = 0;
+    try {
+      const pendingItems = await getPendingOutbox();
+      for (const item of pendingItems) {
+        if (item.actionType === 'SAVE_ORDER') {
+          const ord = item.payload;
+          const currentTable = tables.find((t) => t.id === ord.tableId);
+          // Conflict check: Is this table occupied by ANOTHER active order on Cloud?
+          if (
+            currentTable &&
+            currentTable.status === 'occupied' &&
+            currentTable.activeOrderId &&
+            currentTable.activeOrderId !== ord.id
+          ) {
+            await updateOutboxStatus(item.id, 'conflict', `Trùng bàn ${ord.tableName} với đơn #${currentTable.activeOrderId}`);
+            showToast(`Phát hiện xung đột bàn ${ord.tableName}. Vui lòng mở Hàng đợi để xử lý!`, 'error');
+            continue;
+          }
+
+          // No conflict -> safe upsert
+          await cloudUpsertOrder(ord);
+          if (currentTable) {
+            const updTable = { ...currentTable, status: 'occupied', activeOrderId: ord.id };
+            setTables((prev) => prev.map((t) => (t.id === ord.tableId ? updTable : t)));
+            await cloudUpsertTable(updTable);
+          }
+          await updateOutboxStatus(item.id, 'completed');
+          syncedCount++;
+        } else if (item.actionType === 'CHECKOUT') {
+          const { order: finalOrder, payment: payRecord } = item.payload;
+          await cloudUpsertOrder(finalOrder);
+          if (payRecord) await cloudUpsertPayment(payRecord);
+          const currentTable = tables.find((t) => t.id === finalOrder.tableId);
+          if (currentTable && currentTable.activeOrderId === finalOrder.id) {
+            const resetTable = { ...currentTable, status: 'empty', activeOrderId: null, customerCount: 0, billingLock: null };
+            setTables((prev) => prev.map((t) => (t.id === finalOrder.tableId ? resetTable : t)));
+            await cloudUpsertTable(resetTable);
+          }
+          await updateOutboxStatus(item.id, 'completed');
+          syncedCount++;
+        }
+      }
+
+      if (syncedCount > 0) {
+        showToast(`Đã đồng bộ thành công ${syncedCount} đơn hàng ngoại tuyến lên Cloud!`, 'success');
+      }
+      refreshPendingOutboxCount();
+      return { success: true, syncedCount };
+    } catch (err) {
+      console.warn('Lỗi replayOutboxQueue:', err);
+      return { success: false, error: err.message };
+    } finally {
+      setIsSyncingOutbox(false);
+    }
+  };
+
+  const resolveOutboxConflict = async (outboxId, action, newTableId = null) => {
+    try {
+      const allItems = await getAllOutbox();
+      const target = allItems.find((i) => i.id === outboxId);
+      if (!target) return false;
+
+      if (action === 'reassign' && newTableId) {
+        const newTable = tables.find((t) => t.id === newTableId);
+        const updatedPayload = {
+          ...target.payload,
+          tableId: newTableId,
+          tableName: newTable?.name || newTableId
+        };
+        await cloudUpsertOrder(updatedPayload);
+        const updTable = { ...newTable, status: 'occupied', activeOrderId: updatedPayload.id };
+        setTables((prev) => prev.map((t) => (t.id === newTableId ? updTable : t)));
+        await cloudUpsertTable(updTable);
+        await updateOutboxStatus(outboxId, 'completed');
+        showToast(`Đã chuyển đơn sang bàn ${updatedPayload.tableName} và đồng bộ thành công!`, 'success');
+      } else if (action === 'merge') {
+        const sourceTableId = target.payload.tableId;
+        const currentActiveOrder = orders[tables.find((t) => t.id === sourceTableId)?.activeOrderId];
+        if (currentActiveOrder) {
+          const mergedItems = [...currentActiveOrder.items, ...target.payload.items];
+          const updatedOrder = recalculateOrder({
+            ...currentActiveOrder,
+            items: mergedItems
+          });
+          setOrders((prev) => ({ ...prev, [updatedOrder.id]: updatedOrder }));
+          await cloudUpsertOrder(updatedOrder);
+          await updateOutboxStatus(outboxId, 'completed');
+          showToast(`Đã gộp món ngoại tuyến vào bàn ${target.payload.tableName} thành công!`, 'success');
+        }
+      }
+      refreshPendingOutboxCount();
+      return true;
+    } catch (err) {
+      console.warn('Lỗi resolveOutboxConflict:', err);
+      return false;
+    }
+  };
 
   // =================== RBAC ROLE ACTIONS ===================
   const updateCurrentUserProfile = ({ name, avatarUrl, phone, notes }) => {
@@ -1360,9 +1611,37 @@ export function PosProvider({ children }) {
     return newOrder;
   };
 
-  const addItemToOrder = (tableId, itemConfig) => {
+  const addItemToOrder = (tableId, itemConfig, expectedVersion = null) => {
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) return { success: false, message: 'Bàn không tồn tại' };
+
+    // Billing Lock check
+    const activeLock = isTableBillingLocked(table);
+    const myId = currentUser?.id || currentUser?.uid || 'current-user';
+    if (activeLock && activeLock.lockedById !== myId) {
+      showToast(`Bàn ${table.name} đang được tính tiền bởi ${activeLock.staffName}. Không thể thêm món lúc này!`, 'error');
+      return { success: false, locked: true, message: `Bàn đang tính tiền bởi ${activeLock.staffName}` };
+    }
+
     const order = getOrCreateOrder(tableId);
-    if (!order) return;
+    if (!order) return { success: false, message: 'Không thể tạo đơn' };
+
+    // OCC Conflict Guard
+    if (
+      expectedVersion !== null &&
+      expectedVersion !== undefined &&
+      (order.version || 1) > expectedVersion
+    ) {
+      showToast(`Bàn ${table.name} vừa được cập nhật bởi nhân viên khác. Vui lòng kiểm tra lại trước khi thêm món!`, 'error');
+      return {
+        success: false,
+        conflict: true,
+        currentOrder: order,
+        message: 'Đơn hàng vừa được cập nhật bởi nhân viên khác, vui lòng tải lại bàn'
+      };
+    }
+
+    const nextVersion = (order.version || 1) + 1;
 
     const toppingsPrice = (itemConfig.toppings || []).reduce(
       (sum, tp) => sum + (tp.price || 0) * (tp.quantity || 1),
@@ -1401,7 +1680,8 @@ export function PosProvider({ children }) {
 
     const updatedOrder = recalculateOrder({
       ...order,
-      items: updatedItems
+      items: updatedItems,
+      version: nextVersion
     });
 
     setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
@@ -1483,8 +1763,85 @@ export function PosProvider({ children }) {
     return orders[table.activeOrderId] || null;
   };
 
+
+  // =================== BILLING LOCK (PHASE 1) ===================
+  const isTableBillingLocked = (table) => {
+    if (!table || !table.billingLock) return null;
+    const now = Date.now();
+    const lockedAt = Number(table.billingLock.lockedAt) || 0;
+    // 180 seconds (3 minutes) auto-unlock safeguard
+    if (now - lockedAt >= 180000) {
+      return null;
+    }
+    return table.billingLock;
+  };
+
+  const acquireBillingLock = (tableId) => {
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) return { success: false, message: 'Bàn không tồn tại' };
+
+    const activeLock = isTableBillingLocked(table);
+    const myId = currentUser?.id || currentUser?.uid || 'current-user';
+    const myName = currentUser?.name || 'Thu ngân';
+
+    if (activeLock && activeLock.lockedById !== myId) {
+      showToast(`Bàn ${table.name} đang được tính tiền bởi ${activeLock.staffName || 'nhân viên khác'}`, 'info');
+      return { success: false, lockedBy: activeLock.staffName };
+    }
+
+    const lockObj = {
+      lockedById: myId,
+      staffName: myName,
+      lockedAt: Date.now()
+    };
+
+    const updatedTable = { ...table, billingLock: lockObj };
+    setTables((prev) => prev.map((t) => (t.id === tableId ? updatedTable : t)));
+
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'billing_lock',
+        payload: { tableId, billingLock: lockObj }
+      }).catch(() => {});
+    }
+
+    cloudUpsertTable(updatedTable);
+    return { success: true, lock: lockObj };
+  };
+
+  const releaseBillingLock = (tableId, force = false) => {
+    const table = tables.find((t) => t.id === tableId);
+    if (!table || !table.billingLock) return { success: true };
+
+    const myId = currentUser?.id || currentUser?.uid || 'current-user';
+    const activeLock = isTableBillingLocked(table);
+
+    if (activeLock && activeLock.lockedById !== myId && !force && currentRole === 'staff') {
+      showToast('Chỉ Quản lý hoặc Admin mới có quyền mở khóa cưỡng chế!', 'error');
+      return { success: false, message: 'Chỉ Quản lý hoặc Admin mới có quyền mở khóa' };
+    }
+
+    const updatedTable = { ...table, billingLock: null };
+    setTables((prev) => prev.map((t) => (t.id === tableId ? updatedTable : t)));
+
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'billing_lock',
+        payload: { tableId, billingLock: null }
+      }).catch(() => {});
+    }
+
+    cloudUpsertTable(updatedTable);
+    if (force) {
+      showToast(`Đã mở khóa bàn ${table.name}!`, 'info');
+    }
+    return { success: true };
+  };
+
   // Lưu cam kết đơn hàng cho bàn (tạo mới hoặc cập nhật đơn đang mở, chuyển bàn sang có khách)
-  const saveOrderForTable = (tableId, items) => {
+  const saveOrderForTable = (tableId, items, expectedVersion = null) => {
     const table = tables.find((t) => t.id === tableId);
     if (!table) {
       showToast('Bàn không tồn tại!', 'error');
@@ -1496,8 +1853,34 @@ export function PosProvider({ children }) {
       return { success: false, message: 'Đơn hàng trống' };
     }
 
+    // Billing Lock check
+    const activeLock = isTableBillingLocked(table);
+    const myId = currentUser?.id || currentUser?.uid || 'current-user';
+    if (activeLock && activeLock.lockedById !== myId) {
+      showToast(`Bàn ${table.name} đang được tính tiền bởi ${activeLock.staffName}. Không thể lưu đơn lúc này!`, 'error');
+      return { success: false, locked: true, message: `Bàn đang tính tiền bởi ${activeLock.staffName}` };
+    }
+
     let orderId = table.activeOrderId;
     let existingOrder = orderId ? orders[orderId] : null;
+
+    // OCC Conflict Guard (Optimistic Concurrency Control)
+    if (
+      existingOrder &&
+      expectedVersion !== null &&
+      expectedVersion !== undefined &&
+      (existingOrder.version || 1) > expectedVersion
+    ) {
+      showToast(`Bàn ${table.name} vừa được cập nhật bởi nhân viên khác. Vui lòng kiểm tra lại trước khi lưu!`, 'error');
+      return {
+        success: false,
+        conflict: true,
+        currentOrder: existingOrder,
+        message: 'Đơn hàng vừa được cập nhật bởi nhân viên khác, vui lòng tải lại bàn'
+      };
+    }
+
+    const nextVersion = existingOrder ? ((existingOrder.version || 1) + 1) : 1;
 
     if (!existingOrder) {
       orderId = 'ORD-' + Date.now().toString().slice(-6);
@@ -1518,13 +1901,15 @@ export function PosProvider({ children }) {
         total: 0,
         paidAmount: 0,
         remainingAmount: 0,
-        splitPayments: []
+        splitPayments: [],
+        version: nextVersion
       };
     }
 
     const updatedOrder = recalculateOrder({
       ...existingOrder,
-      items: items
+      items: items,
+      version: nextVersion
     });
 
     const updatedTable = {
@@ -1542,6 +1927,14 @@ export function PosProvider({ children }) {
 
     cloudUpsertOrder(updatedOrder);
     cloudUpsertTable(updatedTable);
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      enqueueOutbox({
+        actionType: 'SAVE_ORDER',
+        orderId: updatedOrder.id,
+        payload: updatedOrder
+      }).then(() => refreshPendingOutboxCount());
+    }
 
     showToast(`Đã lưu đơn thành công cho ${table.name}!`, 'success');
     return { success: true, order: updatedOrder, table: updatedTable };
@@ -1581,7 +1974,8 @@ export function PosProvider({ children }) {
       status: 'empty',
       activeOrderId: null,
       seatedAt: null,
-      customerCount: 0
+      customerCount: 0,
+      billingLock: null
     };
 
     setTables((prev) => prev.map((t) => (t.id === tableId ? resetTable : t)));
@@ -1607,13 +2001,21 @@ export function PosProvider({ children }) {
     }
     if (!order) return { success: false, isFullyPaid: false };
 
-    const newPaidAmount = (order.paidAmount || 0) + paymentRecord.amount;
+    // Remainder absorption: if payment amount is >= remainingAmount or marked as final
+    let payAmount = Number(paymentRecord.amount) || 0;
+    const currentRemaining = order.remainingAmount > 0 ? order.remainingAmount : Math.max(0, order.total - (order.paidAmount || 0));
+    if (payAmount >= currentRemaining || paymentRecord.isFinal) {
+      payAmount = currentRemaining; // Absorb any rounding drift so remainingAmount becomes 0 exactly
+    }
+
+    const newPaidAmount = (order.paidAmount || 0) + payAmount;
     const remainingAmount = Math.max(0, order.total - newPaidAmount);
 
     const updatedSplitPayments = [
       ...(order.splitPayments || []),
       {
         ...paymentRecord,
+        amount: payAmount,
         timestamp: new Date().toISOString(),
         paymentId: 'PAY-' + Date.now()
       }
@@ -1633,7 +2035,7 @@ export function PosProvider({ children }) {
     } else {
       setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
       cloudUpsertOrder(updatedOrder);
-      showToast(`Đã thu ${paymentRecord.amount.toLocaleString('vi-VN')}đ. Còn nợ: ${remainingAmount.toLocaleString('vi-VN')}đ`, 'info');
+      showToast(`Đã thu ${payAmount.toLocaleString('vi-VN')}đ. Còn nợ: ${remainingAmount.toLocaleString('vi-VN')}đ`, 'info');
       return { success: true, isFullyPaid: false, remainingAmount };
     }
   };
@@ -1693,6 +2095,14 @@ export function PosProvider({ children }) {
 
     cloudUpsertOrder(finalOrder);
     cloudUpsertTable(resetTable);
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      enqueueOutbox({
+        actionType: 'CHECKOUT',
+        orderId: finalOrder.id,
+        payload: { order: finalOrder, payment: payRecord }
+      }).then(() => refreshPendingOutboxCount());
+    }
 
     setSelectedTableId(null);
   };
@@ -2688,7 +3098,22 @@ export function PosProvider({ children }) {
         return next;
       });
     },
-    resetAllData
+    resetAllData,
+    // Phase 1: Realtime Hardening & Billing Lock
+    isTableBillingLocked,
+    acquireBillingLock,
+    releaseBillingLock,
+    // Phase 2: Offline Outbox & Network
+    isOnline,
+    pendingOutboxCount,
+    isSyncingOutbox,
+    replayOutboxQueue,
+    resolveOutboxConflict,
+    // Phase 3: Daily Revenue Closures
+    dailyClosures,
+    autoCloseDailyRevenue,
+    getDailyCloseReport,
+    calculateDailySummary
   };
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;

@@ -46,7 +46,8 @@ export function mapTableFromDb(t) {
     status: t.status,
     activeOrderId: t.active_order_id,
     customerCount: t.customer_count,
-    seatedAt: t.seated_at
+    seatedAt: t.seated_at,
+    billingLock: t.billing_lock || null
   };
 }
 
@@ -178,6 +179,7 @@ export function mapOrderToDb(o) {
     deleted_by: o.deletedBy || null,
     is_demo: Boolean(o.isDemo),
     branch_id: o.branchId || 'main',
+    version: Number(o.version) || 1,
     created_at: o.createdAt || new Date().toISOString(),
     finished_at: o.finishedAt || null
   };
@@ -210,6 +212,7 @@ export function mapOrderFromDb(o) {
     deletedBy: o.deleted_by || null,
     isDemo: Boolean(o.is_demo),
     branchId: o.branch_id || 'main',
+    version: Number(o.version) || 1,
     createdAt: o.created_at,
     finishedAt: o.finished_at
   };
@@ -1303,3 +1306,83 @@ export async function updateUserProfile(userId, updates = {}) {
   }
 }
 
+
+// ============================================================================
+// DAILY CLOSURES MAPPERS & SYNC (PHASE 3)
+// ============================================================================
+
+export function mapDailyClosureToDb(c) {
+  return {
+    date: c.date,
+    closed_at: c.closedAt || new Date().toISOString(),
+    total_revenue: Number(c.totalRevenue) || 0,
+    total_orders: Number(c.totalOrders) || 0,
+    cash_total: Number(c.cashTotal) || 0,
+    qr_total: Number(c.qrTotal) || 0,
+    average_order_value: Number(c.averageOrderValue) || 0,
+    total_discount: Number(c.totalDiscount) || 0,
+    total_surcharge: Number(c.totalSurcharge) || 0,
+    top_products: c.topProducts || [],
+    hourly_distribution: c.hourlyDistribution || {},
+    notes: c.notes || null,
+    branch_id: c.branchId || 'main'
+  };
+}
+
+export function mapDailyClosureFromDb(c) {
+  return {
+    date: c.date,
+    closedAt: c.closed_at,
+    totalRevenue: Number(c.total_revenue) || 0,
+    totalOrders: Number(c.total_orders) || 0,
+    cashTotal: Number(c.cash_total) || 0,
+    qrTotal: Number(c.qr_total) || 0,
+    averageOrderValue: Number(c.average_order_value) || 0,
+    totalDiscount: Number(c.total_discount) || 0,
+    totalSurcharge: Number(c.total_surcharge) || 0,
+    topProducts: c.top_products || [],
+    hourlyDistribution: c.hourly_distribution || {},
+    notes: c.notes || '',
+    branchId: c.branch_id || 'main'
+  };
+}
+
+export async function upsertDailyClosureToCloud(closureData) {
+  if (!supabase || !closureData?.date) return { success: false };
+  try {
+    const payload = mapDailyClosureToDb(closureData);
+    const { data, error } = await supabase
+      .from('daily_closures')
+      .upsert(payload, { onConflict: 'date' })
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Supabase upsertDailyClosureToCloud notice:', error.message);
+      return { success: false, error };
+    }
+    return { success: true, data: data ? mapDailyClosureFromDb(data) : closureData };
+  } catch (err) {
+    console.warn('Supabase upsertDailyClosureToCloud exception:', err);
+    return { success: false, error: err };
+  }
+}
+
+export async function fetchDailyClosuresFromCloud() {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('daily_closures')
+      .select('*')
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase fetchDailyClosuresFromCloud notice:', error.message);
+      return [];
+    }
+    return (data || []).map(mapDailyClosureFromDb);
+  } catch (err) {
+    console.warn('Supabase fetchDailyClosuresFromCloud exception:', err);
+    return [];
+  }
+}

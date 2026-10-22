@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePos } from '../../store/PosContext';
 import VietQRPaymentModal from './VietQRPaymentModal';
 import MergeTablesModal from './MergeTablesModal';
@@ -19,7 +19,17 @@ import { formatVND } from '../../utils/currency';
 import { triggerHaptic } from '../../utils/haptics';
 
 export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOrder, onPaymentSuccess }) {
-  const { orders, updateBillAdjustments, fullCheckout, requestBillForTable } = usePos();
+  const {
+    orders,
+    updateBillAdjustments,
+    fullCheckout,
+    requestBillForTable,
+    isTableBillingLocked,
+    acquireBillingLock,
+    releaseBillingLock,
+    currentUser,
+    currentRole
+  } = usePos();
 
   const [discountPercent, setDiscountPercent] = useState(0);
   const [surcharge, setSurcharge] = useState(0);
@@ -32,6 +42,59 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   if (!isOpen || !table) return null;
+
+  // Phase 1: Billing Lock acquisition and cleanup
+  useEffect(() => {
+    if (isOpen && table) {
+      acquireBillingLock?.(table.id);
+      return () => {
+        releaseBillingLock?.(table.id);
+      };
+    }
+  }, [isOpen, table?.id]);
+
+  const activeLock = isTableBillingLocked ? isTableBillingLocked(table) : null;
+  const isLockedByOther = activeLock && activeLock.lockedById !== (currentUser?.id || currentUser?.uid);
+
+  if (isLockedByOther) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+        <div className="w-full max-w-sm clay-card p-6 text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-black text-xl shadow-inner">
+            🔒
+          </div>
+          <div>
+            <h3 className="text-base font-black text-gray-800">Bàn đang được thanh toán!</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Bàn <b>{table.name}</b> hiện đang được thanh toán bởi <b>{activeLock.staffName}</b>.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 clay-inset text-gray-600 rounded-xl text-xs font-bold cursor-pointer"
+            >
+              Đóng
+            </button>
+            {['admin', 'manager'].includes(currentRole) && (
+              <button
+                type="button"
+                onClick={() => {
+                  releaseBillingLock?.(table.id, true);
+                  acquireBillingLock?.(table.id);
+                }}
+                className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-md cursor-pointer"
+              >
+                Mở khóa cưỡng chế
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   // Resilient order lookup: check table.activeOrderId first, then search orders by tableId
   const order =

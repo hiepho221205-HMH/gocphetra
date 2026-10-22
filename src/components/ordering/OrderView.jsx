@@ -68,6 +68,10 @@ export default function OrderView({ table, onBack, onGoToBill }) {
 
   // Track previous table ID to differentiate table switching vs state re-render
   const prevTableIdRef = useRef(table?.id);
+  const loadedOrderVersionRef = useRef(table?.activeOrderId && orders[table.activeOrderId] ? (orders[table.activeOrderId].version || 1) : 1);
+
+  const activeBillingLock = isTableBillingLocked ? isTableBillingLocked(table) : null;
+  const isLockedByOther = Boolean(activeBillingLock && activeBillingLock.lockedById !== (currentUser?.id || currentUser?.uid));
 
   // Initialize draft cart from active order if table is already occupied
   useEffect(() => {
@@ -79,6 +83,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       // If table switched or not dirty, load from order
       if (isNewTable || !isDirty) {
         setCartItems(JSON.parse(JSON.stringify(existingItems)));
+        loadedOrderVersionRef.current = orders[table.activeOrderId].version || 1;
         setIsDirty(false);
       }
     } else {
@@ -188,15 +193,29 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       return;
     }
 
+    if (isLockedByOther) {
+      triggerHaptic('error');
+      showToast(`Bàn đang được tính tiền bởi ${activeBillingLock.staffName}. Không thể lưu đơn!`, 'error');
+      return;
+    }
+
     triggerHaptic('medium');
     setIsSaving(true);
     try {
-      const result = saveOrderForTable(table.id, cartItems);
+      const result = saveOrderForTable(table.id, cartItems, loadedOrderVersionRef.current);
       if (result && result.success) {
         triggerHaptic('success');
         setIsDirty(false);
         setIsOrderDetailsOpen(false);
         onBack();
+      } else if (result && result.conflict) {
+        triggerHaptic('error');
+        if (result.currentOrder && result.currentOrder.items) {
+          setCartItems(JSON.parse(JSON.stringify(result.currentOrder.items)));
+          loadedOrderVersionRef.current = result.currentOrder.version || 1;
+          setIsDirty(false);
+        }
+        setIsSaving(false);
       } else {
         setIsSaving(false);
       }

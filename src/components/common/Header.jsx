@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { usePos } from '../../store/PosContext';
 import { useVersionChecker } from '../../hooks/useVersionChecker';
-import { Coffee, Smartphone, Monitor, Clock, MapPin, RefreshCw, Sparkles, ArrowRight } from 'lucide-react';
+import OutboxModal from './OutboxModal';
+import { Coffee, Smartphone, Monitor, Clock, MapPin, RefreshCw, Sparkles, ArrowRight, WifiOff } from 'lucide-react';
 
 export default function Header() {
-  const { deviceMode, toggleDeviceMode, tables, resetAllData } = usePos();
+  const { deviceMode, toggleDeviceMode, tables, resetAllData, isOnline, pendingOutboxCount } = usePos();
+  const [showOutboxModal, setShowOutboxModal] = useState(false);
   const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
@@ -51,6 +53,18 @@ export default function Header() {
             <span>{occupiedCount + awaitingCount} Bàn hoạt động</span>
           </div>
 
+          {/* Phase 2: Offline / Outbox Pending Badge */}
+          {(!isOnline || pendingOutboxCount > 0) && (
+            <button
+              type="button"
+              onClick={() => setShowOutboxModal(true)}
+              className="touch-target px-2.5 h-8 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-black flex items-center gap-1.5 shadow-sm animate-pulse cursor-pointer transition-transform active:scale-95"
+              title="Xem hàng đợi ngoại tuyến"
+            >
+              <WifiOff className="w-3.5 h-3.5" />
+              <span>Ngoại tuyến ({pendingOutboxCount})</span>
+            </button>
+          )}
           {/* Device Frame Toggle */}
           <button
             onClick={toggleDeviceMode}
@@ -135,6 +149,8 @@ export default function Header() {
           </div>
         </div>
       )}
+      {/* Outbox Modal */}
+      <OutboxModal isOpen={showOutboxModal} onClose={() => setShowOutboxModal(false)} />
     </header>
   );
 }

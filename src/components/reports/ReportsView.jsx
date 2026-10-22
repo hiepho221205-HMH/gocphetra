@@ -24,6 +24,8 @@ import {
   formatShortDate
 } from '../../utils/dateTime';
 import { triggerHaptic } from '../../utils/haptics';
+import DailyCloseHistoryModal from './DailyCloseHistoryModal';
+import { History } from 'lucide-react';
 
 const TIME_FILTERS = [
   { id: '1d', label: '1 ngày', days: 1, desc: 'Hôm nay' },
@@ -40,6 +42,7 @@ export default function ReportsView() {
 
   // Currently inspected day on chart (for touch/hover tooltip)
   const [inspectedDayIndex, setInspectedDayIndex] = useState(null);
+  const [showDailyCloseModal, setShowDailyCloseModal] = useState(false);
 
   const activeFilter = useMemo(() => {
     return TIME_FILTERS.find((f) => f.id === activeFilterId) || TIME_FILTERS[0];
@@ -161,6 +164,25 @@ export default function ReportsView() {
 
   return (
     <div className="px-3.5 pt-3 pb-28 space-y-3.5 text-gray-800">
+            {/* ================= TOP ACTION BAR & BUSINESS DATE STATUS ================= */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Hôm nay: <b className="text-[#214E34]">{formatVietnamDisplayDate(todayStr)}</b></span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic('light');
+            setShowDailyCloseModal(true);
+          }}
+          className="px-3 py-1.5 rounded-xl clay-card text-xs font-black text-[#214E34] hover:text-[#183926] flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 transition-all"
+        >
+          <History className="w-3.5 h-3.5 text-[#214E34]" />
+          <span>Lịch sử chốt ngày</span>
+        </button>
+      </div>
+
       {/* ================= 1. SEGMENTED TIME FILTER (4 LỰA CHỌN) ================= */}
       <div className="clay-inset p-1.5 grid grid-cols-4 gap-1.5">
         {TIME_FILTERS.map((f) => {
@@ -428,6 +450,10 @@ export default function ReportsView() {
           </span>
         </div>
       </div>
+      <DailyCloseHistoryModal
+        isOpen={showDailyCloseModal}
+        onClose={() => setShowDailyCloseModal(false)}
+      />
     </div>
   );
 }
