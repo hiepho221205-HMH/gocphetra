@@ -15,6 +15,9 @@ export default function TableCard({
   const isLockedByOther = isLocked && activeLock.lockedById !== (currentUser?.id || currentUser?.uid);
   const activeOrder =
     (table.activeOrderId && orders[table.activeOrderId]) ||
+    Object.values(orders).find(
+      (o) => o.tableId === table.id && o.status === 'serving'
+    ) ||
     (table.status === 'occupied' &&
       Object.values(orders).find(
         (o) => o.tableId === table.id && o.status !== 'completed' && o.status !== 'cancelled'
@@ -26,21 +29,25 @@ export default function TableCard({
   const itemCount = activeOrder?.items?.reduce((sum, it) => sum + it.quantity, 0) || 0;
   const totalAmount = activeOrder?.total || 0;
 
+  const resolvedTable = activeOrder && (!table.activeOrderId || table.status !== 'occupied')
+    ? { ...table, status: 'occupied', activeOrderId: activeOrder.id }
+    : table;
+
   const handleCardClick = () => {
     triggerHaptic('light');
-    onOpenOrder(table);
+    onOpenOrder(resolvedTable);
   };
 
   const handleOrderClick = (e) => {
     e.stopPropagation();
     triggerHaptic('light');
-    onOpenOrder(table);
+    onOpenOrder(resolvedTable);
   };
 
   const handleBillClick = (e) => {
     e.stopPropagation();
     triggerHaptic('medium');
-    onOpenBill(table);
+    onOpenBill(resolvedTable);
   };
 
   return (

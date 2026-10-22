@@ -1,3 +1,4 @@
+import { getVietnamDateString } from './dateTime.js';
 /**
  * GÓC Coffee POS - Table & Order State Reconciler
  * Enforces the Single Source of Truth & Table-First Rule:
@@ -44,13 +45,25 @@ export function reconcileTablesAndOrders(tablesArr, ordersObj, orderHistoryArr =
     }
 
     const table = newTables.find((t) => t.id === ord.tableId);
-    if (!table || table.status === 'empty' || table.activeOrderId !== ord.id) {
+    if (!table) {
       const cancelledOrder = {
         ...ord,
         status: 'cancelled',
         finishedAt: ord.finishedAt || new Date().toISOString()
       };
       newHistory.unshift(cancelledOrder);
+      delete newOrders[ord.id];
+      changed = true;
+    } else if (ord.items && ord.items.length > 0 && ord.status === 'serving') {
+      // Self-Healing Guarantee: If order is active with items, table MUST be occupied with this order!
+      if (table.status !== 'occupied' || table.activeOrderId !== ord.id) {
+        table.status = 'occupied';
+        table.activeOrderId = ord.id;
+        table.customerCount = ord.customerCount || table.customerCount || 1;
+        table.seatedAt = table.seatedAt || ord.createdAt || new Date().toISOString();
+        changed = true;
+      }
+    } else if (table.status === 'empty' || table.activeOrderId !== ord.id) {
       delete newOrders[ord.id];
       changed = true;
     }
@@ -114,7 +127,7 @@ export function rolloverPastUnpaidOrders(tablesArr, ordersObj, orderHistoryArr =
     if (!ord || !ord.id) return;
     if (ord.status === 'completed' || ord.status === 'cancelled') return;
 
-    const ordDate = ord.businessDate || (ord.createdAt ? ord.createdAt.substring(0, 10) : '');
+    const ordDate = ord.businessDate || (ord.createdAt ? getVietnamDateString(ord.createdAt) : '');
     // If order is from a previous business date
     if (targetDate && ordDate && ordDate < targetDate) {
       const carriedOverOrder = {

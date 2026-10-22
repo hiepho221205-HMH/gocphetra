@@ -270,10 +270,10 @@ export function PosProvider({ children }) {
       const pastDates = new Set();
       (historyData || []).forEach((ord) => {
         if (ord.status !== 'completed' && ord.paymentStatus !== 'paid') return;
-        const paidDate =
+        const rawDate =
           ord.paymentBusinessDate ||
-          (ord.paid_at || ord.paidAt || ord.completed_at || ord.completedAt || ord.finishedAt || ord.created_at || ord.createdAt || '')
-            .substring(0, 10);
+          ord.paid_at || ord.paidAt || ord.completed_at || ord.completedAt || ord.finishedAt || ord.created_at || ord.createdAt || '';
+        const paidDate = ord.paymentBusinessDate || (rawDate ? getVietnamDateString(rawDate) : '');
         if (paidDate && paidDate < today) {
           pastDates.add(paidDate);
         }
@@ -682,7 +682,7 @@ export function PosProvider({ children }) {
               paymentMethod: o.paymentMethod || 'cash',
               paymentStatus: 'completed',
               paidAt: o.finishedAt || o.paidAt || o.createdAt,
-              businessDate: o.businessDate || (o.createdAt ? o.createdAt.substring(0, 10) : getVietnamTodayString()),
+              businessDate: o.businessDate || (o.createdAt ? getVietnamDateString(o.createdAt) : getVietnamTodayString()),
               cashierId: o.cashier || 'Thu ngân'
             }));
           if (derivedPayments.length > 0) {
@@ -788,7 +788,7 @@ export function PosProvider({ children }) {
                 paymentMethod: o.paymentMethod || 'cash',
                 paymentStatus: 'completed',
                 paidAt: o.finishedAt || o.paidAt || o.createdAt,
-                businessDate: o.businessDate || (o.createdAt ? o.createdAt.substring(0, 10) : getVietnamTodayString()),
+                businessDate: o.businessDate || (o.createdAt ? getVietnamDateString(o.createdAt) : getVietnamTodayString()),
                 cashierId: o.cashier || 'Thu ngân'
               }));
             if (derivedPayments.length > 0) {
@@ -858,6 +858,99 @@ export function PosProvider({ children }) {
             prev.map((t) => (t.id === payload.tableId ? { ...t, billingLock: payload.billingLock } : t))
           );
         })
+        .on('broadcast', { event: 'order_sync' }, ({ payload }) => {
+          if (!payload) return;
+          const { order: syncOrder, table: syncTable, sourceTable: syncSourceTable, deletedOrderId, payment: syncPayment } = payload;
+
+          if (deletedOrderId) {
+            setOrders((prev) => {
+              if (!prev[deletedOrderId]) return prev;
+              const next = { ...prev };
+              delete next[deletedOrderId];
+              return next;
+            });
+          }
+
+          if (syncSourceTable) {
+            setTables((prev) =>
+              prev.map((t) => (t.id === syncSourceTable.id ? { ...t, ...syncSourceTable } : t))
+            );
+          }
+
+          if (syncOrder) {
+            if (syncOrder.status === 'completed' || syncOrder.status === 'cancelled' || syncOrder.status === 'unpaid_carried_over') {
+              setOrders((prev) => {
+                if (!prev[syncOrder.id]) return prev;
+                const next = { ...prev };
+                delete next[syncOrder.id];
+                return next;
+              });
+
+              setOrderHistory((prev) => {
+                const filtered = prev.filter((o) => o.id !== syncOrder.id);
+                return [syncOrder, ...filtered];
+              });
+
+              if (syncTable || syncOrder.tableId) {
+                const targetTableId = syncTable?.id || syncOrder.tableId;
+                setTables((prev) =>
+                  prev.map((t) =>
+                    t.id === targetTableId
+                      ? { ...t, ...(syncTable || {}), status: 'empty', activeOrderId: null, customerCount: 0, billingLock: null }
+                      : t
+                  )
+                );
+              }
+
+              if (syncPayment) {
+                setPayments((prev) => {
+                  if (prev.some((p) => p.id === syncPayment.id || p.orderId === syncPayment.orderId)) return prev;
+                  return [syncPayment, ...prev];
+                });
+              }
+            } else {
+              // Active order (serving)
+              setOrders((prev) => ({
+                ...prev,
+                [syncOrder.id]: syncOrder
+              }));
+
+              if (syncTable || syncOrder.tableId) {
+                const targetTableId = syncTable?.id || syncOrder.tableId;
+                setTables((prev) =>
+                  prev.map((t) =>
+                    t.id === targetTableId
+                      ? {
+                          ...t,
+                          ...(syncTable || {}),
+                          status: 'occupied',
+                          activeOrderId: syncOrder.id,
+                          customerCount: syncOrder.customerCount || t.customerCount || 1,
+                          seatedAt: t.seatedAt || syncOrder.createdAt || new Date().toISOString()
+                        }
+                      : t
+                  )
+                );
+              }
+            }
+          } else if (syncTable) {
+            setTables((prev) =>
+              prev.map((t) => (t.id === syncTable.id ? { ...t, ...syncTable } : t))
+            );
+          }
+        })
+        .on('broadcast', { event: 'table_sync' }, ({ payload }) => {
+          if (!payload || !payload.table) return;
+          setTables((prev) => {
+            const idx = prev.findIndex((t) => t.id === payload.table.id);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = { ...next[idx], ...payload.table };
+              return next;
+            }
+            return [...prev, payload.table];
+          });
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, async (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const updated = mapTableFromDb(payload.new);
@@ -879,8 +972,12 @@ export function PosProvider({ children }) {
                 let modified = false;
                 for (const oId in next) {
                   if (next[oId].tableId === updated.id) {
-                    delete next[oId];
-                    modified = true;
+                    const ord = next[oId];
+                    // NEVER delete an active serving order that has items!
+                    if (ord.status === 'completed' || ord.status === 'cancelled' || ord.status === 'unpaid_carried_over' || !ord.items || ord.items.length === 0) {
+                      delete next[oId];
+                      modified = true;
+                    }
                   }
                 }
                 return modified ? next : prev;
@@ -919,7 +1016,7 @@ export function PosProvider({ children }) {
                     paymentMethod: mapped.paymentMethod || 'cash',
                     paymentStatus: 'completed',
                     paidAt: mapped.finishedAt || mapped.paidAt || mapped.createdAt || new Date().toISOString(),
-                    businessDate: mapped.businessDate || (mapped.createdAt ? mapped.createdAt.substring(0, 10) : getVietnamTodayString()),
+                    businessDate: mapped.businessDate || (mapped.createdAt ? getVietnamDateString(mapped.createdAt) : getVietnamTodayString()),
                     cashierId: mapped.cashier || 'Thu ngân'
                   };
                   return [pay, ...prev];
@@ -1365,7 +1462,16 @@ export function PosProvider({ children }) {
     setTables((prev) => {
       const next = prev.map((t) => (t.id === id ? { ...t, ...updates } : t));
       const updated = next.find((t) => t.id === id);
-      if (updated) cloudUpsertTable(updated);
+      if (updated) {
+        cloudUpsertTable(updated);
+        if (realtimeChannelRef.current) {
+          realtimeChannelRef.current.send({
+            type: 'broadcast',
+            event: 'table_sync',
+            payload: { table: updated, senderId: currentUser?.id || currentUser?.uid || 'staff' }
+          }).catch(() => {});
+        }
+      }
       return next;
     });
     showToast('Đã cập nhật thông tin bàn', 'success');
@@ -1420,27 +1526,41 @@ export function PosProvider({ children }) {
       cloudUpsertOrder(updatedOrder);
     }
 
+    const updatedFrom = { ...fromTable, status: 'empty', activeOrderId: null, seatedAt: null, customerCount: 0 };
+    const updatedTo = {
+      ...toTable,
+      status: fromTable.status,
+      activeOrderId: orderId,
+      seatedAt: fromTable.seatedAt || new Date().toISOString(),
+      customerCount: fromTable.customerCount || 2
+    };
+
     setTables((prev) =>
       prev.map((t) => {
         if (t.id === fromTable.id) {
-          const updatedFrom = { ...t, status: 'empty', activeOrderId: null, seatedAt: null, customerCount: 0 };
           cloudUpsertTable(updatedFrom);
           return updatedFrom;
         }
         if (t.id === toTable.id) {
-          const updatedTo = {
-            ...t,
-            status: fromTable.status,
-            activeOrderId: orderId,
-            seatedAt: fromTable.seatedAt || new Date().toISOString(),
-            customerCount: fromTable.customerCount || 2
-          };
           cloudUpsertTable(updatedTo);
           return updatedTo;
         }
         return t;
       })
     );
+
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'order_sync',
+        payload: {
+          order: currentOrder ? { ...currentOrder, tableId: toTable.id, tableName: toTable.name } : null,
+          table: updatedTo,
+          sourceTable: updatedFrom,
+          senderId: currentUser?.id || currentUser?.uid || 'staff'
+        }
+      }).catch(() => {});
+    }
 
     showToast(`Đã chuyển từ ${fromTable.name} sang ${toTable.name}`, 'success');
     return true;
@@ -1558,6 +1678,20 @@ export function PosProvider({ children }) {
     cloudUpsertTable(updatedSourceTable);
     cloudUpsertTable(updatedTargetTable);
 
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'order_sync',
+        payload: {
+          order: updatedTargetOrder,
+          table: updatedTargetTable,
+          deletedOrderId: sourceTable.activeOrderId,
+          sourceTable: updatedSourceTable,
+          senderId: currentUser?.id || currentUser?.uid || 'staff'
+        }
+      }).catch(() => {});
+    }
+
     showToast(`Đã gộp đơn ${sourceTable.name} vào ${targetTable.name} thành công!`, 'success');
     return { success: true, updatedOrder: updatedTargetOrder };
   };
@@ -1569,6 +1703,14 @@ export function PosProvider({ children }) {
 
     if (table.activeOrderId && orders[table.activeOrderId]) {
       return orders[table.activeOrderId];
+    }
+    const existing = Object.values(orders).find(
+      (o) => o.tableId === tableId && o.status === 'serving'
+    ) || Object.values(orders).find(
+      (o) => o.tableId === tableId && o.status !== 'completed' && o.status !== 'cancelled'
+    );
+    if (existing) {
+      return existing;
     }
 
     const newOrderId = 'ORD-' + Date.now().toString().slice(-6);
@@ -1759,8 +1901,15 @@ export function PosProvider({ children }) {
   // Lấy đơn hàng hiện tại của bàn
   const getOrderForTable = (tableId) => {
     const table = tables.find((t) => t.id === tableId);
-    if (!table || !table.activeOrderId) return null;
-    return orders[table.activeOrderId] || null;
+    if (table?.activeOrderId && orders[table.activeOrderId]) {
+      return orders[table.activeOrderId];
+    }
+    const found = Object.values(orders).find(
+      (o) => o.tableId === tableId && o.status === 'serving'
+    ) || Object.values(orders).find(
+      (o) => o.tableId === tableId && o.status !== 'completed' && o.status !== 'cancelled'
+    );
+    return found || null;
   };
 
 
@@ -1841,7 +1990,7 @@ export function PosProvider({ children }) {
   };
 
   // Lưu cam kết đơn hàng cho bàn (tạo mới hoặc cập nhật đơn đang mở, chuyển bàn sang có khách)
-  const saveOrderForTable = (tableId, items, expectedVersion = null) => {
+  const saveOrderForTable = async (tableId, items, expectedVersion = null) => {
     const table = tables.find((t) => t.id === tableId);
     if (!table) {
       showToast('Bàn không tồn tại!', 'error');
@@ -1863,6 +2012,14 @@ export function PosProvider({ children }) {
 
     let orderId = table.activeOrderId;
     let existingOrder = orderId ? orders[orderId] : null;
+    if (!existingOrder) {
+      existingOrder = Object.values(orders).find(
+        (o) => o.tableId === tableId && o.status === 'serving'
+      ) || null;
+      if (existingOrder) {
+        orderId = existingOrder.id;
+      }
+    }
 
     // OCC Conflict Guard (Optimistic Concurrency Control)
     if (
@@ -1925,8 +2082,37 @@ export function PosProvider({ children }) {
       prev.map((t) => (t.id === tableId ? updatedTable : t))
     );
 
-    cloudUpsertOrder(updatedOrder);
-    cloudUpsertTable(updatedTable);
+    // Ghi đồng bộ ngay vào LocalStorage & IndexedDB để tránh mất dữ liệu khi F5 hoặc chuyển màn hình tức thì
+    try {
+      const currentOrders = loadStorage(STORAGE_KEYS.ORDERS, {});
+      currentOrders[orderId] = updatedOrder;
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(currentOrders));
+
+      const currentTables = loadStorage(STORAGE_KEYS.TABLES, []);
+      const nextTables = currentTables.map((t) => (t.id === tableId ? updatedTable : t));
+      localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(nextTables));
+
+      dualWriteToIndexedDB('orders', currentOrders);
+      dualWriteToIndexedDB('tables', nextTables);
+    } catch (e) {
+      console.warn('Sync storage error:', e);
+    }
+
+    // Phát Realtime Broadcast tức thời (<5ms) cho toàn bộ các thiết bị đang kết nối
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'order_sync',
+        payload: {
+          order: updatedOrder,
+          table: updatedTable,
+          senderId: currentUser?.id || currentUser?.uid || 'staff'
+        }
+      }).catch((e) => console.warn('Broadcast order_sync error:', e));
+    }
+
+    await cloudUpsertOrder(updatedOrder);
+    await cloudUpsertTable(updatedTable);
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       enqueueOutbox({
@@ -1982,6 +2168,19 @@ export function PosProvider({ children }) {
 
     cloudUpsertOrder(cancelledOrder);
     cloudUpsertTable(resetTable);
+
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'order_sync',
+        payload: {
+          order: cancelledOrder,
+          table: resetTable,
+          senderId: currentUser?.id || currentUser?.uid || 'staff'
+        }
+      }).catch((e) => console.warn('Broadcast cancel order error:', e));
+    }
+
     showToast(`Đã hủy đơn ${resetTable.name} và giải phóng bàn!`, 'info');
     return true;
   };
@@ -2035,6 +2234,19 @@ export function PosProvider({ children }) {
     } else {
       setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
       cloudUpsertOrder(updatedOrder);
+
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'order_sync',
+          payload: {
+            order: updatedOrder,
+            table: table,
+            senderId: currentUser?.id || currentUser?.uid || 'cashier'
+          }
+        }).catch((e) => console.warn('Broadcast partial payment error:', e));
+      }
+
       showToast(`Đã thu ${payAmount.toLocaleString('vi-VN')}đ. Còn nợ: ${remainingAmount.toLocaleString('vi-VN')}đ`, 'info');
       return { success: true, isFullyPaid: false, remainingAmount };
     }
@@ -2095,6 +2307,19 @@ export function PosProvider({ children }) {
 
     cloudUpsertOrder(finalOrder);
     cloudUpsertTable(resetTable);
+
+    if (realtimeChannelRef.current) {
+      realtimeChannelRef.current.send({
+        type: 'broadcast',
+        event: 'order_sync',
+        payload: {
+          order: finalOrder,
+          table: resetTable,
+          payment: payRecord,
+          senderId: currentUser?.id || currentUser?.uid || 'cashier'
+        }
+      }).catch((e) => console.warn('Broadcast finalize order error:', e));
+    }
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       enqueueOutbox({
@@ -2244,7 +2469,7 @@ export function PosProvider({ children }) {
       businessDate: currentBusinessDate,
       cashierId: cashier,
       idempotencyKey: safeKey,
-      notes: `Thu tiền đơn cũ (${targetOrder.tableName || targetOrder.id}) ngày ${targetOrder.businessDate || targetOrder.createdAt?.substring(0, 10)}`,
+      notes: `Thu tiền đơn cũ (${targetOrder.tableName || targetOrder.id}) ngày ${targetOrder.businessDate || (targetOrder.createdAt ? getVietnamDateString(targetOrder.createdAt) : '')}`,
       createdAt: paidAt
     };
 

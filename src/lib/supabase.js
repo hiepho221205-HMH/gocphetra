@@ -1,3 +1,4 @@
+import { getVietnamDateString, getVietnamTodayString } from '../utils/dateTime.js';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl =
@@ -169,7 +170,7 @@ export function mapOrderToDb(o) {
     remaining_amount: Number(o.remainingAmount) || 0,
     split_payments: o.splitPayments || [],
     payment_method: o.paymentMethod || null,
-    business_date: o.businessDate || (o.createdAt ? o.createdAt.substring(0, 10) : null),
+    business_date: o.businessDate || (o.createdAt ? getVietnamDateString(o.createdAt) : getVietnamTodayString()),
     carried_over_at: o.carriedOverAt || null,
     payment_status: o.paymentStatus || (o.status === 'completed' ? 'paid' : (Number(o.paidAmount) > 0 ? 'partial' : 'unpaid')),
     paid_at: o.paidAt || (o.status === 'completed' ? (o.finishedAt || o.createdAt) : null),
@@ -202,7 +203,7 @@ export function mapOrderFromDb(o) {
     remainingAmount: Number(o.remaining_amount) || 0,
     splitPayments: o.split_payments || [],
     paymentMethod: o.payment_method,
-    businessDate: o.business_date || (o.created_at ? o.created_at.substring(0, 10) : null),
+    businessDate: o.business_date || (o.created_at ? getVietnamDateString(o.created_at) : getVietnamTodayString()),
     carriedOverAt: o.carried_over_at || null,
     paymentStatus: o.payment_status || (o.status === 'completed' ? 'paid' : 'unpaid'),
     paidAt: o.paid_at || (o.status === 'completed' ? (o.finished_at || o.created_at) : null),
@@ -230,7 +231,7 @@ export function mapPaymentToDb(p) {
     payment_method: p.paymentMethod || 'cash',
     payment_status: p.paymentStatus || 'completed',
     paid_at: p.paidAt || new Date().toISOString(),
-    business_date: p.businessDate || (p.paidAt ? p.paidAt.substring(0, 10) : new Date().toISOString().substring(0, 10)),
+    business_date: p.businessDate || (p.paidAt ? getVietnamDateString(p.paidAt) : getVietnamTodayString()),
     cashier_id: p.cashierId || p.cashier || null,
     idempotency_key: p.idempotencyKey || null,
     notes: p.notes || null,
@@ -578,7 +579,7 @@ export async function seedInitialDataToCloud(data) {
 export async function cloudUpsertTable(table) {
   if (!supabase) return;
   try {
-    await supabase.from('tables').upsert(mapTableToDb(table));
+    await supabase.from('tables').upsert(mapTableToDb(table), { onConflict: 'id' });
   } catch (e) {
     console.warn('Lỗi cloudUpsertTable:', e);
   }
@@ -597,7 +598,7 @@ export async function cloudUpsertOrder(order) {
   if (!supabase) return;
   try {
     const basePayload = mapOrderToBaseDb(order);
-    const { error } = await supabase.from('orders').upsert(basePayload);
+    const { error } = await supabase.from('orders').upsert(basePayload, { onConflict: 'id' });
     if (error) {
       console.warn('Lỗi cloudUpsertOrder:', error);
     }

@@ -140,7 +140,7 @@ export default function OrderDetailsModal({
   };
 
   // 2. ACTION: LƯU ĐƠN
-  const handleSaveOrder = () => {
+  const handleSaveOrder = async () => {
     if (items.length === 0) {
       triggerHaptic('error');
       showToast('Đơn hàng chưa có món nào! Vui lòng chọn món trước khi lưu.', 'error');
@@ -153,9 +153,9 @@ export default function OrderDetailsModal({
 
     try {
       if (onSave) {
-        onSave(table, items);
+        await onSave(table, items);
       } else {
-        const res = saveOrderForTable(table.id, items);
+        const res = await saveOrderForTable(table.id, items);
         if (!res || !res.success) {
           triggerHaptic('error');
           showToast('Lưu đơn thất bại! Vui lòng thử lại.', 'error');
@@ -175,7 +175,7 @@ export default function OrderDetailsModal({
   };
 
   // 3. ACTION: THANH TOÁN
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (items.length === 0) {
       triggerHaptic('error');
       showToast('Đơn hàng chưa có món nào để thanh toán!', 'error');
@@ -188,7 +188,7 @@ export default function OrderDetailsModal({
 
     try {
       // Lưu an toàn thay đổi hiện tại trước
-      const res = saveOrderForTable(table.id, items);
+      const res = await saveOrderForTable(table.id, items);
       if (!res || !res.success) {
         triggerHaptic('error');
         showToast('Không thể lưu thay đổi trước khi thanh toán!', 'error');

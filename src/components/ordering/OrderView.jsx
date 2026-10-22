@@ -78,18 +78,24 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     const isNewTable = prevTableIdRef.current !== table?.id;
     prevTableIdRef.current = table?.id;
 
-    if (table && table.activeOrderId && orders[table.activeOrderId]) {
-      const existingItems = orders[table.activeOrderId].items || [];
+    const activeOrder =
+      (table?.activeOrderId && orders[table.activeOrderId]) ||
+      Object.values(orders).find((o) => o.tableId === table?.id && o.status === 'serving') ||
+      (table?.status === 'occupied' && Object.values(orders).find((o) => o.tableId === table?.id && o.status !== 'completed' && o.status !== 'cancelled'));
+
+    if (activeOrder) {
+      const existingItems = activeOrder.items || [];
       // If table switched or not dirty, load from order
       if (isNewTable || !isDirty) {
         setCartItems(JSON.parse(JSON.stringify(existingItems)));
-        loadedOrderVersionRef.current = orders[table.activeOrderId].version || 1;
+        loadedOrderVersionRef.current = activeOrder.version || 1;
         setIsDirty(false);
       }
     } else {
       // If table switched or not dirty, clear cart
       if (isNewTable || !isDirty) {
         setCartItems([]);
+        loadedOrderVersionRef.current = 1;
         setIsDirty(false);
       }
     }
@@ -202,7 +208,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     triggerHaptic('medium');
     setIsSaving(true);
     try {
-      const result = saveOrderForTable(table.id, cartItems, loadedOrderVersionRef.current);
+      const result = await saveOrderForTable(table.id, cartItems, loadedOrderVersionRef.current);
       if (result && result.success) {
         triggerHaptic('success');
         setIsDirty(false);
@@ -601,19 +607,19 @@ export default function OrderView({ table, onBack, onGoToBill }) {
             // Tiếp tục chọn món trên OrderView
             setIsOrderDetailsOpen(false);
           }}
-          onSave={(tbl, itemsToSave) => {
+          onSave={async (tbl, itemsToSave) => {
             triggerHaptic('success');
             const items = itemsToSave && Array.isArray(itemsToSave) ? itemsToSave : cartItems;
-            const res = saveOrderForTable(table.id, items);
+            const res = await saveOrderForTable(table.id, items);
             if (res && res.success) {
               setIsDirty(false);
               setIsOrderDetailsOpen(false);
               onBack();
             }
           }}
-          onCheckout={() => {
+          onCheckout={async () => {
             triggerHaptic('medium');
-            const res = saveOrderForTable(table.id, cartItems);
+            const res = await saveOrderForTable(table.id, cartItems);
             if (res && res.success) {
               setIsDirty(false);
               setIsOrderDetailsOpen(false);

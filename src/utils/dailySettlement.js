@@ -1,3 +1,5 @@
+import { getVietnamDateString } from './dateTime.js';
+
 /**
  * GÓC POS — Daily Settlement & Revenue Audit Utilities (Phase 3)
  * Pure financial calculations for daily closures and audit reports
@@ -13,10 +15,10 @@ export function calculateDailySummary(dateStr, historyList = []) {
   if (!dateStr) return null;
   const filteredOrders = (historyList || []).filter((ord) => {
     if (ord.status !== 'completed' && ord.paymentStatus !== 'paid') return false;
-    const paidDate =
+    const rawDate =
       ord.paymentBusinessDate ||
-      (ord.paid_at || ord.paidAt || ord.completed_at || ord.completedAt || ord.finishedAt || ord.created_at || ord.createdAt || '')
-        .substring(0, 10);
+      ord.paid_at || ord.paidAt || ord.completed_at || ord.completedAt || ord.finishedAt || ord.created_at || ord.createdAt || '';
+    const paidDate = ord.paymentBusinessDate || (rawDate ? getVietnamDateString(rawDate) : '');
     return paidDate === dateStr;
   });
 
