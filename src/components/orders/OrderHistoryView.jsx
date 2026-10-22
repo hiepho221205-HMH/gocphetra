@@ -34,7 +34,7 @@ import {
 import { triggerHaptic } from '../../utils/haptics';
 
 export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
-  const { orderHistory, orders, tables } = usePos();
+  const { orderHistory, orders, tables, fetchReceiptSnapshot } = usePos();
 
   // Current Vietnam Date
   const todayStr = useMemo(() => getVietnamTodayString(), []);
@@ -51,7 +51,21 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [activeDetailOrder, setActiveDetailOrder] = useState(null); // For serving & unpaid order details
   const [printOrder, setPrintOrder] = useState(null); // For completed read-only receipt
+  const [printReceiptRecord, setPrintReceiptRecord] = useState(null); // For historical immutable snapshot
   const [payingOrder, setPayingOrder] = useState(null); // For historical order payment
+
+  const handleOpenReceipt = (ord) => {
+    triggerHaptic('light');
+    setPrintOrder(ord);
+    setPrintReceiptRecord(null);
+    if (fetchReceiptSnapshot && ord?.id) {
+      fetchReceiptSnapshot(ord.id)
+        .then((rec) => {
+          if (rec) setPrintReceiptRecord(rec);
+        })
+        .catch(() => {});
+    }
+  };
 
   // Date classification
   const isToday = selectedDate === todayStr;
@@ -576,10 +590,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                     return (
                       <div
                         key={ord.id}
-                        onClick={() => {
-                          triggerHaptic('light');
-                          setPrintOrder(ord);
-                        }}
+                        onClick={() => handleOpenReceipt(ord)}
                         className="clay-card clay-card-interactive p-3.5 select-none space-y-2.5"
                       >
                         <div className="flex items-center justify-between">
@@ -633,8 +644,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                triggerHaptic('light');
-                                setPrintOrder(ord);
+                                handleOpenReceipt(ord);
                               }}
                               className="touch-target px-3 py-1.5 clay-pill-btn text-[#214E34] font-black text-xs flex items-center gap-1 cursor-pointer"
                               title="In lại hóa đơn"
@@ -703,8 +713,12 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
       {printOrder && (
         <ReceiptPrintView
           isOpen={Boolean(printOrder)}
-          onClose={() => setPrintOrder(null)}
+          onClose={() => {
+            setPrintOrder(null);
+            setPrintReceiptRecord(null);
+          }}
           order={printOrder}
+          receiptRecord={printReceiptRecord}
           isPrePrint={false}
         />
       )}

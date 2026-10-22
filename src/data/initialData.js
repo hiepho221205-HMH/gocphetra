@@ -111,6 +111,23 @@ export const INITIAL_SETTINGS = {
   surchargePercent: 0,
   autoPrintReceipt: true,
   enableVietQR: true,
+  receiptPaperWidth: '58mm',
+  receiptSettings: {
+    showLogo: true,
+    showStoreName: true,
+    showAddress: true,
+    showPhone: true,
+    showOrderId: true,
+    showTable: true,
+    showOrderTime: true,
+    showReceiptTime: true,
+    showWifi: true,
+    showFooter: true
+  },
+  receiptFooter: 'Cảm ơn quý khách và hẹn gặp lại!',
+  wifiOnReceipt: true,
+  logoOriginalUrl: null,
+  logoThermalUrl: null,
   bankAccount: {
     bankCode: 'MB',
     bankName: 'MB Bank (Quân Đội)',

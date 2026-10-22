@@ -34,7 +34,10 @@ export const schemaCapabilities = {
   payments: null,
   profiles: null,
   user_roles: null,
-  rollover_daily_orders: null
+  rollover_daily_orders: null,
+  store_settings: null,
+  receipts: null,
+  store_assets: null
 };
 
 // ============================================================================
@@ -489,6 +492,26 @@ export async function fetchAllCloudData() {
       }
     }
 
+    if (schemaCapabilities.store_settings !== false) {
+      try {
+        const { data: storeRow, error: storeErr } = await supabase
+          .from('store_settings')
+          .select('*')
+          .eq('store_id', 'default_store')
+          .maybeSingle();
+
+        if (storeErr && (storeErr.code === 'PGRST205' || storeErr.message?.includes('schema cache'))) {
+          schemaCapabilities.store_settings = false;
+        } else if (storeRow) {
+          schemaCapabilities.store_settings = true;
+          const mapped = mapStoreSettingsFromDb(storeRow);
+          settings = { ...(settings || {}), ...mapped };
+        }
+      } catch {
+        schemaCapabilities.store_settings = false;
+      }
+    }
+
     const staff = (staffRes && !staffRes.error && Array.isArray(staffRes.data) && staffRes.data.length > 0)
       ? staffRes.data.map(mapStaffProfileFromDb)
       : fallbackStaff;
@@ -742,7 +765,19 @@ export async function cloudUpsertSettings(settings) {
   try {
     await supabase
       .from('settings')
-      .upsert([{ key: 'pos_config', value: settings, updated_at: new Date().toISOString() }]);
+      .upsert([{ key: 'pos_config', value: settings, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+
+    if (schemaCapabilities.store_settings !== false) {
+      const dbRow = mapStoreSettingsToDb(settings);
+      const { error } = await supabase
+        .from('store_settings')
+        .upsert(dbRow, { onConflict: 'store_id' });
+      if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
+        schemaCapabilities.store_settings = false;
+      } else if (!error) {
+        schemaCapabilities.store_settings = true;
+      }
+    }
   } catch (e) {
     console.warn('Lỗi cloudUpsertSettings:', e);
   }
@@ -1506,5 +1541,290 @@ export async function fetchDailyClosuresFromCloud() {
     return (data || []).map(mapDailyClosureFromDb);
   } catch (err) {
     return [];
+  }
+}
+
+// ============================================================================
+// STORE SETTINGS & IMMUTABLE RECEIPT SNAPSHOT OPERATIONS
+// ============================================================================
+
+export function mapStoreSettingsFromDb(row) {
+  if (!row) return null;
+  return {
+    store_id: row.store_id || 'default_store',
+    branchName: row.store_name || 'GÓC',
+    storeName: row.store_name || 'GÓC',
+    branchAddress: row.store_address || '',
+    storeAddress: row.store_address || '',
+    hotline: row.contact_phone || '',
+    contactPhone: row.contact_phone || '',
+    logoOriginalUrl: row.logo_original_url || null,
+    logoThermalUrl: row.logo_thermal_url || null,
+    receiptPaperWidth: row.receipt_paper_width || '58mm',
+    receiptSettings: row.receipt_settings || {
+      showLogo: true,
+      showStoreName: true,
+      showAddress: true,
+      showPhone: true,
+      showOrderId: true,
+      showTable: true,
+      showOrderTime: true,
+      showReceiptTime: true,
+      showWifi: true,
+      showFooter: true
+    },
+    receiptFooter: row.receipt_footer || 'Cảm ơn quý khách và hẹn gặp lại!',
+    wifiPassword: row.wifi_password || '',
+    wifiOnReceipt: row.wifi_on_receipt !== false,
+    enableVietQR: row.vietqr_enabled !== false,
+    vietqrEnabled: row.vietqr_enabled !== false,
+    bankAccount: {
+      bankCode: row.bank_code || 'MB',
+      accountNo: row.bank_account || '',
+      accountHolder: row.bank_account_name || ''
+    },
+    updatedAt: row.updated_at
+  };
+}
+
+export function mapStoreSettingsToDb(settings) {
+  return {
+    store_id: settings.store_id || 'default_store',
+    store_name: settings.storeName || settings.branchName || 'GÓC',
+    store_address: settings.storeAddress || settings.branchAddress || '',
+    contact_phone: settings.contactPhone || settings.hotline || '',
+    logo_original_url: settings.logoOriginalUrl || null,
+    logo_thermal_url: settings.logoThermalUrl || null,
+    receipt_paper_width: settings.receiptPaperWidth || '58mm',
+    receipt_settings: settings.receiptSettings || {
+      showLogo: true,
+      showStoreName: true,
+      showAddress: true,
+      showPhone: true,
+      showOrderId: true,
+      showTable: true,
+      showOrderTime: true,
+      showReceiptTime: true,
+      showWifi: true,
+      showFooter: true
+    },
+    receipt_footer: settings.receiptFooter || 'Cảm ơn quý khách và hẹn gặp lại!',
+    wifi_password: settings.wifiPassword || '',
+    wifi_on_receipt: settings.wifiOnReceipt !== false,
+    bank_code: settings.bankAccount?.bankCode || settings.bank_code || 'MB',
+    bank_account: settings.bankAccount?.accountNo || settings.bank_account || '',
+    bank_account_name: settings.bankAccount?.accountHolder || settings.bank_account_name || '',
+    vietqr_enabled: settings.enableVietQR !== false && settings.vietqr_enabled !== false,
+    updated_at: new Date().toISOString()
+  };
+}
+
+export async function fetchStoreSettingsFromCloud() {
+  if (!supabase) return null;
+  try {
+    if (schemaCapabilities.store_settings !== false) {
+      const { data, error } = await supabase
+        .from('store_settings')
+        .select('*')
+        .eq('store_id', 'default_store')
+        .maybeSingle();
+
+      if (!error && data) {
+        schemaCapabilities.store_settings = true;
+        return mapStoreSettingsFromDb(data);
+      }
+      if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
+        schemaCapabilities.store_settings = false;
+      }
+    }
+
+    // Fallback to settings.pos_config
+    const { data: configItem } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('key', 'pos_config')
+      .maybeSingle();
+
+    return configItem?.value || null;
+  } catch (e) {
+    console.warn('Lỗi fetchStoreSettingsFromCloud:', e);
+    return null;
+  }
+}
+
+export async function upsertStoreSettingsToCloud(settings) {
+  if (!supabase) return { success: false };
+  try {
+    // 1. Dual-write to settings.pos_config for legacy compatibility
+    await supabase
+      .from('settings')
+      .upsert([{ key: 'pos_config', value: settings, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+
+    // 2. Write to store_settings table if available
+    if (schemaCapabilities.store_settings !== false) {
+      const dbRow = mapStoreSettingsToDb(settings);
+      const { error } = await supabase
+        .from('store_settings')
+        .upsert(dbRow, { onConflict: 'store_id' });
+
+      if (error) {
+        if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+          schemaCapabilities.store_settings = false;
+        }
+      } else {
+        schemaCapabilities.store_settings = true;
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.warn('Lỗi upsertStoreSettingsToCloud:', err);
+    return { success: false, error: err };
+  }
+}
+
+export async function uploadStoreLogoToStorage(file, type = 'original') {
+  if (!supabase) return { success: false, error: new Error('Supabase client chưa sẵn sàng') };
+  try {
+    const ext = file?.name ? file.name.split('.').pop() : 'png';
+    const filePath = `logos/${type}_${Date.now()}.${ext}`;
+    const { data: uploadData, error: uploadErr } = await supabase.storage
+      .from('store-assets')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadErr) {
+      return { success: false, error: uploadErr };
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('store-assets')
+      .getPublicUrl(filePath);
+
+    return {
+      success: true,
+      path: filePath,
+      publicUrl: urlData?.publicUrl || null
+    };
+  } catch (err) {
+    return { success: false, error: err };
+  }
+}
+
+export async function saveReceiptSnapshotToCloud(receiptRecord) {
+  if (!supabase || !receiptRecord?.order_id) return { success: false };
+  try {
+    if (schemaCapabilities.receipts !== false) {
+      const { data, error } = await supabase
+        .from('receipts')
+        .upsert(receiptRecord, { onConflict: 'id' })
+        .select()
+        .maybeSingle();
+
+      if (!error) {
+        schemaCapabilities.receipts = true;
+        return { success: true, data };
+      }
+      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+        schemaCapabilities.receipts = false;
+      }
+    }
+
+    // Fallback sync to settings pos_receipt_snapshots
+    try {
+      const { data: currentSnapshots } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('key', 'pos_receipt_snapshots')
+        .maybeSingle();
+      const existing = currentSnapshots?.value && Array.isArray(currentSnapshots.value) ? currentSnapshots.value : [];
+      const updated = [receiptRecord, ...existing.filter(r => r.id !== receiptRecord.id)].slice(0, 100);
+      await supabase.from('settings').upsert([
+        { key: 'pos_receipt_snapshots', value: updated, updated_at: new Date().toISOString() }
+      ], { onConflict: 'key' });
+      return { success: true, data: receiptRecord };
+    } catch {
+      return { success: true, data: receiptRecord };
+    }
+  } catch (err) {
+    return { success: false, error: err };
+  }
+}
+
+export async function fetchReceiptByOrderId(orderId) {
+  if (!supabase || !orderId) return null;
+  try {
+    if (schemaCapabilities.receipts !== false) {
+      const { data, error } = await supabase
+        .from('receipts')
+        .select('*')
+        .eq('order_id', orderId)
+        .order('issued_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        schemaCapabilities.receipts = true;
+        return data;
+      }
+      if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
+        schemaCapabilities.receipts = false;
+      }
+    }
+
+    // Fallback to settings pos_receipt_snapshots
+    const { data: currentSnapshots } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('key', 'pos_receipt_snapshots')
+      .maybeSingle();
+    const list = currentSnapshots?.value && Array.isArray(currentSnapshots.value) ? currentSnapshots.value : [];
+    return list.find(r => r.order_id === orderId) || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function incrementReceiptReprint(receiptId) {
+  if (!supabase || !receiptId) return { success: false };
+  try {
+    const now = new Date().toISOString();
+    if (schemaCapabilities.receipts !== false) {
+      const { data, error } = await supabase
+        .from('receipts')
+        .select('reprint_count')
+        .eq('id', receiptId)
+        .maybeSingle();
+
+      if (!error && data) {
+        const nextCount = (data.reprint_count || 0) + 1;
+        await supabase
+          .from('receipts')
+          .update({ reprint_count: nextCount, last_reprinted_at: now })
+          .eq('id', receiptId);
+        return { success: true, reprintCount: nextCount };
+      }
+    }
+
+    // Fallback
+    const { data: currentSnapshots } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('key', 'pos_receipt_snapshots')
+      .maybeSingle();
+    const list = currentSnapshots?.value && Array.isArray(currentSnapshots.value) ? currentSnapshots.value : [];
+    let nextCount = 1;
+    const updated = list.map(r => {
+      if (r.id === receiptId) {
+        nextCount = (r.reprint_count || 0) + 1;
+        return { ...r, reprint_count: nextCount, last_reprinted_at: now };
+      }
+      return r;
+    });
+    await supabase.from('settings').upsert([
+      { key: 'pos_receipt_snapshots', value: updated, updated_at: now }
+    ], { onConflict: 'key' });
+    return { success: true, reprintCount: nextCount };
+  } catch (err) {
+    return { success: false, error: err };
   }
 }

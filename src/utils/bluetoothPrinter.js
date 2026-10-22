@@ -8,6 +8,8 @@ import { formatVietnamDisplayDate } from './dateTime.js';
 
 // Target paper width: 57mm / 58mm (standard 32 characters per line in Font A)
 export const LINE_WIDTH_57MM = 32;
+// Target paper width: 80mm (standard 48 characters per line in Font A)
+export const LINE_WIDTH_80MM = 48;
 
 // Storage keys for remembered printer
 const BT_STORAGE_KEY = 'goc_pos_bt_printer_name';
@@ -93,6 +95,60 @@ export function centerText57mm(text = '') {
  */
 export function separator57mm(char = '-') {
   return char.repeat(LINE_WIDTH_57MM);
+}
+
+/**
+ * Formats a 3-column table row for 80mm paper (48 characters width):
+ * - Item name: 26 characters (left aligned)
+ * - Quantity: 6 characters (centered)
+ * - Price: 16 characters (right aligned)
+ */
+export function formatTableRow80mm(col1 = '', col2 = '', col3 = '') {
+  const c1Max = 26;
+  const c2Max = 6;
+  const c3Max = 16;
+
+  let c1 = String(col1).slice(0, c1Max).padEnd(c1Max, ' ');
+
+  let s2 = String(col2).slice(0, c2Max);
+  const padLeft = Math.floor((c2Max - s2.length) / 2);
+  const padRight = c2Max - s2.length - padLeft;
+  let c2 = ' '.repeat(Math.max(0, padLeft)) + s2 + ' '.repeat(Math.max(0, padRight));
+
+  let c3 = String(col3).slice(0, c3Max).padStart(c3Max, ' ');
+
+  return c1 + c2 + c3;
+}
+
+/**
+ * Formats a key-value row for 80mm paper (48 characters width)
+ */
+export function formatKeyValue80mm(key = '', val = '') {
+  const k = String(key);
+  const v = String(val);
+  const spaceNeeded = LINE_WIDTH_80MM - k.length - v.length;
+  if (spaceNeeded <= 0) {
+    return k + ' ' + v;
+  }
+  return k + ' '.repeat(spaceNeeded) + v;
+}
+
+/**
+ * Centers a text line within 48 characters
+ */
+export function centerText80mm(text = '') {
+  const str = String(text);
+  if (str.length >= LINE_WIDTH_80MM) return str.slice(0, LINE_WIDTH_80MM);
+  const left = Math.floor((LINE_WIDTH_80MM - str.length) / 2);
+  const right = LINE_WIDTH_80MM - str.length - left;
+  return ' '.repeat(left) + str + ' '.repeat(right);
+}
+
+/**
+ * Generates a dashed separator line of 48 dashes
+ */
+export function separator80mm(char = '-') {
+  return char.repeat(LINE_WIDTH_80MM);
 }
 
 /**
@@ -430,6 +486,188 @@ export function buildDailyClose57mmBytes(report, settings = {}, options = {}) {
  */
 export async function printReceipt57mm(order, settings = {}, options = {}) {
   const bytes = buildReceipt57mmBytes(order, settings, options);
+  await sendRawToPrinter(bytes);
+  return true;
+}
+
+/**
+ * Builds ESC/POS Byte Buffer for any Thermal Paper Width (58mm / 80mm)
+ * from a normalized ReceiptModel.
+ *
+ * @param {object} model - Canonical ReceiptModel from receiptEngine
+ * @param {object} [options]
+ * @param {Uint8Array} [options.logoRasterBytes] - Pre-rendered monochrome 1-bit raster
+ * @param {boolean} [options.useNoAccents]
+ * @returns {Uint8Array}
+ */
+export function buildReceiptThermalBytes(model, options = {}) {
+  const is80 = model.paperWidth === '80mm';
+  const lineWidth = is80 ? LINE_WIDTH_80MM : LINE_WIDTH_57MM;
+  const useNoAccents = options.useNoAccents !== false;
+  const bytes = [];
+
+  const addBytes = (arr) => {
+    for (let i = 0; i < arr.length; i++) bytes.push(arr[i]);
+  };
+
+  const addText = (str) => {
+    const b = textToBytes(str, useNoAccents);
+    addBytes(b);
+  };
+
+  const addLine = (str = '') => {
+    addText(str + '\n');
+  };
+
+  const sep = (char = '-') => char.repeat(lineWidth);
+  const kv = (k, v) => {
+    const kStr = String(k);
+    const vStr = String(v);
+    const space = lineWidth - kStr.length - vStr.length;
+    return space <= 0 ? kStr + ' ' + vStr : kStr + ' '.repeat(space) + vStr;
+  };
+  const row = (c1, c2, c3) => is80 ? formatTableRow80mm(c1, c2, c3) : formatTableRow57mm(c1, c2, c3);
+
+  // 1. Initialize
+  addBytes(ESC_POS.INIT);
+
+  // 2. Logo Raster (if provided & enabled)
+  if (model.settings?.showLogo && options.logoRasterBytes && options.logoRasterBytes.length > 0) {
+    addBytes(ESC_POS.ALIGN_CENTER);
+    addBytes(options.logoRasterBytes);
+    addLine('');
+  }
+
+  // 3. Header
+  addBytes(ESC_POS.ALIGN_CENTER);
+  if (model.settings?.showStoreName !== false) {
+    addBytes(ESC_POS.BOLD_ON);
+    addBytes(ESC_POS.DOUBLE_WIDTH_HEIGHT);
+    addLine(model.store?.storeName || 'GOC - PHE & TRA');
+    addBytes(ESC_POS.NORMAL_SIZE);
+    addBytes(ESC_POS.BOLD_OFF);
+  }
+
+  if (model.settings?.showAddress !== false && model.store?.storeAddress) {
+    addLine(model.store.storeAddress);
+  }
+  if (model.settings?.showPhone !== false && model.store?.contactPhone) {
+    addLine(`Hotline: ${model.store.contactPhone}`);
+  }
+  if (model.settings?.showWifi !== false && model.store?.wifiPassword && model.store?.wifiOnReceipt !== false) {
+    addLine(`Wifi: ${model.store.wifiPassword}`);
+  }
+
+  addLine(sep('='));
+  addBytes(ESC_POS.BOLD_ON);
+  addLine(model.isPrePrint ? '--- PHIEU TAM TINH ---' : '--- HOA DON THANH TOAN ---');
+  if (model.isReprint) {
+    addLine(`[IN LAI LAN ${model.reprintCount}]`);
+  }
+  addBytes(ESC_POS.BOLD_OFF);
+  addLine(sep('='));
+
+  // 4. Metadata
+  addBytes(ESC_POS.ALIGN_LEFT);
+  if (model.settings?.showOrderId !== false) {
+    addLine(kv('So HD:', model.receiptNumber || model.orderId));
+  }
+  if (model.settings?.showTable !== false) {
+    addLine(kv('Ban:', model.tableName || 'Mang ve'));
+  }
+  addLine(kv('Thu ngan:', model.cashier || 'Thu ngan'));
+  if (model.settings?.showOrderTime !== false) {
+    addLine(kv('Gio goi mon:', model.orderCreatedAtFormatted || '--:--'));
+  }
+  if (model.settings?.showReceiptTime !== false) {
+    addLine(kv('Gio xuat HD:', model.receiptIssuedAtFormatted || '--:--'));
+  }
+  addLine(sep('-'));
+
+  // 5. Items Header
+  addBytes(ESC_POS.BOLD_ON);
+  addLine(row('Ten mon', 'SL', 'T.Tien'));
+  addBytes(ESC_POS.BOLD_OFF);
+  addLine(sep('-'));
+
+  // 6. Items
+  const items = model.items || [];
+  const nameWidth = is80 ? 26 : 16;
+  const qtyWidth = is80 ? 6 : 4;
+  const priceWidth = is80 ? 16 : 12;
+
+  items.forEach((it) => {
+    const itemTitle = `${it.name || 'Mon'}${it.size ? ` (${it.size})` : ''}`;
+    const qtyStr = String(it.quantity || 1);
+    const priceStr = formatVND(it.lineTotal);
+
+    if (itemTitle.length <= nameWidth) {
+      addLine(row(itemTitle, qtyStr, priceStr));
+    } else {
+      // Split into lines
+      addLine(row(itemTitle.slice(0, nameWidth), qtyStr, priceStr));
+      let remaining = itemTitle.slice(nameWidth);
+      while (remaining.length > 0) {
+        addLine(remaining.slice(0, nameWidth));
+        remaining = remaining.slice(nameWidth);
+      }
+    }
+
+    if (it.toppings && it.toppings.length > 0) {
+      const topNames = it.toppings.map((tp) => tp.name).join(', ');
+      addLine(`  + ${topNames}`.slice(0, lineWidth));
+    }
+    if (it.notes) {
+      addLine(`  * ${it.notes}`.slice(0, lineWidth));
+    }
+  });
+
+  addLine(sep('-'));
+
+  // 7. Financial Summary
+  addLine(kv('Tien hang:', model.subtotalFormatted));
+  if (model.discountAmount > 0) {
+    addLine(kv(`Giam gia (${model.discountPercent}%):`, `-${model.discountAmountFormatted}`));
+  }
+  if (model.surcharge > 0) {
+    addLine(kv('Phu phi:', `+${model.surchargeFormatted}`));
+  }
+
+  addLine(sep('='));
+  addBytes(ESC_POS.BOLD_ON);
+  addBytes(ESC_POS.DOUBLE_HEIGHT);
+  addLine(kv('TONG CONG:', model.totalFormatted));
+  addBytes(ESC_POS.NORMAL_SIZE);
+  addBytes(ESC_POS.BOLD_OFF);
+  addLine(sep('='));
+
+  // 8. Payment Method
+  addLine(kv('Hinh thuc:', model.paymentMethodLabel));
+
+  // 9. Footer
+  if (model.settings?.showFooter !== false && model.footerText) {
+    addBytes(ESC_POS.ALIGN_CENTER);
+    addLine('');
+    addLine(model.footerText);
+    if (model.settings?.showWifi !== false && model.store?.wifiPassword) {
+      addLine('Pass wifi: ' + model.store.wifiPassword);
+    }
+  }
+
+  // 10. Feed & Cut
+  addBytes(ESC_POS.FEED_5);
+  addBytes(ESC_POS.CUT);
+
+  return new Uint8Array(bytes);
+}
+
+/**
+ * Universal Action: Print any Thermal Receipt model
+ * @param {object} receiptModel
+ * @param {object} [options]
+ */
+export async function printReceiptThermal(receiptModel, options = {}) {
+  const bytes = buildReceiptThermalBytes(receiptModel, options);
   await sendRawToPrinter(bytes);
   return true;
 }

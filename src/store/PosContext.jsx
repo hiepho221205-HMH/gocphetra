@@ -73,8 +73,15 @@ import {
   fetchUserProfileAndRole,
   updateUserProfile,
   upsertDailyClosureToCloud,
-  fetchDailyClosuresFromCloud
+  fetchDailyClosuresFromCloud,
+  saveReceiptSnapshotToCloud,
+  fetchReceiptByOrderId,
+  incrementReceiptReprint,
+  uploadStoreLogoToStorage,
+  fetchStoreSettingsFromCloud,
+  upsertStoreSettingsToCloud
 } from '../lib/supabase';
+import { createReceiptSnapshotRecord } from '../utils/receiptEngine';
 import {
   getVietnamTodayString,
   getVietnamDateString,
@@ -2288,6 +2295,14 @@ export function PosProvider({ children }) {
       finishedAt
     };
 
+    try {
+      const width = settings?.receiptPaperWidth || '58mm';
+      const snapshotRecord = createReceiptSnapshotRecord(finalOrder, settings, width);
+      saveReceiptSnapshotToCloud(snapshotRecord).catch(() => {});
+    } catch (e) {
+      console.warn('Receipt snapshot error on finalize:', e);
+    }
+
     setOrderHistory((prev) => [finalOrder, ...prev]);
 
     setOrders((prev) => {
@@ -3355,6 +3370,26 @@ export function PosProvider({ children }) {
         cloudUpsertSettings(next);
         return next;
       });
+    },
+    saveReceiptSnapshot: async (order, paperWidth = null) => {
+      try {
+        const width = paperWidth || settings?.receiptPaperWidth || '58mm';
+        const record = createReceiptSnapshotRecord(order, settings, width);
+        await saveReceiptSnapshotToCloud(record);
+        return record;
+      } catch (err) {
+        console.warn('Lỗi saveReceiptSnapshot:', err);
+        return null;
+      }
+    },
+    fetchReceiptSnapshot: async (orderId) => {
+      return await fetchReceiptByOrderId(orderId);
+    },
+    recordReceiptReprintAction: async (receiptId) => {
+      return await incrementReceiptReprint(receiptId);
+    },
+    uploadStoreLogo: async (file, type = 'original') => {
+      return await uploadStoreLogoToStorage(file, type);
     },
     resetAllData,
     // Phase 1: Realtime Hardening & Billing Lock

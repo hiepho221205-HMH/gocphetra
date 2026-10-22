@@ -84,6 +84,59 @@ CREATE TABLE IF NOT EXISTS public.settings (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 7B. STORE SETTINGS CHUYÊN DỤNG (Bảng cấu hình quán chuẩn hóa)
+CREATE TABLE IF NOT EXISTS public.store_settings (
+    store_id TEXT PRIMARY KEY DEFAULT 'default_store',
+    store_name TEXT NOT NULL DEFAULT 'GÓC',
+    store_address TEXT NOT NULL DEFAULT '18A Võ Văn Dũng, Phường An Nhơn, Bình Định',
+    contact_phone TEXT NOT NULL DEFAULT '1900 88 99 22',
+    logo_original_url TEXT,
+    logo_thermal_url TEXT,
+    receipt_paper_width TEXT NOT NULL DEFAULT '58mm' CHECK (receipt_paper_width IN ('58mm', '80mm')),
+    receipt_settings JSONB NOT NULL DEFAULT '{
+        "showLogo": true,
+        "showStoreName": true,
+        "showAddress": true,
+        "showPhone": true,
+        "showOrderId": true,
+        "showTable": true,
+        "showOrderTime": true,
+        "showReceiptTime": true,
+        "showWifi": true,
+        "showFooter": true
+    }'::jsonb,
+    receipt_footer TEXT NOT NULL DEFAULT 'Cảm ơn quý khách và hẹn gặp lại!',
+    wifi_password TEXT DEFAULT 'xincamon',
+    wifi_on_receipt BOOLEAN NOT NULL DEFAULT TRUE,
+    bank_code TEXT DEFAULT 'MB',
+    bank_account TEXT DEFAULT '0988776655',
+    bank_account_name TEXT DEFAULT 'QUAN CA PHE GOC',
+    vietqr_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 7C. HÓA ĐƠN ĐÃ PHÁT HÀNH & SNAPSHOT BẤT BIẾN (Receipts)
+CREATE TABLE IF NOT EXISTS public.receipts (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    store_id TEXT NOT NULL DEFAULT 'default_store',
+    receipt_number TEXT NOT NULL,
+    store_snapshot JSONB NOT NULL,
+    order_snapshot JSONB NOT NULL,
+    paper_width TEXT NOT NULL DEFAULT '58mm' CHECK (paper_width IN ('58mm', '80mm')),
+    issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reprint_count INTEGER NOT NULL DEFAULT 0,
+    last_reprinted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_store_settings_updated ON public.store_settings(updated_at);
+CREATE INDEX IF NOT EXISTS idx_receipts_order_id ON public.receipts(order_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_store_id ON public.receipts(store_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_issued_at ON public.receipts(issued_at);
+CREATE INDEX IF NOT EXISTS idx_receipts_receipt_number ON public.receipts(receipt_number);
+
 -- 8. HỒ SƠ NHÂN VIÊN & PHÂN QUYỀN RBAC (Staff Profiles)
 CREATE TABLE IF NOT EXISTS public.staff_profiles (
     id TEXT PRIMARY KEY,
