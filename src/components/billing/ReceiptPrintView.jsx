@@ -93,14 +93,14 @@ export default function ReceiptPrintView({
         recordReceiptReprintAction(receiptRecord.id).catch(() => {});
       }
 
-      // Prepare 50x50mm monochrome raster logo if enabled
+      // Prepare 80% balanced monochrome raster logo if enabled
       let logoRaster = null;
       if (model.settings?.showLogo) {
         try {
           const logoSource = model.store?.logoThermalUrl || model.store?.logoOriginalUrl || '/default-logo.png';
           const processed = await processThermalLogo(logoSource, {
-            width58: 384,
-            width80: 512
+            width58: 304, // 80% of 384 dots for balanced margins (~38mm)
+            width80: 408  // 80% of 512 dots (~51mm)
           });
           logoRaster = selectedWidth === '80mm' ? processed.raster80mm : processed.raster58mm;
         } catch (e) {
@@ -228,15 +228,15 @@ export default function ReceiptPrintView({
           >
             {/* Header Section */}
             <div className="text-center pb-1.5 border-b border-dashed border-gray-400">
-              {/* Thermal Logo (Square, minimum 50mm x 50mm) */}
+              {/* Thermal Logo (Square, balanced 80% size) */}
               {model.settings.showLogo && (model.store.logoThermalUrl || '/default-logo.png') && (
                 <div className="flex justify-center pt-0.5 pb-0">
                   <img
                     src={model.store.logoThermalUrl || model.store.logoOriginalUrl || '/default-logo.png'}
                     alt="Logo GÓC - PHÊ & TRÀ"
                     className={`receipt-thermal-logo-img ${
-                      is80 ? 'w-[210px]' : 'w-[175px]'
-                    } h-auto max-h-[190px] object-contain mx-auto block filter contrast-125`}
+                      is80 ? 'w-[168px]' : 'w-[140px]'
+                    } h-auto max-h-[160px] object-contain mx-auto block filter contrast-125`}
                   />
                 </div>
               )}
@@ -463,9 +463,9 @@ export default function ReceiptPrintView({
             background: white !important;
           }
           #printable-receipt .receipt-thermal-logo-img {
-            width: ${is80 ? '60mm' : '50mm'} !important;
+            width: ${is80 ? '48mm' : '40mm'} !important;
             height: auto !important;
-            max-height: ${is80 ? '60mm' : '50mm'} !important;
+            max-height: ${is80 ? '48mm' : '40mm'} !important;
             min-width: unset !important;
             min-height: unset !important;
             object-fit: contain !important;

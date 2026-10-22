@@ -361,17 +361,17 @@ export default function StoreConfigSubpage({ onBack }) {
                       className="max-h-full max-w-full object-contain"
                     />
                     <span className="absolute bottom-1 right-1 text-[8px] font-mono bg-black/80 text-white px-1 py-0.5 rounded">
-                      50×50mm
+                      Chuẩn 80%
                     </span>
                   </div>
 
                   <div className="flex-1 space-y-1.5 text-center sm:text-left">
                     <div className="flex items-center justify-center sm:justify-start gap-1.5 text-emerald-700 font-bold text-[11px]">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Logo chuẩn in nhiệt: Cao ≥ 50mm, Rộng ≥ 50mm</span>
+                      <span>Logo chuẩn in nhiệt: Tỷ lệ 80% cân đối (40mm)</span>
                     </div>
                     <p className="text-[10px] text-gray-400 leading-tight">
-                      Phù hợp trọn vẹn cuộn giấy nhiệt 57mm/58mm, hiển thị biểu tượng ly nước và chữ GÓC PHÊ & TRÀ rõ nét.
+                      Cân đối hoàn hảo trên cuộn giấy nhiệt 57mm/58mm, chừa lề 2 bên hài hòa, giữ trọn vẹn biểu tượng ly nước và chữ GÓC PHÊ & TRÀ sắc nét.
                     </p>
                     <div className="flex items-center justify-center sm:justify-start gap-1.5 pt-0.5 flex-wrap">
                       <button
@@ -387,7 +387,7 @@ export default function StoreConfigSubpage({ onBack }) {
                         onClick={handleResetToDefaultLogo}
                         className="px-2.5 py-1 bg-forest-50 hover:bg-forest-100 text-forest-800 border border-forest-200 rounded-lg font-bold text-[10.5px] transition-colors cursor-pointer"
                       >
-                        Dùng mẫu 50×50mm
+                        Dùng mẫu chuẩn 80%
                       </button>
                       <button
                         type="button"
