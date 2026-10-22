@@ -126,8 +126,8 @@ export const INITIAL_SETTINGS = {
   },
   receiptFooter: 'Cảm ơn quý khách và hẹn gặp lại!',
   wifiOnReceipt: true,
-  logoOriginalUrl: null,
-  logoThermalUrl: null,
+  logoOriginalUrl: '/default-logo.png',
+  logoThermalUrl: '/default-logo.png',
   bankAccount: {
     bankCode: 'MB',
     bankName: 'MB Bank (Quân Đội)',

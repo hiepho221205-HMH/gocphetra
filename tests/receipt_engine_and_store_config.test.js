@@ -207,6 +207,14 @@ describe('GÓC POS — Store Configuration, Receipt Engine & Thermal Printing Su
       assert.equal(bytes[8], 0xff);
       assert.equal(bytes[9], 0xff);
     });
+
+    test('2.5 - Default logo is embedded into app assets and always supplied by default', () => {
+      // Order with empty store logo
+      const model = buildReceiptModel({ order: { id: 'ORD-DEF' }, storeSettings: {} });
+      assert.equal(model.store.logoThermalUrl, '/default-logo.png');
+      assert.equal(model.store.logoOriginalUrl, '/default-logo.png');
+      assert.equal(model.settings.showLogo, true);
+    });
   });
 
   // =========================================================================

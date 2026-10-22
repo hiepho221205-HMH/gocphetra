@@ -177,8 +177,8 @@ export function buildReceiptModel({
     contactPhone: storeSettings.contact_phone || storeSettings.hotline || '1900 88 99 22',
     wifiPassword: storeSettings.wifi_password || storeSettings.wifiPassword || 'xincamon',
     wifiOnReceipt: storeSettings.wifi_on_receipt !== false && storeSettings.wifiOnReceipt !== false,
-    logoOriginalUrl: storeSettings.logo_original_url || storeSettings.logoOriginalUrl || null,
-    logoThermalUrl: storeSettings.logo_thermal_url || storeSettings.logoThermalUrl || null,
+    logoOriginalUrl: storeSettings.logo_original_url || storeSettings.logoOriginalUrl || '/default-logo.png',
+    logoThermalUrl: storeSettings.logo_thermal_url || storeSettings.logoThermalUrl || '/default-logo.png',
     receiptFooter: storeSettings.receipt_footer || storeSettings.receiptFooter || 'Cảm ơn quý khách và hẹn gặp lại!',
     receiptSettings: storeSettings.receipt_settings || storeSettings.receiptSettings || DEFAULT_RECEIPT_SETTINGS,
     bankAccount: storeSettings.bankAccount || {
@@ -292,8 +292,8 @@ export function createReceiptSnapshotRecord(order, storeSettings, paperWidth = '
       contactPhone: storeSettings.contact_phone || storeSettings.hotline || '1900 88 99 22',
       wifiPassword: storeSettings.wifi_password || storeSettings.wifiPassword || 'xincamon',
       wifiOnReceipt: storeSettings.wifi_on_receipt !== false && storeSettings.wifiOnReceipt !== false,
-      logoOriginalUrl: storeSettings.logo_original_url || storeSettings.logoOriginalUrl || null,
-      logoThermalUrl: storeSettings.logo_thermal_url || storeSettings.logoThermalUrl || null,
+      logoOriginalUrl: storeSettings.logo_original_url || storeSettings.logoOriginalUrl || '/default-logo.png',
+      logoThermalUrl: storeSettings.logo_thermal_url || storeSettings.logoThermalUrl || '/default-logo.png',
       receiptFooter: storeSettings.receipt_footer || storeSettings.receiptFooter || 'Cảm ơn quý khách và hẹn gặp lại!',
       receiptSettings: storeSettings.receipt_settings || storeSettings.receiptSettings || DEFAULT_RECEIPT_SETTINGS,
       bankAccount: storeSettings.bankAccount || {

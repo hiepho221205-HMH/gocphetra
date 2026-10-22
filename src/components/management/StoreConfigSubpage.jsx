@@ -43,9 +43,9 @@ export default function StoreConfigSubpage({ onBack }) {
   const [hotline, setHotline] = useState(settings?.hotline || settings?.contactPhone || '1900 88 99 22');
   const [cashier, setCashier] = useState(settings?.currentCashier || 'Thu ngân');
 
-  // Logo State
-  const [logoOriginalUrl, setLogoOriginalUrl] = useState(settings?.logoOriginalUrl || null);
-  const [logoThermalUrl, setLogoThermalUrl] = useState(settings?.logoThermalUrl || null);
+  // Logo State (Default to /default-logo.png)
+  const [logoOriginalUrl, setLogoOriginalUrl] = useState(settings?.logoOriginalUrl || '/default-logo.png');
+  const [logoThermalUrl, setLogoThermalUrl] = useState(settings?.logoThermalUrl || '/default-logo.png');
   const [logoPreviewTab, setLogoPreviewTab] = useState('thermal'); // 'original' | 'thermal'
   const [isProcessingLogo, setIsProcessingLogo] = useState(false);
   const fileInputRef = useRef(null);
@@ -169,6 +169,13 @@ export default function StoreConfigSubpage({ onBack }) {
     setLogoOriginalUrl(null);
     setLogoThermalUrl(null);
     showToast?.('Đã gỡ logo cửa hàng. Hóa đơn sẽ in chữ tên quán.', 'info');
+  };
+
+  const handleResetToDefaultLogo = () => {
+    triggerHaptic('light');
+    setLogoOriginalUrl('/default-logo.png');
+    setLogoThermalUrl('/default-logo.png');
+    showToast?.('Đã khôi phục Logo GÓC mặc định (khổ 50×50mm)', 'info');
   };
 
   const handleSave = (e) => {
@@ -346,36 +353,41 @@ export default function StoreConfigSubpage({ onBack }) {
 
               {logoThermalUrl || logoOriginalUrl ? (
                 <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 flex flex-col sm:flex-row items-center gap-3">
-                  {/* Preview Container */}
-                  <div className="w-28 h-20 bg-white rounded-xl border border-gray-200 flex items-center justify-center p-1.5 shrink-0 shadow-inner overflow-hidden relative">
+                  {/* Square Preview Container (50x50mm representation) */}
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-xl border border-gray-200 flex items-center justify-center p-1.5 shrink-0 shadow-inner overflow-hidden relative">
                     <img
                       src={logoPreviewTab === 'thermal' ? (logoThermalUrl || logoOriginalUrl) : (logoOriginalUrl || logoThermalUrl)}
                       alt="Logo Quán"
                       className="max-h-full max-w-full object-contain"
                     />
-                    {logoPreviewTab === 'thermal' && (
-                      <span className="absolute bottom-0.5 right-1 text-[8.5px] font-mono bg-black/80 text-white px-1 rounded">
-                        1-bit Dither
-                      </span>
-                    )}
+                    <span className="absolute bottom-1 right-1 text-[8px] font-mono bg-black/80 text-white px-1 py-0.5 rounded">
+                      50×50mm
+                    </span>
                   </div>
 
                   <div className="flex-1 space-y-1.5 text-center sm:text-left">
                     <div className="flex items-center justify-center sm:justify-start gap-1.5 text-emerald-700 font-bold text-[11px]">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Đã tối ưu hóa cho máy in nhiệt {paperWidth}</span>
+                      <span>Logo chuẩn in nhiệt: Cao ≥ 50mm, Rộng ≥ 50mm</span>
                     </div>
                     <p className="text-[10px] text-gray-400 leading-tight">
-                      Nền đen đã được chuyển sang trắng, chữ & icon sang đen đậm với độ tương phản cao, chống nhòe nhiệt.
+                      Phù hợp trọn vẹn cuộn giấy nhiệt 57mm/58mm, hiển thị biểu tượng ly nước và chữ GÓC PHÊ & TRÀ rõ nét.
                     </p>
-                    <div className="flex items-center justify-center sm:justify-start gap-2 pt-0.5">
+                    <div className="flex items-center justify-center sm:justify-start gap-1.5 pt-0.5 flex-wrap">
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isProcessingLogo}
                         className="px-2.5 py-1 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg text-forest-900 font-bold text-[10.5px] transition-colors cursor-pointer"
                       >
-                        {isProcessingLogo ? 'Đang xử lý...' : 'Thay đổi logo'}
+                        {isProcessingLogo ? 'Đang xử lý...' : 'Tải ảnh khác'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetToDefaultLogo}
+                        className="px-2.5 py-1 bg-forest-50 hover:bg-forest-100 text-forest-800 border border-forest-200 rounded-lg font-bold text-[10.5px] transition-colors cursor-pointer"
+                      >
+                        Dùng mẫu 50×50mm
                       </button>
                       <button
                         type="button"
@@ -383,7 +395,7 @@ export default function StoreConfigSubpage({ onBack }) {
                         className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[10.5px] transition-colors cursor-pointer flex items-center gap-1"
                       >
                         <Trash2 className="w-3 h-3" />
-                        <span>Xóa logo</span>
+                        <span>Gỡ logo</span>
                       </button>
                     </div>
                   </div>

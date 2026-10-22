@@ -19,6 +19,7 @@ import {
   printReceiptThermal
 } from '../../utils/bluetoothPrinter';
 import { buildReceiptModel } from '../../utils/receiptEngine';
+import { processThermalLogo } from '../../utils/thermalLogoProcessor';
 import { triggerHaptic } from '../../utils/haptics';
 
 export default function ReceiptPrintView({
@@ -92,9 +93,25 @@ export default function ReceiptPrintView({
         recordReceiptReprintAction(receiptRecord.id).catch(() => {});
       }
 
+      // Prepare 50x50mm monochrome raster logo if enabled
+      let logoRaster = null;
+      if (model.settings?.showLogo) {
+        try {
+          const logoSource = model.store?.logoThermalUrl || model.store?.logoOriginalUrl || '/default-logo.png';
+          const processed = await processThermalLogo(logoSource, {
+            width58: 384,
+            width80: 512
+          });
+          logoRaster = selectedWidth === '80mm' ? processed.raster80mm : processed.raster58mm;
+        } catch (e) {
+          console.warn('Could not rasterize logo for BT print:', e);
+        }
+      }
+
       // Print order via universal thermal ESC/POS
       await printReceiptThermal(model, {
-        useNoAccents: settings?.printNoAccents !== false
+        useNoAccents: settings?.printNoAccents !== false,
+        logoRasterBytes: logoRaster
       });
 
       showToast?.(`Đã in hóa đơn ${selectedWidth} qua Bluetooth thành công!`, 'success');
@@ -211,13 +228,15 @@ export default function ReceiptPrintView({
           >
             {/* Header Section */}
             <div className="text-center pb-2 border-b border-dashed border-gray-400 space-y-1">
-              {/* Thermal Logo (If enabled and uploaded) */}
-              {model.settings.showLogo && model.store.logoThermalUrl && (
-                <div className="flex justify-center pb-1">
+              {/* Thermal Logo (Square, minimum 50mm x 50mm) */}
+              {model.settings.showLogo && (model.store.logoThermalUrl || '/default-logo.png') && (
+                <div className="flex justify-center pb-2 pt-0.5">
                   <img
-                    src={model.store.logoThermalUrl}
-                    alt="Logo GÓC"
-                    className="max-h-16 max-w-[85%] object-contain filter contrast-125"
+                    src={model.store.logoThermalUrl || model.store.logoOriginalUrl || '/default-logo.png'}
+                    alt="Logo GÓC - PHÊ & TRÀ"
+                    className={`receipt-thermal-logo-img ${
+                      is80 ? 'w-[220px] h-[220px]' : 'w-[195px] h-[195px]'
+                    } object-contain mx-auto block filter contrast-125`}
                   />
                 </div>
               )}
@@ -439,6 +458,17 @@ export default function ReceiptPrintView({
             box-shadow: none !important;
             border: none !important;
             background: white !important;
+          }
+          #printable-receipt .receipt-thermal-logo-img {
+            width: ${is80 ? '60mm' : '50mm'} !important;
+            height: ${is80 ? '60mm' : '50mm'} !important;
+            min-width: ${is80 ? '60mm' : '50mm'} !important;
+            min-height: ${is80 ? '60mm' : '50mm'} !important;
+            max-width: ${is80 ? '60mm' : '50mm'} !important;
+            max-height: ${is80 ? '60mm' : '50mm'} !important;
+            object-fit: contain !important;
+            margin: 0 auto 2.5mm auto !important;
+            display: block !important;
           }
         }
       `}</style>
