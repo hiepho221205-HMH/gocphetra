@@ -1,8 +1,9 @@
 import React from 'react';
 import { usePos } from '../../store/PosContext';
-import { Utensils, Receipt, Eye } from 'lucide-react';
+import { Utensils, Receipt } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
 import { triggerHaptic } from '../../utils/haptics';
+import ViewOrderIconButton from '../common/ViewOrderIconButton';
 
 export default function TableCard({
   table,
@@ -126,23 +127,20 @@ export default function TableCard({
             <span>Gọi món</span>
           </button>
         ) : (
-          /* Bàn có khách: 2 button ngang chia đều 50/50 */
-          <div className="grid grid-cols-2 gap-1.5">
-            {/* Nút "Xem đơn" (nền vàng nhạt) */}
-            <button
-              type="button"
+          /* Bàn có khách: Icon Xem đơn gọn gàng + Nút Thanh toán flex-1 */
+          <div className="flex items-center gap-1.5">
+            {/* Nút icon "Xem đơn" */}
+            <ViewOrderIconButton
               onClick={handleOrderClick}
-              className="touch-target py-2 px-2 bg-gradient-to-b from-amber-50 to-amber-100/80 hover:bg-amber-100 text-amber-900 border border-amber-200/90 rounded-[14px] font-black text-xs flex items-center justify-center gap-1 shadow-[0_4px_10px_rgba(245,158,11,0.15),inset_0_1px_1px_rgba(255,255,255,0.9)] active:scale-95 cursor-pointer transition-all"
-            >
-              <Eye className="w-3.5 h-3.5 text-amber-700 stroke-[2.2]" />
-              <span>Xem đơn</span>
-            </button>
+              size="md"
+              title="Xem đơn chi tiết"
+            />
 
             {/* Nút "Thanh toán" (nền xanh #214E34 3D hoặc amber nếu đang khóa) */}
             <button
               type="button"
               onClick={handleBillClick}
-              className={`touch-target py-2 px-2 text-white rounded-[14px] font-black text-xs flex items-center justify-center gap-1 cursor-pointer ${
+              className={`touch-target flex-1 py-2 px-2.5 text-white rounded-[14px] font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer min-h-[38px] ${
                 isLockedByOther ? 'bg-amber-600 hover:bg-amber-700 shadow-md' : 'clay-btn-primary'
               }`}
             >

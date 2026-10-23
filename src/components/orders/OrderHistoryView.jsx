@@ -4,6 +4,7 @@ import ReceiptPrintView from '../billing/ReceiptPrintView';
 import HistoricalPaymentModal from '../billing/HistoricalPaymentModal';
 import OrderDetailsModal from './OrderDetailsModal';
 import DatePickerModal from './DatePickerModal';
+import ViewOrderIconButton from '../common/ViewOrderIconButton';
 import {
   Calendar,
   ChevronLeft,
@@ -449,17 +450,14 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                               {formatVND(ord.total)}
                             </span>
 
-                            <button
-                              type="button"
+                            <ViewOrderIconButton
                               onClick={(e) => {
-                                e.stopPropagation();
+                                e?.stopPropagation?.();
                                 handleOpenServingDetails(ord);
                               }}
-                              className="touch-target px-3 py-1.5 clay-pill-btn text-[#214E34] font-black text-xs flex items-center gap-1 cursor-pointer"
-                            >
-                              <Receipt className="w-3.5 h-3.5" />
-                              <span>Xem đơn</span>
-                            </button>
+                              size="sm"
+                              title="Xem chi tiết đơn"
+                            />
                           </div>
                         </div>
                       </div>
@@ -530,15 +528,12 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                               {formatVND(ord.total)}
                             </span>
 
-                            {/* Nút Xem đơn */}
-                            <button
-                              type="button"
+                            {/* Nút Xem đơn (Icon con mắt đơn giản) */}
+                            <ViewOrderIconButton
                               onClick={() => handleOpenServingDetails(ord)}
-                              className="touch-target px-3 py-1.5 clay-pill-btn text-gray-700 font-bold text-xs flex items-center gap-1 cursor-pointer"
-                            >
-                              <Receipt className="w-3.5 h-3.5" />
-                              <span>Xem đơn</span>
-                            </button>
+                              size="sm"
+                              title="Xem chi tiết đơn"
+                            />
 
                             {/* Nút Thu tiền */}
                             <button

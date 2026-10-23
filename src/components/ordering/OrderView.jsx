@@ -4,6 +4,7 @@ import { usePos } from '../../store/PosContext';
 import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
 import ItemCustomizerModal from './ItemCustomizerModal';
 import OrderDetailsModal from '../orders/OrderDetailsModal';
+import ViewOrderIconButton from '../common/ViewOrderIconButton';
 import {
   ArrowLeft,
   Search,
@@ -531,26 +532,15 @@ export default function OrderView({ table, onBack, onGoToBill }) {
           </div>
         </div>
 
-        {/* Right: Action Buttons Group (Xem đơn + Lưu) */}
+        {/* Right: Action Buttons Group (Icon con mắt Xem đơn + Lưu nhanh) */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Nút Xem đơn */}
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setIsOrderDetailsOpen(true);
-            }}
+          {/* Nút Xem đơn (Icon con mắt đơn giản) */}
+          <ViewOrderIconButton
+            onClick={() => setIsOrderDetailsOpen(true)}
             disabled={cartItems.length === 0 || isSaving}
-            aria-label="Xem đơn chi tiết"
-            className={`min-h-[44px] px-3.5 py-2 rounded-[16px] text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              cartItems.length > 0 && !isSaving
-                ? 'clay-pill-btn text-gray-800'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-            }`}
-          >
-            <Receipt className="w-3.5 h-3.5 text-[#214E34] stroke-[2.2]" />
-            <span>Xem đơn</span>
-          </button>
+            size="lg"
+            title="Xem đơn chi tiết"
+          />
 
           {/* Nút Lưu nhanh */}
           <button
