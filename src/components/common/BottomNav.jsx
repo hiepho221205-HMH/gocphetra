@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { usePos } from '../../store/PosContext';
+import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
 import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3 } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
 
-export default function BottomNav() {
+export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
   const { activeTab, setActiveTab, orders, currentRole } = usePos();
+  const { isKeyboardOpen: internalIsKeyboardOpen } = useIosKeyboardFix();
+  const isKeyboardActive = propIsKeyboardOpen !== undefined ? propIsKeyboardOpen : internalIsKeyboardOpen;
+  const isEffectiveVisible = isVisible && !isKeyboardActive;
 
   // Đếm bàn đang phục vụ
   const activeOrderCount = Object.keys(orders).length;
@@ -120,7 +124,7 @@ export default function BottomNav() {
       aria-label="Thanh điều hướng chính"
       data-testid="bottom-nav"
       className={`fixed bottom-4 left-4 right-4 max-w-[380px] mx-auto z-40 select-none pointer-events-none transition-all duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform ${
-        isVisible
+        isEffectiveVisible
           ? 'translate-y-0 opacity-100'
           : 'translate-y-[calc(100%+32px+env(safe-area-inset-bottom,0px))] opacity-0'
       }`}
@@ -131,7 +135,7 @@ export default function BottomNav() {
       {/* Vỏ ngoài Floating Tab Bar với Glassmorphism & bo cong cao cấp */}
       <div
         className={`clay-bottom-bar relative w-full h-[68px] px-2.5 ${
-          isVisible ? 'pointer-events-auto' : 'pointer-events-none'
+          isEffectiveVisible ? 'pointer-events-auto' : 'pointer-events-none'
         }`}
       >
         {/* Track Grid phân bổ theo số tab (2 cột cho Staff, 4 cột cho Manager/Admin) */}

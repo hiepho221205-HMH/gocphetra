@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { usePos } from '../../store/PosContext';
+import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
 import ToppingManagerModal from './ToppingManagerModal';
 import {
   Coffee,
@@ -73,6 +74,7 @@ export default function MenuManagementView() {
     deleteMenuItem,
     toggleProductStock
   } = usePos();
+  useIosKeyboardFix();
 
   // Active Category: 'all' is the virtual system category (default)
   const [selectedCat, setSelectedCat] = useState('all');
@@ -270,13 +272,13 @@ export default function MenuManagementView() {
   };
 
   return (
-    <div className="flex flex-col h-full sm:h-[780px] ambient-clay-bg overflow-hidden select-none">
+    <div className="flex flex-col h-full flex-1 min-h-0 ambient-clay-bg overflow-hidden select-none">
       {/* 2-COLUMN SPLIT-VIEW POS MENU MANAGEMENT */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* ================= LEFT SIDEBAR: CATEGORIES & ACTIONS (~116px) ================= */}
         <aside className="w-[114px] sm:w-[124px] shrink-0 border-r border-gray-100 bg-white/95 backdrop-blur-md flex flex-col justify-between overflow-hidden shadow-xs">
-          {/* Top Quick Actions (3 buttons: Thêm món, Thêm mục, Topping) */}
-          <div className="p-2 space-y-1.5 border-b border-gray-100 bg-[#F5F7F4]/60">
+          {/* Top Quick Actions (Thêm món, Thêm mục, Topping) & Pinned "Tất cả" Category */}
+          <div className="shrink-0 p-2 space-y-1.5 border-b border-gray-100 bg-[#F5F7F4]/60">
             {/* Action 1: + Thêm món */}
             <button
               type="button"
@@ -312,25 +314,22 @@ export default function MenuManagementView() {
               <Sparkles className="w-3.5 h-3.5 text-amber-700 shrink-0" />
               <span>Topping</span>
             </button>
-          </div>
 
-          {/* Vertical Categories List */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-1.5 space-y-1.5">
-            {/* VIRTUAL SYSTEM CATEGORY: "Tất cả" */}
+            {/* Action 4 / Pinned Filter: "Tất cả" */}
             <div
               onClick={() => {
                 triggerHaptic('light');
                 setSelectedCat('all');
               }}
-              className={`w-full min-h-[50px] px-2.5 py-2 rounded-[16px] text-left cursor-pointer transition-all duration-200 flex flex-col justify-center ${
+              className={`w-full min-h-[46px] px-2.5 py-1.5 rounded-[14px] text-left cursor-pointer transition-all duration-200 flex flex-col justify-center ${
                 selectedCat === 'all'
                   ? 'clay-btn-primary shadow-sm font-black text-white'
-                  : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-100'
+                  : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-xs'
               }`}
             >
               <div className="flex items-center justify-between w-full mb-0.5">
                 <Grid
-                  className={`w-4 h-4 shrink-0 ${
+                  className={`w-3.5 h-3.5 shrink-0 ${
                     selectedCat === 'all' ? 'text-white' : 'text-[#214E34]'
                   }`}
                 />
@@ -346,7 +345,10 @@ export default function MenuManagementView() {
               </div>
               <span className="text-[11px] leading-tight font-extrabold">Tất cả</span>
             </div>
+          </div>
 
+          {/* Vertical Categories List (Scrollable) */}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-touch-contain no-scrollbar p-1.5 space-y-1.5 pb-20">
             {/* REAL USER CATEGORIES */}
             {categories.map((cat) => {
               const isActive = selectedCat === cat.id;
@@ -406,7 +408,7 @@ export default function MenuManagementView() {
           </div>
 
           {/* Bottom stats summary */}
-          <div className="p-2 border-t border-gray-100 text-center bg-[#F5F7F4]/60">
+          <div className="shrink-0 p-2 border-t border-gray-100 text-center bg-[#F5F7F4]/60">
             <span className="text-[10px] text-gray-400 font-bold block">
               {menu.length} món • {toppings.length} topping
             </span>
@@ -414,9 +416,9 @@ export default function MenuManagementView() {
         </aside>
 
         {/* ================= RIGHT COLUMN: ITEM LIST (~276px) ================= */}
-        <section className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <section className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
           {/* Header Bar */}
-          <div className="p-2.5 pb-2 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-10 space-y-2">
+          <div className="shrink-0 p-2.5 pb-2 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-10 space-y-2">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-black text-[#214E34] flex items-center gap-1.5">
@@ -465,7 +467,7 @@ export default function MenuManagementView() {
           </div>
 
           {/* Scrollable Item Cards List */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-2.5 space-y-2.5 pb-28">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-touch-contain no-scrollbar p-2.5 space-y-2.5 pb-28">
             {filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-gray-400">
                 <Coffee className="w-10 h-10 mb-2 stroke-[1.5] text-gray-300" />

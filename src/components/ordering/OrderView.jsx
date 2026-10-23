@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { usePos } from '../../store/PosContext';
+import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
 import ItemCustomizerModal from './ItemCustomizerModal';
 import OrderDetailsModal from '../orders/OrderDetailsModal';
 import {
@@ -53,6 +54,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     isTableBillingLocked,
     currentUser
   } = usePos();
+  const { isKeyboardOpen } = useIosKeyboardFix();
 
   // Active Category: 'all' is the virtual category (default)
   const [selectedCat, setSelectedCat] = useState('all');
@@ -282,11 +284,11 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       </header>
 
       {/* ================= 2. BỐ CỤC 2 CỘT POS (SIDEBAR TRÁI + DANH SÁCH PHẢI) ================= */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* ================= CỘT TRÁI: SIDEBAR DANH MỤC (~114px) ================= */}
         <aside className="w-[114px] sm:w-[124px] shrink-0 border-r border-gray-100 bg-white/90 backdrop-blur-md flex flex-col justify-between overflow-hidden">
           {/* Danh sách danh mục cuộn dọc */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-1.5 space-y-1.5 pb-20">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-touch-contain no-scrollbar p-1.5 space-y-1.5 pb-20">
             {/* TAB HỆ THỐNG CỐ ĐỊNH: "Tất cả" */}
             <div
               onClick={() => {
@@ -363,9 +365,9 @@ export default function OrderView({ table, onBack, onGoToBill }) {
         </aside>
 
         {/* ================= CỘT PHẢI: DANH SÁCH MÓN (~276px) ================= */}
-        <section className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <section className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
           {/* Header Bar: Tiêu đề + Ô tìm kiếm */}
-          <div className="p-2.5 pb-2 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-10 space-y-2">
+          <div className="p-2.5 pb-2 border-b border-gray-100 bg-white/80 backdrop-blur-md shrink-0 z-10 space-y-2">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-black text-[#214E34] flex items-center gap-1.5">
                 <span>{activeCategoryTitle}</span>
@@ -398,7 +400,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
           </div>
 
           {/* Scrollable Products List */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-2.5 space-y-2.5 pb-24">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-touch-contain no-scrollbar p-2.5 space-y-2.5 pb-24">
             {filteredMenu.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-gray-400">
                 <Coffee className="w-10 h-10 mb-2 stroke-[1.5] text-gray-300" />
@@ -493,7 +495,13 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       </div>
 
       {/* ================= 3. STICKY BOTTOM SUMMARY BAR ================= */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-xl border-t border-gray-100 px-3.5 py-3 flex items-center justify-between gap-2 shadow-[0_-8px_20px_rgba(160,175,200,0.15)]">
+      <div
+        className={`absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-xl border-t border-gray-100 px-3.5 py-3 flex items-center justify-between gap-2 shadow-[0_-8px_20px_rgba(160,175,200,0.15)] transition-all duration-200 ${
+          isKeyboardOpen
+            ? 'opacity-0 translate-y-6 pointer-events-none'
+            : 'opacity-100 translate-y-0 pointer-events-auto'
+        }`}
+      >
         {/* Left: Cart items count & subtotal */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <div className="w-10 h-10 rounded-[14px] clay-disc-base clay-disc-blue text-white flex items-center justify-center shrink-0 relative shadow-sm">

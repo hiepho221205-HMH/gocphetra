@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PosProvider, usePos } from './store/PosContext';
 import { useVersionChecker } from './hooks/useVersionChecker';
+import { useIosKeyboardFix } from './hooks/useIosKeyboardFix';
 import BottomNav from './components/common/BottomNav';
 import Toast from './components/common/Toast';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -33,6 +34,7 @@ function PosContent() {
 
   const [previousTab, setPreviousTab] = useState('tables');
   const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
+  const { isKeyboardOpen } = useIosKeyboardFix();
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
   // Active table being viewed in ordering or action modal
@@ -113,8 +115,14 @@ function PosContent() {
           <PageHeader onOpenSettings={handleOpenSettings} />
         )}
 
-        {/* Scrollable Main Area */}
-        <main className="flex-1 overflow-y-auto relative no-scrollbar">
+        {/* Scrollable Main Area (overflow-hidden on independent-scroll tabs to prevent root scroll drift) */}
+        <main
+          className={`flex-1 relative no-scrollbar ${
+            activeOrderingTable || activeTab === 'menu'
+              ? 'overflow-hidden flex flex-col min-h-0 h-full'
+              : 'overflow-y-auto'
+          }`}
+        >
           {/* TAB 1: BÀN (TABLES) */}
           {activeTab === 'tables' && (
             <>
@@ -162,7 +170,7 @@ function PosContent() {
 
           {/* TAB 2: THỰC ĐƠN (MENU MANAGEMENT) - RBAC GUARD */}
           {activeTab === 'menu' && (
-            <div className="animate-fadeIn">
+            <div className="animate-fadeIn h-full flex flex-col min-h-0">
               {canManageMenu ? (
                 <MenuManagementView />
               ) : (
@@ -222,7 +230,7 @@ function PosContent() {
 
         {/* Bottom Navigation (Chỉ hiện trên các tab chính, ẩn khi đang gọi món hoặc vào Cài đặt) */}
         {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab) && (
-          <BottomNav />
+          <BottomNav isKeyboardOpen={isKeyboardOpen} />
         )}
 
         {/* Modals */}

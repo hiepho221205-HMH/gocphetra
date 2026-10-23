@@ -271,6 +271,12 @@
   background: rgba(33, 78, 52, 0.4);
 }
 
+/* iOS Independent Smooth Scrolling & Momentum */
+.scroll-touch-contain {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 /* Print thermal receipt styles */
 @media print {
   body * {
