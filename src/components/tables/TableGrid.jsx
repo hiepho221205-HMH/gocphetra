@@ -33,9 +33,14 @@ export default function TableGrid({
   };
 
   // 3 Chỉ số thống kê đúng theo yêu cầu (Bỏ "Chờ thanh toán")
-  const totalCount = tables.length;
-  const occupiedCount = tables.filter((t) => isTableOccupied(t)).length;
-  const emptyCount = totalCount - occupiedCount;
+  const { totalCount, occupiedCount, emptyCount } = useMemo(() => {
+    const total = tables.length;
+    let occ = 0;
+    for (let i = 0; i < total; i++) {
+      if (isTableOccupied(tables[i])) occ++;
+    }
+    return { totalCount: total, occupiedCount: occ, emptyCount: total - occ };
+  }, [tables, orders]);
 
   // Lọc và sắp xếp danh sách bàn:
   // Tab "Tất cả": Ưu tiên nhóm "CÓ KHÁCH" lên đầu, nhóm "TRỐNG" xếp sau.

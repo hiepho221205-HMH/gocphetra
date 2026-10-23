@@ -12,7 +12,7 @@ import {
   getDailyClosure,
   getAllDailyClosures
 } from '../lib/db';
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   INITIAL_TABLES,
   INITIAL_CATEGORIES,
@@ -1171,12 +1171,13 @@ export function PosProvider({ children }) {
   // Staff: Only completed orders of TODAY (Vietnam timezone).
   // Manager & Admin: All completed orders.
   const todayVietnam = getVietnamTodayString();
-  const visibleOrderHistory = (currentRole === 'staff')
-    ? orderHistory.filter((ord) => {
-        const orderDate = ord.businessDate || (ord.finishedAt ? getVietnamDateString(ord.finishedAt) : (ord.createdAt ? getVietnamDateString(ord.createdAt) : null));
-        return orderDate === todayVietnam;
-      })
-    : orderHistory;
+  const visibleOrderHistory = useMemo(() => {
+    if (currentRole !== 'staff') return orderHistory;
+    return orderHistory.filter((ord) => {
+      const orderDate = ord.businessDate || (ord.finishedAt ? getVietnamDateString(ord.finishedAt) : (ord.createdAt ? getVietnamDateString(ord.createdAt) : null));
+      return orderDate === todayVietnam;
+    });
+  }, [currentRole, orderHistory, todayVietnam]);
 
   // Helper: Recalculate Order Totals
   const recalculateOrder = (order) => {

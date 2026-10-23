@@ -56,9 +56,6 @@ export default defineConfig({
             if (id.includes('@supabase')) {
               return 'vendor-supabase';
             }
-            if (id.includes('@tanstack')) {
-              return 'vendor-query';
-            }
             if (id.includes('dexie')) {
               return 'vendor-dexie';
             }

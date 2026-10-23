@@ -1,23 +1,33 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { usePos } from '../../store/PosContext';
 import { useVersionChecker } from '../../hooks/useVersionChecker';
 import { APP_VERSION, BUILD_DATE, RELEASE_NAME } from '../../config/version';
 import { exportPosBackup } from '../../utils/storageMigrator';
-import ProfileEditSubpage from './ProfileEditSubpage';
 import StaffManagementSection from './StaffManagementSection';
-import StaffListPage from './StaffListPage';
-import StaffCreatePage from './StaffCreatePage';
-import StoreConfigSubpage from './StoreConfigSubpage';
 import DataCleanupSection from './DataCleanupSection';
-import RbacPermissionsTable from './RbacPermissionsTable';
-import RbacMainPage from '../rbac/RbacMainPage';
-import StaffDetailSubpage from '../rbac/StaffDetailSubpage';
-import RoleChangeSubpage from '../rbac/RoleChangeSubpage';
-import RoleAuditLogSection from '../rbac/RoleAuditLogSection';
 import SafeLogoutModal from './SafeLogoutModal';
 import ProfileNavCard from './ProfileNavCard';
 import AccessDeniedView from '../common/AccessDeniedView';
-import EmergencyOrderManagerModal from './EmergencyOrderManagerModal';
+
+// Code-split heavy subpages and modals to optimize bundle size and view transition speed
+const ProfileEditSubpage = lazy(() => import('./ProfileEditSubpage'));
+const StaffListPage = lazy(() => import('./StaffListPage'));
+const StaffCreatePage = lazy(() => import('./StaffCreatePage'));
+const StoreConfigSubpage = lazy(() => import('./StoreConfigSubpage'));
+const RbacMainPage = lazy(() => import('../rbac/RbacMainPage'));
+const StaffDetailSubpage = lazy(() => import('../rbac/StaffDetailSubpage'));
+const RoleChangeSubpage = lazy(() => import('../rbac/RoleChangeSubpage'));
+const RoleAuditLogSection = lazy(() => import('../rbac/RoleAuditLogSection'));
+const EmergencyOrderManagerModal = lazy(() => import('./EmergencyOrderManagerModal'));
+
+const SubpageLoadingFallback = () => (
+  <div className="flex-1 min-h-[160px] flex items-center justify-center p-6 text-[#214E34]">
+    <div className="flex flex-col items-center gap-2">
+      <div className="w-6 h-6 rounded-full border-2 border-[#214E34] border-t-transparent animate-spin"></div>
+      <span className="text-[11px] font-bold text-gray-500">Đang tải chức năng...</span>
+    </div>
+  </div>
+);
 import {
   isBluetoothSupported,
   connectBluetoothPrinter,
@@ -207,7 +217,9 @@ export default function ManagementProfileView({ onBack }) {
   if (currentView === 'profile') {
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs">
-        <ProfileEditSubpage onBack={() => setCurrentView('main')} />
+        <Suspense fallback={<SubpageLoadingFallback />}>
+          <ProfileEditSubpage onBack={() => setCurrentView('main')} />
+        </Suspense>
       </div>
     );
   }
@@ -231,7 +243,9 @@ export default function ManagementProfileView({ onBack }) {
   if (currentRoute === '/staff/list') {
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs">
-        <StaffListPage />
+        <Suspense fallback={<SubpageLoadingFallback />}>
+          <StaffListPage />
+        </Suspense>
       </div>
     );
   }
@@ -240,7 +254,9 @@ export default function ManagementProfileView({ onBack }) {
   if (currentRoute === '/staff/create') {
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs">
-        <StaffCreatePage />
+        <Suspense fallback={<SubpageLoadingFallback />}>
+          <StaffCreatePage />
+        </Suspense>
       </div>
     );
   }
@@ -312,7 +328,9 @@ export default function ManagementProfileView({ onBack }) {
     }
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs">
-        <StoreConfigSubpage onBack={() => setCurrentView('main')} />
+        <Suspense fallback={<SubpageLoadingFallback />}>
+          <StoreConfigSubpage onBack={() => setCurrentView('main')} />
+        </Suspense>
       </div>
     );
   }
@@ -379,7 +397,9 @@ export default function ManagementProfileView({ onBack }) {
   if (currentRoute === '/rbac/detail') {
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs">
-        <StaffDetailSubpage />
+        <Suspense fallback={<SubpageLoadingFallback />}>
+          <StaffDetailSubpage />
+        </Suspense>
       </div>
     );
   }
@@ -388,7 +408,9 @@ export default function ManagementProfileView({ onBack }) {
   if (currentRoute === '/rbac/role') {
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs">
-        <RoleChangeSubpage />
+        <Suspense fallback={<SubpageLoadingFallback />}>
+          <RoleChangeSubpage />
+        </Suspense>
       </div>
     );
   }
@@ -397,7 +419,9 @@ export default function ManagementProfileView({ onBack }) {
   if (currentRoute === '/rbac/audit') {
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs">
-        <RoleAuditLogSection />
+        <Suspense fallback={<SubpageLoadingFallback />}>
+          <RoleAuditLogSection />
+        </Suspense>
       </div>
     );
   }
@@ -423,10 +447,12 @@ export default function ManagementProfileView({ onBack }) {
     }
     return (
       <div className="px-4 pt-3.5 pb-24 text-xs">
-        <RbacMainPage onBack={() => {
-          setCurrentView('main');
-          navigate('/settings');
-        }} />
+        <Suspense fallback={<SubpageLoadingFallback />}>
+          <RbacMainPage onBack={() => {
+            setCurrentView('main');
+            navigate('/settings');
+          }} />
+        </Suspense>
       </div>
     );
   }
@@ -632,10 +658,14 @@ export default function ManagementProfileView({ onBack }) {
         )}
       </div>
 
-      <EmergencyOrderManagerModal
-        isOpen={isEmergencyModalOpen}
-        onClose={() => setIsEmergencyModalOpen(false)}
-      />
+      {isEmergencyModalOpen && (
+        <Suspense fallback={null}>
+          <EmergencyOrderManagerModal
+            isOpen={isEmergencyModalOpen}
+            onClose={() => setIsEmergencyModalOpen(false)}
+          />
+        </Suspense>
+      )}
 
       {/* ========================================================= */}
       {/* 3. CHẾ ĐỘ HIỂN THỊ POS & THIẾT BỊ                         */}

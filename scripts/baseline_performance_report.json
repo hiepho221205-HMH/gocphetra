@@ -1,0 +1,150 @@
+{
+  "mode": "baseline",
+  "timestamp": "2026-10-23T17:26:20.717Z",
+  "bundle": {
+    "totalJsKB": 1044.36,
+    "totalCssKB": 81.9,
+    "totalBundleKB": 1126.26,
+    "chunkCount": 21,
+    "chunks": [
+      {
+        "name": "vendor-supabase-DYxuN0_g.js",
+        "sizeKB": 218.52
+      },
+      {
+        "name": "SettingsView-pYVz9DiZ.js",
+        "sizeKB": 164.27
+      },
+      {
+        "name": "vendor-react-DzWs8T71.js",
+        "sizeKB": 160.87
+      },
+      {
+        "name": "index-D4opa49e.js",
+        "sizeKB": 147.91
+      },
+      {
+        "name": "vendor-dexie-CmVaJeG3.js",
+        "sizeKB": 94.14
+      },
+      {
+        "name": "index-DTmnKpsS.css",
+        "sizeKB": 81.9
+      },
+      {
+        "name": "MenuManagementView-C-z7nQIe.js",
+        "sizeKB": 37.41
+      },
+      {
+        "name": "OrderHistoryView-CmHO5ErD.js",
+        "sizeKB": 35.17
+      },
+      {
+        "name": "BillCheckoutModal-0X4eTqxc.js",
+        "sizeKB": 26.98
+      },
+      {
+        "name": "vendor-query-fYT5jQZ4.js",
+        "sizeKB": 24.12
+      },
+      {
+        "name": "bluetoothPrinter-VtLIOOhI.js",
+        "sizeKB": 24.05
+      },
+      {
+        "name": "OrderView-CTbWT0k9.js",
+        "sizeKB": 22.5
+      },
+      {
+        "name": "ReportsView-Kd_Uorjc.js",
+        "sizeKB": 20.64
+      },
+      {
+        "name": "OrderDetailsModal-DauwqLyN.js",
+        "sizeKB": 15.53
+      },
+      {
+        "name": "ReceiptPrintView-B74TqZKs.js",
+        "sizeKB": 12.22
+      },
+      {
+        "name": "TableActionModal-vWc_J-Aa.js",
+        "sizeKB": 10.16
+      },
+      {
+        "name": "LoginPage-18wEk3kf.js",
+        "sizeKB": 9.64
+      },
+      {
+        "name": "TableGrid-jcNkTd1Z.js",
+        "sizeKB": 9.04
+      },
+      {
+        "name": "kitchenTicketEngine-BtvZLT2H.js",
+        "sizeKB": 6.58
+      },
+      {
+        "name": "AddEditTableModal-C719bRHW.js",
+        "sizeKB": 3.4
+      },
+      {
+        "name": "ViewOrderIconButton-B22etvxa.js",
+        "sizeKB": 1.21
+      }
+    ]
+  },
+  "viewMetrics": {
+    "Login": {
+      "loadDurationMs": 1193,
+      "fcpMs": 140,
+      "jsHeapUsedMB": 3.69
+    },
+    "Tables": {
+      "jsHeapUsedMB": 5.02
+    },
+    "OrderView": {
+      "transitionMs": 19,
+      "jsHeapUsedMB": 5.03
+    },
+    "OrderHistory": {
+      "transitionMs": 529,
+      "jsHeapUsedMB": 5.78
+    },
+    "MenuManagement": {
+      "transitionMs": 522,
+      "jsHeapUsedMB": 6.77
+    },
+    "Reports": {
+      "transitionMs": 525,
+      "jsHeapUsedMB": 6.24
+    },
+    "Settings": {
+      "transitionMs": 623,
+      "jsHeapUsedMB": 6.61
+    },
+    "StoreConfig": {
+      "transitionMs": 602,
+      "jsHeapUsedMB": 6.62
+    }
+  },
+  "transitionTimes": {
+    "Login -> Tables": 755,
+    "Tables -> OrderView": 19,
+    "Open OrderDetailsModal": 404,
+    "Open BillCheckoutModal": 606,
+    "Tables -> OrderHistory": 529,
+    "History -> MenuManagement": 522,
+    "Menu -> Reports": 525,
+    "Reports -> Settings": 623,
+    "Settings -> StoreConfig": 602
+  },
+  "summary": {
+    "totalBundleKB": 1126.26,
+    "totalJsKB": 1044.36,
+    "totalCssKB": 81.9,
+    "initialColdLoadMs": 1193,
+    "fcpMs": 140,
+    "maxHeapMB": 6.62,
+    "avgRouteTransitionMs": 509
+  }
+}

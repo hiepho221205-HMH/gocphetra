@@ -286,6 +286,14 @@
   overscroll-behavior: contain;
 }
 
+/* Rendering containment for ultra-fast mobile scrolling & layout isolation */
+.list-contain {
+  contain: content;
+}
+.card-contain {
+  contain: layout style;
+}
+
 /* Print thermal receipt styles */
 @media print {
   body * {

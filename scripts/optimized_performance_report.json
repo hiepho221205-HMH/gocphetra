@@ -1,0 +1,182 @@
+{
+  "mode": "optimized",
+  "timestamp": "2026-10-23T17:37:50.383Z",
+  "bundle": {
+    "totalJsKB": 1049.06,
+    "totalCssKB": 78.36,
+    "totalBundleKB": 1127.42,
+    "chunkCount": 29,
+    "chunks": [
+      {
+        "name": "vendor-supabase-DYxuN0_g.js",
+        "sizeKB": 218.52
+      },
+      {
+        "name": "vendor-react-BomL-VMJ.js",
+        "sizeKB": 185.24
+      },
+      {
+        "name": "index-DCX95RA9.js",
+        "sizeKB": 147.85
+      },
+      {
+        "name": "vendor-dexie-CdzW75rC.js",
+        "sizeKB": 94.14
+      },
+      {
+        "name": "index-p6HcVlZ5.css",
+        "sizeKB": 78.36
+      },
+      {
+        "name": "SettingsView-BWWq4rkB.js",
+        "sizeKB": 55.92
+      },
+      {
+        "name": "MenuManagementView-h3R-y-TJ.js",
+        "sizeKB": 37.38
+      },
+      {
+        "name": "OrderHistoryView-D0lXvnQ_.js",
+        "sizeKB": 35.14
+      },
+      {
+        "name": "StoreConfigSubpage-BV8THRP9.js",
+        "sizeKB": 30.67
+      },
+      {
+        "name": "BillCheckoutModal-BWxi8IFM.js",
+        "sizeKB": 26.95
+      },
+      {
+        "name": "bluetoothPrinter-CZorY7M_.js",
+        "sizeKB": 24.05
+      },
+      {
+        "name": "OrderView-BY_UdpJR.js",
+        "sizeKB": 22.46
+      },
+      {
+        "name": "ReportsView-CMcBqnps.js",
+        "sizeKB": 20.6
+      },
+      {
+        "name": "OrderDetailsModal-DYYt4Y92.js",
+        "sizeKB": 15.53
+      },
+      {
+        "name": "StaffListPage-BYNLRAT4.js",
+        "sizeKB": 15.15
+      },
+      {
+        "name": "StaffCreatePage-og74-SRC.js",
+        "sizeKB": 14.75
+      },
+      {
+        "name": "ReceiptPrintView-Bwn4W4L7.js",
+        "sizeKB": 12.22
+      },
+      {
+        "name": "StaffDetailSubpage-DSPbHpCY.js",
+        "sizeKB": 11.83
+      },
+      {
+        "name": "RbacMainPage-C0cjj0ZI.js",
+        "sizeKB": 11.04
+      },
+      {
+        "name": "TableActionModal-CiWpX6nA.js",
+        "sizeKB": 10.13
+      },
+      {
+        "name": "LoginPage-B8tU8WLt.js",
+        "sizeKB": 9.6
+      },
+      {
+        "name": "TableGrid-C9CuCZfH.js",
+        "sizeKB": 9.17
+      },
+      {
+        "name": "RoleChangeSubpage-CFdWC-ms.js",
+        "sizeKB": 8.59
+      },
+      {
+        "name": "ProfileEditSubpage-DemV6s-E.js",
+        "sizeKB": 8.54
+      },
+      {
+        "name": "EmergencyOrderManagerModal-CQpW4cSN.js",
+        "sizeKB": 7.24
+      },
+      {
+        "name": "kitchenTicketEngine-R9VqU6G1.js",
+        "sizeKB": 6.58
+      },
+      {
+        "name": "RoleAuditLogSection-BfLHgM0a.js",
+        "sizeKB": 5.18
+      },
+      {
+        "name": "AddEditTableModal-CgltI87d.js",
+        "sizeKB": 3.37
+      },
+      {
+        "name": "ViewOrderIconButton-CjpEI9kg.js",
+        "sizeKB": 1.21
+      }
+    ]
+  },
+  "viewMetrics": {
+    "Login": {
+      "loadDurationMs": 1157,
+      "fcpMs": 120,
+      "jsHeapUsedMB": 3.77
+    },
+    "Tables": {
+      "jsHeapUsedMB": 5.07
+    },
+    "OrderView": {
+      "transitionMs": 10,
+      "jsHeapUsedMB": 5.08
+    },
+    "OrderHistory": {
+      "transitionMs": 535,
+      "jsHeapUsedMB": 5.91
+    },
+    "MenuManagement": {
+      "transitionMs": 531,
+      "jsHeapUsedMB": 6.91
+    },
+    "Reports": {
+      "transitionMs": 532,
+      "jsHeapUsedMB": 6.71
+    },
+    "Settings": {
+      "transitionMs": 618,
+      "jsHeapUsedMB": 7.07
+    },
+    "StoreConfig": {
+      "transitionMs": 608,
+      "jsHeapUsedMB": 7.08
+    }
+  },
+  "transitionTimes": {
+    "Login -> Tables": 683,
+    "Tables -> OrderView": 10,
+    "Open OrderDetailsModal": 403,
+    "Open BillCheckoutModal": 605,
+    "Tables -> OrderHistory": 535,
+    "History -> MenuManagement": 531,
+    "Menu -> Reports": 532,
+    "Reports -> Settings": 618,
+    "Settings -> StoreConfig": 608
+  },
+  "summary": {
+    "totalBundleKB": 1127.42,
+    "totalJsKB": 1049.06,
+    "totalCssKB": 78.36,
+    "initialColdLoadMs": 1157,
+    "fcpMs": 120,
+    "maxHeapMB": 7.08,
+    "avgRouteTransitionMs": 503
+  }
+}

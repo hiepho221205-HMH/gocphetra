@@ -141,14 +141,15 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     return cartItems.reduce((sum, it) => sum + (it.lineTotal || 0), 0);
   }, [cartItems]);
 
-  // Count active items per category
+  // Count active items per category in single pass O(N)
   const categoryCounts = useMemo(() => {
     const counts = {};
-    categories.forEach((c) => {
-      counts[c.id] = menu.filter((item) => item.categoryId === c.id).length;
-    });
+    for (let i = 0; i < menu.length; i++) {
+      const cid = menu[i].categoryId;
+      counts[cid] = (counts[cid] || 0) + 1;
+    }
     return counts;
-  }, [menu, categories]);
+  }, [menu]);
 
   // Filtered menu items (read-only for ordering)
   const filteredMenu = useMemo(() => {

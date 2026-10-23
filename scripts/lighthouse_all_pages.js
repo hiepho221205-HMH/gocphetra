@@ -234,5 +234,6 @@ export async function runMultiPageAudit(outputFileName = 'scripts/lighthouse_all
 }
 
 if (process.argv[1]?.endsWith('lighthouse_all_pages.js')) {
-  runMultiPageAudit();
+  const outPath = process.argv[2] || 'scripts/lighthouse_all_pages_report.json';
+  runMultiPageAudit(outPath);
 }

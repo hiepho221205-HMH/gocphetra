@@ -5,7 +5,7 @@ import { formatVND } from '../../utils/currency';
 import { triggerHaptic } from '../../utils/haptics';
 import ViewOrderIconButton from '../common/ViewOrderIconButton';
 
-export default function TableCard({
+const TableCard = React.memo(function TableCard({
   table,
   onOpenOrder,
   onOpenBill,
@@ -67,7 +67,7 @@ export default function TableCard({
       onClick={handleCardClick}
       data-table-id={table.id}
       data-testid={`table-card-${table.id}`}
-      className={`clay-card clay-card-interactive p-3.5 flex flex-col justify-between select-none cursor-pointer h-[152px] ${
+      className={`clay-card clay-card-interactive card-contain p-3.5 flex flex-col justify-between select-none cursor-pointer h-[152px] ${
         isOccupied
           ? 'border-emerald-500/30 hover:border-emerald-600/60 shadow-[0_14px_30px_-4px_rgba(16,185,129,0.18),inset_0_2px_2px_rgba(255,255,255,1)]'
           : 'hover:border-[#214E34]/30'
@@ -168,4 +168,6 @@ export default function TableCard({
       </div>
     </div>
   );
-}
+});
+
+export default TableCard;

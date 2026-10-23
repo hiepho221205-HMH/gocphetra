@@ -1,0 +1,38 @@
+{
+  "Login": {
+    "performance": 87,
+    "accessibility": 100,
+    "bestPractices": 100,
+    "seo": 100
+  },
+  "Table Management": {
+    "performance": 92,
+    "accessibility": 100,
+    "bestPractices": 100,
+    "seo": 100
+  },
+  "Menu Management": {
+    "performance": 75,
+    "accessibility": 96,
+    "bestPractices": 100,
+    "seo": 100
+  },
+  "Order History": {
+    "performance": 72,
+    "accessibility": 96,
+    "bestPractices": 100,
+    "seo": 100
+  },
+  "Dashboard": {
+    "performance": 91,
+    "accessibility": 94,
+    "bestPractices": 100,
+    "seo": 100
+  },
+  "Settings": {
+    "performance": 75,
+    "accessibility": 88,
+    "bestPractices": 100,
+    "seo": 100
+  }
+}
