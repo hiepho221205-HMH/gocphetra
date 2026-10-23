@@ -8,7 +8,8 @@ import ViewOrderIconButton from '../common/ViewOrderIconButton';
 export default function TableCard({
   table,
   onOpenOrder,
-  onOpenBill
+  onOpenBill,
+  onViewOrderDetails
 }) {
   const { orders, isTableBillingLocked, releaseBillingLock, currentUser, currentRole, showToast } = usePos();
   const activeLock = isTableBillingLocked ? isTableBillingLocked(table) : null;
@@ -32,13 +33,27 @@ export default function TableCard({
 
   const handleCardClick = () => {
     triggerHaptic('light');
-    onOpenOrder(resolvedTable);
+    if (isOccupied && onViewOrderDetails) {
+      onViewOrderDetails(resolvedTable, activeOrder);
+    } else {
+      onOpenOrder(resolvedTable);
+    }
   };
 
   const handleOrderClick = (e) => {
     e.stopPropagation();
     triggerHaptic('light');
     onOpenOrder(resolvedTable);
+  };
+
+  const handleEyeClick = (e) => {
+    e?.stopPropagation?.();
+    triggerHaptic('light');
+    if (onViewOrderDetails) {
+      onViewOrderDetails(resolvedTable, activeOrder);
+    } else {
+      onOpenOrder(resolvedTable);
+    }
   };
 
   const handleBillClick = (e) => {
@@ -129,11 +144,12 @@ export default function TableCard({
         ) : (
           /* Bàn có khách: Icon Xem đơn gọn gàng + Nút Thanh toán flex-1 */
           <div className="flex items-center gap-1.5">
-            {/* Nút icon "Xem đơn" */}
+            {/* Nút icon "Xem đơn" (nền vàng kem #FFF3D6, icon xanh đậm #174D36) */}
             <ViewOrderIconButton
-              onClick={handleOrderClick}
+              onClick={handleEyeClick}
               size="md"
-              title="Xem đơn chi tiết"
+              variant="amber"
+              title="Xem chi tiết đơn"
             />
 
             {/* Nút "Thanh toán" (nền xanh #214E34 3D hoặc amber nếu đang khóa) */}

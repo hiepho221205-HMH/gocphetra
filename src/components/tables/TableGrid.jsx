@@ -7,7 +7,8 @@ import { triggerHaptic } from '../../utils/haptics';
 export default function TableGrid({
   onAddNewTable,
   onOpenOrder,
-  onOpenBill
+  onOpenBill,
+  onViewOrderDetails
 }) {
   const { tables, orders } = usePos();
   const [selectedStatus, setSelectedStatus] = useState('all'); // 'all' | 'empty' | 'occupied'
@@ -212,6 +213,7 @@ export default function TableGrid({
               table={table}
               onOpenOrder={onOpenOrder}
               onOpenBill={onOpenBill}
+              onViewOrderDetails={onViewOrderDetails}
             />
           ))}
         </div>

@@ -40,13 +40,16 @@ export default function OrderDetailsModal({
   // Sync items when modal opens or order/draftItems change
   useEffect(() => {
     if (isOpen) {
-      if (draftItems && Array.isArray(draftItems)) {
-        setItems(JSON.parse(JSON.stringify(draftItems)));
-      } else if (order && order.items) {
-        setItems(JSON.parse(JSON.stringify(order.items)));
-      } else {
-        setItems([]);
-      }
+      const sourceItems = (draftItems && Array.isArray(draftItems))
+        ? draftItems
+        : (order && Array.isArray(order.items))
+          ? order.items
+          : [];
+      const normalized = sourceItems.map((it, idx) => ({
+        ...it,
+        cartItemId: it.cartItemId || it.id || `item-${idx}-${it.name || 'dish'}`
+      }));
+      setItems(JSON.parse(JSON.stringify(normalized)));
       setIsSubmitting(false);
     }
   }, [isOpen, order, draftItems]);

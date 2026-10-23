@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PosProvider, usePos } from './store/PosContext';
 import { useVersionChecker } from './hooks/useVersionChecker';
 import { useIosKeyboardFix } from './hooks/useIosKeyboardFix';
@@ -9,6 +9,7 @@ import TableGrid from './components/tables/TableGrid';
 import TableActionModal from './components/tables/TableActionModal';
 import AddEditTableModal from './components/tables/AddEditTableModal';
 import OrderView from './components/ordering/OrderView';
+import OrderDetailsModal from './components/orders/OrderDetailsModal';
 import BillCheckoutModal from './components/billing/BillCheckoutModal';
 import MenuManagementView from './components/menu/MenuManagementView';
 import OrderHistoryView from './components/orders/OrderHistoryView';
@@ -24,6 +25,7 @@ function PosContent() {
     activeTab,
     setActiveTab,
     tables,
+    orders,
     deviceMode,
     toggleDeviceMode,
     canManageMenu,
@@ -43,6 +45,35 @@ function PosContent() {
   const [editingTable, setEditingTable] = useState(null);
   const [isAddTableOpen, setIsAddTableOpen] = useState(false);
   const [billingTable, setBillingTable] = useState(null);
+  const [viewingOrderTable, setViewingOrderTable] = useState(null);
+
+  // Active order corresponding to table being viewed directly from floorplan
+  const viewingActiveOrder = useMemo(() => {
+    if (!viewingOrderTable) return null;
+    const tableId = viewingOrderTable.id;
+    const orderId = viewingOrderTable.activeOrderId;
+    if (orderId && orders[orderId] && orders[orderId].status !== 'completed' && orders[orderId].status !== 'cancelled') {
+      return orders[orderId];
+    }
+    return Object.values(orders).find(
+      (o) => o.tableId === tableId && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+    ) || null;
+  }, [viewingOrderTable, orders]);
+
+  // Realtime Guard: If order being viewed in OrderDetailsModal gets paid or closed from another device
+  useEffect(() => {
+    if (viewingOrderTable) {
+      const currentTable = tables.find((t) => t.id === viewingOrderTable.id);
+      const isStillOccupied = currentTable && (
+        (currentTable.activeOrderId && orders[currentTable.activeOrderId]?.status === 'serving') ||
+        Object.values(orders).some((o) => o.tableId === viewingOrderTable.id && o.status === 'serving')
+      );
+      if (!isStillOccupied && viewingActiveOrder) {
+        showToast?.(`Bàn ${viewingOrderTable.name} đã được thanh toán hoặc đóng từ thiết bị khác!`, 'info');
+        setViewingOrderTable(null);
+      }
+    }
+  }, [tables, orders, viewingOrderTable, viewingActiveOrder, showToast]);
 
   const handlePaymentSuccess = () => {
     setBillingTable(null);
@@ -154,6 +185,10 @@ function PosContent() {
                     onAddNewTable={() => {
                       setEditingTable(null);
                       setIsAddTableOpen(true);
+                    }}
+                    onViewOrderDetails={(table, order) => {
+                      const freshTable = tables.find((t) => t.id === table.id) || table;
+                      setViewingOrderTable(freshTable);
                     }}
                     onOpenOrder={(table) => {
                       const freshTable = tables.find((t) => t.id === table.id) || table;
@@ -270,6 +305,25 @@ function PosContent() {
             setActiveOrderingTable(freshTable);
           }}
         />
+
+        {/* Fast Order Details Modal directly from Floorplan */}
+        {viewingOrderTable && (
+          <OrderDetailsModal
+            isOpen={Boolean(viewingOrderTable)}
+            table={viewingOrderTable}
+            order={viewingActiveOrder}
+            onClose={() => setViewingOrderTable(null)}
+            onAddMoreItems={(table) => {
+              setViewingOrderTable(null);
+              const freshTable = tables.find((t) => t.id === table.id) || table;
+              setActiveOrderingTable(freshTable);
+            }}
+            onCheckout={(table, order) => {
+              setViewingOrderTable(null);
+              setBillingTable(resolveTableForBill(table));
+            }}
+          />
+        )}
 
         {/* Safe Update Confirmation Modal */}
         {showUpdateConfirm && (
