@@ -29,6 +29,7 @@ const testFiles = [
   path.join(__dirname, 'receipt_engine_and_store_config.test.js'),
   path.join(__dirname, 'kitchen_ticket_engine.test.js'),
   path.join(__dirname, 'batch_past_orders_and_staff_guards.test.js'),
+  path.join(__dirname, 'order_payment_7days_integrity.test.js'),
   path.join(__dirname, 'tdz_scope_guard.test.js')
 ];
 

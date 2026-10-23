@@ -37,15 +37,18 @@ const savedCaps = typeof window !== 'undefined' ? (() => {
 })() : {};
 
 export const schemaCapabilities = {
-  staff_profiles: savedCaps.staff_profiles ?? false,
-  daily_closures: savedCaps.daily_closures ?? false,
-  payments: savedCaps.payments ?? false,
-  profiles: savedCaps.profiles ?? null,
-  user_roles: savedCaps.user_roles ?? null,
-  rollover_daily_orders: savedCaps.rollover_daily_orders ?? false,
-  store_settings: savedCaps.store_settings ?? false,
-  receipts: savedCaps.receipts ?? null,
-  store_assets: savedCaps.store_assets ?? null
+  staff_profiles: savedCaps.staff_profiles === true,
+  daily_closures: savedCaps.daily_closures === true,
+  payments: savedCaps.payments === true,
+  profiles: savedCaps.profiles === true,
+  user_roles: savedCaps.user_roles === true,
+  rollover_daily_orders: savedCaps.rollover_daily_orders === true,
+  store_settings: savedCaps.store_settings === true,
+  receipts: savedCaps.receipts === true,
+  store_assets: savedCaps.store_assets === true,
+  atomic_save_order: savedCaps.atomic_save_order === true,
+  atomic_finalize_order: savedCaps.atomic_finalize_order === true,
+  preparation_tickets: savedCaps.preparation_tickets === true
 };
 
 export function persistCapability(key, val) {
@@ -62,9 +65,10 @@ export function persistCapability(key, val) {
 // ============================================================================
 
 export function mapTableToDb(t) {
+  const defaultName = t.id ? (String(t.id).startsWith('Bàn') ? String(t.id) : `Bàn ${t.id}`) : 'Bàn';
   return {
     id: t.id,
-    name: t.name,
+    name: t.name || defaultName,
     capacity: Number(t.capacity) || 4,
     status: t.status || 'empty',
     active_order_id: t.activeOrderId || null,
@@ -452,7 +456,7 @@ export async function fetchAllCloudData() {
       supabase.from('settings').select('*')
     ];
 
-    if (schemaCapabilities.staff_profiles !== false) {
+    if (schemaCapabilities.staff_profiles === true) {
       queries.push(supabase.from('staff_profiles').select('*').order('created_at', { ascending: true }));
     }
 
@@ -511,7 +515,7 @@ export async function fetchAllCloudData() {
       }
     }
 
-    if (schemaCapabilities.store_settings !== false) {
+    if (schemaCapabilities.store_settings === true) {
       try {
         const { data: storeRow, error: storeErr } = await supabase
           .from('store_settings')
@@ -536,7 +540,7 @@ export async function fetchAllCloudData() {
       : fallbackStaff;
 
     let payments = [];
-    if (schemaCapabilities.payments !== false) {
+    if (schemaCapabilities.payments === true) {
       try {
         const paymentsRes = await supabase.from('payments').select('*').order('paid_at', { ascending: false }).limit(500);
         if (paymentsRes?.error && (paymentsRes.error.code === 'PGRST205' || paymentsRes.error.message?.includes('schema cache'))) {
@@ -1155,7 +1159,7 @@ export async function cloudUpsertPayment(payment) {
  * Fetch payments for a given business date
  */
 export async function fetchPaymentsByBusinessDate(businessDate) {
-  if (!supabase || !businessDate) return [];
+  if (!supabase || !businessDate || schemaCapabilities.payments !== true) return [];
   try {
     const { data, error } = await supabase
       .from('payments')
@@ -1170,6 +1174,118 @@ export async function fetchPaymentsByBusinessDate(businessDate) {
   } catch (e) {
     console.warn('Lỗi fetchPaymentsByBusinessDate (exception):', e);
     return [];
+  }
+}
+
+// ============================================================================
+// ATOMIC POS ORDER SAVE & FINALIZATION (OPTIMIZATION RPCs)
+// ============================================================================
+
+/**
+ * Atomic Order Save with Optimistic Concurrency Control (OCC)
+ */
+export async function savePosOrderAtomicRpc({ order, table, expectedVersion = null }) {
+  if (!supabase || !order || !table) {
+    return { success: false, fallback: true };
+  }
+  if (schemaCapabilities.atomic_save_order === false) {
+    const resOrder = await cloudUpsertOrder(order);
+    const resTable = await cloudUpsertTable(table);
+    return { success: resOrder.success && resTable.success, fallback: true };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('save_pos_order_atomic_v2', {
+      p_order: mapOrderToBaseDb(order),
+      p_table: mapTableToDb(table),
+      p_expected_version: expectedVersion
+    });
+
+    if (error) {
+      if (error.code === 'PGRST202' || error.message?.includes('Could not find') || error.message?.includes('schema cache')) {
+        schemaCapabilities.atomic_save_order = false;
+        persistCapability('atomic_save_order', false);
+        const resOrder = await cloudUpsertOrder(order);
+        const resTable = await cloudUpsertTable(table);
+        return { success: resOrder.success && resTable.success, fallback: true };
+      }
+      return { success: false, error };
+    }
+
+    schemaCapabilities.atomic_save_order = true;
+    persistCapability('atomic_save_order', true);
+    return data || { success: true, atomic: true };
+  } catch (err) {
+    const resOrder = await cloudUpsertOrder(order);
+    const resTable = await cloudUpsertTable(table);
+    return { success: resOrder.success && resTable.success, fallback: true, error: err };
+  }
+}
+
+/**
+ * Atomic Order Finalization & Payment Processing with Idempotency
+ */
+export async function finalizePosOrderAtomicRpc({
+  orderId,
+  tableId,
+  amount,
+  paymentMethod = 'cash',
+  cashier = 'Thu ngân',
+  idempotencyKey = null,
+  finalOrder = null,
+  resetTable = null
+}) {
+  if (!supabase || !orderId) {
+    return { success: false, fallback: true };
+  }
+  if (schemaCapabilities.atomic_finalize_order === false) {
+    if (finalOrder) await cloudUpsertOrder(finalOrder);
+    if (resetTable) await cloudUpsertTable(resetTable);
+    if (amount && finalOrder) {
+      cloudUpsertPayment({
+        id: `PAY_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        orderId,
+        amount,
+        paymentMethod,
+        paymentStatus: 'completed',
+        businessDate: finalOrder.businessDate || getVietnamTodayString(),
+        paidAt: new Date().toISOString(),
+        idempotencyKey
+      }).catch(() => {});
+    }
+    return { success: true, fallback: true };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc('finalize_pos_order_atomic_v2', {
+      p_order_id: orderId,
+      p_table_id: tableId,
+      p_amount: amount,
+      p_payment_method: paymentMethod,
+      p_cashier: cashier,
+      p_idempotency_key: idempotencyKey,
+      p_final_order: finalOrder ? mapOrderToBaseDb(finalOrder) : null,
+      p_reset_table: resetTable ? mapTableToDb(resetTable) : null
+    });
+
+    if (error) {
+      if (error.code === 'PGRST202' || error.message?.includes('Could not find') || error.message?.includes('schema cache')) {
+        schemaCapabilities.atomic_finalize_order = false;
+        persistCapability('atomic_finalize_order', false);
+        if (finalOrder) await cloudUpsertOrder(finalOrder);
+        if (resetTable) await cloudUpsertTable(resetTable);
+        return { success: true, fallback: true };
+      }
+      return { success: false, error };
+    }
+
+    schemaCapabilities.atomic_finalize_order = true;
+    persistCapability('atomic_finalize_order', true);
+    return data || { success: true, atomic: true };
+  } catch (err) {
+    if (finalOrder) await cloudUpsertOrder(finalOrder);
+    if (resetTable) await cloudUpsertTable(resetTable);
+    return { success: true, fallback: true, error: err };
   }
 }
 
@@ -1395,13 +1511,13 @@ export async function getCurrentSession() {
 
 export async function fetchUserProfileAndRole(userId) {
   if (!supabase || !userId) return null;
-  if (schemaCapabilities.profiles === false && schemaCapabilities.staff_profiles === false) return null;
+  if (!schemaCapabilities.profiles && !schemaCapabilities.staff_profiles) return null;
 
   try {
     let profileData = null;
     let roleData = null;
 
-    if (schemaCapabilities.profiles !== false) {
+    if (schemaCapabilities.profiles === true) {
       const [profileRes, roleRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('user_roles').select('*').eq('user_id', userId).maybeSingle()
@@ -1430,7 +1546,7 @@ export async function fetchUserProfileAndRole(userId) {
       };
     }
 
-    if (schemaCapabilities.staff_profiles !== false) {
+    if (schemaCapabilities.staff_profiles === true) {
       const { data: staffData, error: staffErr } = await supabase
         .from('staff_profiles')
         .select('*')
@@ -1780,7 +1896,7 @@ export async function uploadStoreLogoToStorage(file, type = 'original') {
 export async function saveReceiptSnapshotToCloud(receiptRecord) {
   if (!supabase || !receiptRecord?.order_id) return { success: false };
   try {
-    if (schemaCapabilities.receipts !== false) {
+    if (schemaCapabilities.receipts === true) {
       const { data, error } = await supabase
         .from('receipts')
         .upsert(receiptRecord, { onConflict: 'id' })
@@ -1788,7 +1904,6 @@ export async function saveReceiptSnapshotToCloud(receiptRecord) {
         .maybeSingle();
 
       if (!error) {
-        schemaCapabilities.receipts = true; persistCapability('receipts', true);
         return { success: true, data };
       }
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
@@ -1820,7 +1935,7 @@ export async function saveReceiptSnapshotToCloud(receiptRecord) {
 export async function fetchReceiptByOrderId(orderId) {
   if (!supabase || !orderId) return null;
   try {
-    if (schemaCapabilities.receipts !== false) {
+    if (schemaCapabilities.receipts === true) {
       const { data, error } = await supabase
         .from('receipts')
         .select('*')
@@ -1830,7 +1945,6 @@ export async function fetchReceiptByOrderId(orderId) {
         .maybeSingle();
 
       if (!error && data) {
-        schemaCapabilities.receipts = true; persistCapability('receipts', true);
         return data;
       }
       if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
@@ -1899,7 +2013,7 @@ export async function incrementReceiptReprint(receiptId) {
 export async function savePreparationTicketToCloud(ticketRecord) {
   if (!supabase || !ticketRecord?.order_id) return { success: false };
   try {
-    if (schemaCapabilities.preparation_tickets !== false) {
+    if (schemaCapabilities.preparation_tickets === true) {
       const { data, error } = await supabase
         .from('preparation_tickets')
         .insert(ticketRecord)
@@ -1907,7 +2021,6 @@ export async function savePreparationTicketToCloud(ticketRecord) {
         .maybeSingle();
 
       if (!error) {
-        schemaCapabilities.preparation_tickets = true; persistCapability('preparation_tickets', true);
         return { success: true, data };
       }
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {

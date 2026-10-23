@@ -37,6 +37,8 @@ import {
   cloudDeleteTable,
   cloudUpsertOrder,
   cloudDeleteOrder,
+  savePosOrderAtomicRpc,
+  finalizePosOrderAtomicRpc,
   cloudUpsertMenuItem,
   cloudDeleteMenuItem,
   cloudUpsertTopping,
@@ -263,10 +265,15 @@ export function PosProvider({ children }) {
   useEffect(() => { cloudStatusRef.current = cloudStatus; }, [cloudStatus]);
   const realtimeChannelRef = useRef(null);
   const clientInstanceIdRef = useRef('client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+  const saveOrderMutexRef = useRef(new Set());
+  const checkoutMutexRef = useRef(new Set());
   const currentUserRef = useRef(currentUser);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
   const currentRoleRef = useRef(currentRole);
   useEffect(() => { currentRoleRef.current = currentRole; }, [currentRole]);
+  const activeSyncPromiseRef = useRef(null);
+  const lastSyncTimestampRef = useRef(0);
+  const realtimeReconnectAttemptsRef = useRef(0);
 
   // Phase 2: Offline-First States
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
@@ -298,8 +305,13 @@ export function PosProvider({ children }) {
       let hasChanges = false;
 
       for (const pDate of pastDates) {
+        const existingClosure = dailyClosures[pDate];
         const summary = calculateDailySummary(pDate, historyData);
         if (summary) {
+          // If already closed and data matches, skip redundant upload
+          if (existingClosure && existingClosure.totalRevenue === summary.totalRevenue && existingClosure.totalOrders === summary.totalOrders) {
+            continue;
+          }
           updatedClosures[pDate] = summary;
           hasChanges = true;
           await saveDailyClosure(summary);
@@ -647,107 +659,101 @@ export function PosProvider({ children }) {
     if (!isSupabaseConfigured || !supabase) return;
     try {
       let cloudStaff = prefetchedStaff;
-      if (!cloudStaff && typeof fetchStaffProfiles === 'function') {
+      if (!cloudStaff && typeof fetchStaffProfiles === 'function' && schemaCapabilities?.staff_profiles === true) {
         const res = await fetchStaffProfiles();
         cloudStaff = Array.isArray(res) ? res : (res?.data || []);
       }
 
       if (Array.isArray(cloudStaff) && cloudStaff.length > 0) {
-        // Cloud has profiles: Merge with local state
-        setStaffList((prevLocal) => {
-          const merged = mergeStaffProfiles(prevLocal, cloudStaff);
-          // If local has profiles not yet in cloud, seed them to cloud in background
-          const localOnly = prevLocal.filter((l) => !cloudStaff.some((c) => c.id === l.id));
-          if (localOnly.length > 0 && typeof bulkUpsertStaffProfiles === 'function') {
-            bulkUpsertStaffProfiles(localOnly).catch((err) =>
-              console.warn('Lỗi đồng bộ local staff lên Cloud:', err)
-            );
-          }
-          return merged;
-        });
-      } else {
-        // Cloud is empty: Seed cloud with local staff if local exists
-        setStaffList((currentLocal) => {
-          if (currentLocal && currentLocal.length > 0 && typeof bulkUpsertStaffProfiles === 'function') {
-            bulkUpsertStaffProfiles(currentLocal).catch((err) =>
-              console.warn('Lỗi seed staff lên Cloud:', err)
-            );
-          }
-          return currentLocal;
-        });
+        // Cloud has profiles: Merge with local state (pure in-memory update, no redundant background writes)
+        setStaffList((prevLocal) => mergeStaffProfiles(prevLocal, cloudStaff));
       }
     } catch (err) {
       console.warn('Lỗi đồng bộ nhân viên từ Cloud:', err);
     }
   };
 
-  const syncFromCloud = async (showNotification = true) => {
+  const syncFromCloud = async (showNotification = true, force = false) => {
     if (!isSupabaseConfigured || !supabase) {
       if (showNotification) showToast('Chưa cấu hình Supabase URL/Key', 'error');
       return false;
     }
-    setIsSyncing(true);
-    try {
-      const health = await checkSupabaseHealth();
-      setCloudStatus((prev) => ({ ...prev, ...health }));
-      if (!health.connected || !health.tablesExist) {
-        if (showNotification) showToast(health.message || 'Chưa thể đồng bộ với Cloud', 'error');
-        setIsSyncing(false);
-        return false;
-      }
 
-      const cloudData = await fetchAllCloudData();
-      if (cloudData) {
-        if (cloudData.categories && cloudData.categories.length > 0) setCategories(cloudData.categories);
-        if (cloudData.menu && cloudData.menu.length > 0) setMenu(cloudData.menu);
-        if (cloudData.toppings && cloudData.toppings.length > 0) setToppings(cloudData.toppings);
-        if (cloudData.settings) setSettings(cloudData.settings);
-        await syncStaffWithCloud(cloudData.staff || cloudData.staffList || null);
-
-        if (cloudData.payments && cloudData.payments.length > 0) {
-          setPayments(cloudData.payments);
-        } else if (cloudData.orderHistory && cloudData.orderHistory.length > 0) {
-          const derivedPayments = cloudData.orderHistory
-            .filter((o) => o.status === 'completed' && Number(o.total) > 0)
-            .map((o) => ({
-              id: 'PAY_DERIVED_' + o.id,
-              orderId: o.id,
-              amount: Number(o.paidAmount || o.total) || 0,
-              paymentMethod: o.paymentMethod || 'cash',
-              paymentStatus: 'completed',
-              paidAt: o.finishedAt || o.paidAt || o.createdAt,
-              businessDate: o.businessDate || (o.createdAt ? getVietnamDateString(o.createdAt) : getVietnamTodayString()),
-              cashierId: o.cashier || 'Thu ngân'
-            }));
-          if (derivedPayments.length > 0) {
-            setPayments(derivedPayments);
-          }
-        }
-
-        // Reconcile tables, orders, and history atomically according to Table-First Rule
-        // Supabase is Single Source of Truth: cloud orders and cloud history take precedence
-        const fetchedTables = cloudData.tables && cloudData.tables.length > 0 ? cloudData.tables : tables;
-        const mergedOrders = cloudData.orders || {};
-        const mergedHistory = cloudData.orderHistory || [];
-
-        const reconciled = reconcileTablesAndOrders(fetchedTables, mergedOrders, mergedHistory);
-        const today = getVietnamTodayString();
-        const rolled = rolloverPastUnpaidOrders(reconciled.reconciledTables, reconciled.reconciledOrders, reconciled.reconciledHistory, today);
-        setTables(rolled.tables);
-        setOrders(rolled.orders);
-        setOrderHistory(rolled.orderHistory);
-
-        setCloudStatus((prev) => ({ ...prev, lastSyncTime: new Date() }));
-        if (showNotification) showToast('Đã đồng bộ dữ liệu mới nhất từ Cloud!', 'success');
-        setIsSyncing(false);
-        return true;
-      }
-    } catch (err) {
-      console.error('Lỗi syncFromCloud:', err);
-      if (showNotification) showToast('Lỗi đồng bộ: ' + err.message, 'error');
+    // Background throttle: Do not sync more often than once every 20s unless forced or user initiated
+    const now = Date.now();
+    if (!force && !showNotification && (now - lastSyncTimestampRef.current < 20000)) {
+      return true;
     }
-    setIsSyncing(false);
-    return false;
+
+    // Concurrency Deduplication: Reuse existing promise if sync is already running
+    if (activeSyncPromiseRef.current) {
+      return activeSyncPromiseRef.current;
+    }
+
+    const runSync = async () => {
+      setIsSyncing(true);
+      try {
+        const cloudData = await fetchAllCloudData();
+        if (cloudData) {
+          lastSyncTimestampRef.current = Date.now();
+          if (cloudData.categories && cloudData.categories.length > 0) setCategories(cloudData.categories);
+          if (cloudData.menu && cloudData.menu.length > 0) setMenu(cloudData.menu);
+          if (cloudData.toppings && cloudData.toppings.length > 0) setToppings(cloudData.toppings);
+          if (cloudData.settings) setSettings(cloudData.settings);
+          await syncStaffWithCloud(cloudData.staff || cloudData.staffList || null);
+
+          if (cloudData.payments && cloudData.payments.length > 0) {
+            setPayments(cloudData.payments);
+          } else if (cloudData.orderHistory && cloudData.orderHistory.length > 0) {
+            const derivedPayments = cloudData.orderHistory
+              .filter((o) => o.status === 'completed' && Number(o.total) > 0)
+              .map((o) => ({
+                id: 'PAY_DERIVED_' + o.id,
+                orderId: o.id,
+                amount: Number(o.paidAmount || o.total) || 0,
+                paymentMethod: o.paymentMethod || 'cash',
+                paymentStatus: 'completed',
+                paidAt: o.finishedAt || o.paidAt || o.createdAt,
+                businessDate: o.businessDate || (o.createdAt ? getVietnamDateString(o.createdAt) : getVietnamTodayString()),
+                cashierId: o.cashier || 'Thu ngân'
+              }));
+            if (derivedPayments.length > 0) {
+              setPayments(derivedPayments);
+            }
+          }
+
+          // Reconcile tables, orders, and history atomically according to Table-First Rule
+          // Supabase is Single Source of Truth: cloud orders and cloud history take precedence
+          const fetchedTables = cloudData.tables && cloudData.tables.length > 0 ? cloudData.tables : tables;
+          const mergedOrders = cloudData.orders || {};
+          const mergedHistory = cloudData.orderHistory || [];
+
+          const reconciled = reconcileTablesAndOrders(fetchedTables, mergedOrders, mergedHistory);
+          const today = getVietnamTodayString();
+          const rolled = rolloverPastUnpaidOrders(reconciled.reconciledTables, reconciled.reconciledOrders, reconciled.reconciledHistory, today);
+          setTables(rolled.tables);
+          setOrders(rolled.orders);
+          setOrderHistory(rolled.orderHistory);
+
+          setCloudStatus((prev) => ({ ...prev, connected: true, tablesExist: true, lastSyncTime: new Date() }));
+          if (showNotification) showToast('Đã đồng bộ dữ liệu mới nhất từ Cloud!', 'success');
+          return true;
+        } else {
+          if (showNotification) showToast('Chưa thể kết nối tới cơ sở dữ liệu Cloud', 'error');
+          return false;
+        }
+      } catch (err) {
+        console.error('Lỗi syncFromCloud:', err);
+        if (showNotification) showToast('Lỗi đồng bộ: ' + err.message, 'error');
+        return false;
+      } finally {
+        setIsSyncing(false);
+        activeSyncPromiseRef.current = null;
+      }
+    };
+
+    activeSyncPromiseRef.current = runSync();
+    return activeSyncPromiseRef.current;
   };
 
   const seedToCloud = async () => {
@@ -857,7 +863,7 @@ export function PosProvider({ children }) {
       console.log('[Network] Thiết bị có mạng trở lại, đồng bộ tự động với Cloud...');
       setIsOnline(true);
       refreshCloudHealth();
-      syncFromCloud(false);
+      syncFromCloud(false, true);
     };
     window.addEventListener('online', handleOnline);
 
@@ -872,18 +878,14 @@ export function PosProvider({ children }) {
       if (document.visibilityState === 'visible') {
         const lastSync = cloudStatusRef.current?.lastSyncTime ? new Date(cloudStatusRef.current.lastSyncTime).getTime() : 0;
         const now = Date.now();
-        if (now - lastSync >= 5000) {
-          console.log('[Visibility] Ứng dụng trở lại foreground sau khi ngủ >5s, lập tức làm mới dữ liệu từ Cloud...');
+        // Only re-sync if the app was hidden/sleeping for at least 5 minutes (> 300,000ms)
+        if (now - lastSync >= 300000) {
+          console.log('[Visibility] Ứng dụng trở lại foreground sau khi ngủ >5m, đồng bộ dữ liệu từ Cloud...');
           syncFromCloud(false);
         }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    const handleFocus = () => {
-      syncFromCloud(false);
-    };
-    window.addEventListener('focus', handleFocus);
 
     // Setup Realtime with full publication coverage & channel lifecycle
     let channel = null;
@@ -1113,18 +1115,22 @@ export function PosProvider({ children }) {
         .subscribe((status, err) => {
           console.log('[Realtime] Subscription status:', status, err ? err.message : '');
           if (status === 'SUBSCRIBED') {
+            realtimeReconnectAttemptsRef.current = 0;
             setCloudStatus((prev) => ({ ...prev, connected: true, lastSyncTime: new Date() }));
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             setCloudStatus((prev) => ({ ...prev, connected: false }));
             if (isMounted) {
               clearTimeout(reconnectTimeout);
+              const attempts = realtimeReconnectAttemptsRef.current || 0;
+              realtimeReconnectAttemptsRef.current = attempts + 1;
+              const delay = Math.min(30000, 3000 * Math.pow(1.5, attempts));
               reconnectTimeout = setTimeout(() => {
-                console.log('[Realtime] Đang tự động kết nối lại kênh Realtime...');
+                console.log(`[Realtime] Đang tự động kết nối lại kênh Realtime (lần ${attempts + 1}, delay ${Math.round(delay)}ms)...`);
                 if (channel && supabase) {
-                  supabase.removeChannel(channel);
+                  try { supabase.removeChannel(channel); } catch (_) {}
                 }
                 channel = setupRealtimeChannel();
-              }, 3000);
+              }, delay);
             }
           }
         });
@@ -1141,9 +1147,8 @@ export function PosProvider({ children }) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
       if (channel && supabase) {
-        supabase.removeChannel(channel);
+        try { supabase.removeChannel(channel); } catch (_) {}
       }
     };
   }, []);
@@ -2039,140 +2044,167 @@ export function PosProvider({ children }) {
 
   // Lưu cam kết đơn hàng cho bàn (tạo mới hoặc cập nhật đơn đang mở, chuyển bàn sang có khách)
   const saveOrderForTable = async (tableId, items, expectedVersion = null) => {
-    const table = tables.find((t) => t.id === tableId);
-    if (!table) {
-      showToast('Bàn không tồn tại!', 'error');
-      return { success: false, message: 'Bàn không tồn tại' };
+    // 0. Double-click & concurrency mutex guard
+    if (saveOrderMutexRef.current.has(tableId)) {
+      return { success: false, busy: true, message: 'Đang lưu đơn, vui lòng chờ trong giây lát...' };
     }
+    saveOrderMutexRef.current.add(tableId);
 
-    if (!items || items.length === 0) {
-      showToast('Đơn hàng chưa có món nào! Vui lòng chọn món trước khi lưu.', 'error');
-      return { success: false, message: 'Đơn hàng trống' };
-    }
-
-    // Billing Lock check
-    const activeLock = isTableBillingLocked(table);
-    const myId = currentUser?.id || currentUser?.uid || 'current-user';
-    if (activeLock && activeLock.lockedById !== myId) {
-      showToast(`Bàn ${table.name} đang được tính tiền bởi ${activeLock.staffName}. Không thể lưu đơn lúc này!`, 'error');
-      return { success: false, locked: true, message: `Bàn đang tính tiền bởi ${activeLock.staffName}` };
-    }
-
-    let orderId = table.activeOrderId;
-    let existingOrder = orderId ? orders[orderId] : null;
-    if (!existingOrder) {
-      existingOrder = Object.values(orders).find(
-        (o) => o.tableId === tableId && o.status === 'serving'
-      ) || null;
-      if (existingOrder) {
-        orderId = existingOrder.id;
-      }
-    }
-
-    // OCC Conflict Guard (Optimistic Concurrency Control)
-    if (
-      existingOrder &&
-      expectedVersion !== null &&
-      expectedVersion !== undefined &&
-      (existingOrder.version || 1) > expectedVersion
-    ) {
-      showToast(`Bàn ${table.name} vừa được cập nhật bởi nhân viên khác. Vui lòng kiểm tra lại trước khi lưu!`, 'error');
-      return {
-        success: false,
-        conflict: true,
-        currentOrder: existingOrder,
-        message: 'Đơn hàng vừa được cập nhật bởi nhân viên khác, vui lòng tải lại bàn'
-      };
-    }
-
-    const nextVersion = existingOrder ? ((existingOrder.version || 1) + 1) : 1;
-
-    if (!existingOrder) {
-      orderId = 'ORD-' + Date.now().toString().slice(-6);
-      existingOrder = {
-        id: orderId,
-        tableId: table.id,
-        tableName: table.name,
-        status: 'serving',
-        businessDate: getVietnamTodayString(),
-        paymentStatus: 'unpaid',
-        createdAt: new Date().toISOString(),
-        cashier: (settings.currentCashier || 'Thu ngân').split('(')[0].trim(),
-        customerCount: table.capacity || 2,
-        items: [],
-        kitchenSentItems: [],
-        discountPercent: 0,
-        surcharge: 0,
-        subtotal: 0,
-        total: 0,
-        paidAmount: 0,
-        remainingAmount: 0,
-        splitPayments: [],
-        version: nextVersion
-      };
-    }
-
-    const updatedOrder = recalculateOrder({
-      ...existingOrder,
-      items: items,
-      version: nextVersion
-    });
-
-    const updatedTable = {
-      ...table,
-      status: 'occupied',
-      activeOrderId: orderId,
-      seatedAt: table.seatedAt || new Date().toISOString(),
-      customerCount: updatedOrder.customerCount
-    };
-
-    setOrders((prev) => ({ ...prev, [orderId]: updatedOrder }));
-    setTables((prev) =>
-      prev.map((t) => (t.id === tableId ? updatedTable : t))
-    );
-
-    // Ghi đồng bộ ngay vào LocalStorage & IndexedDB để tránh mất dữ liệu khi F5 hoặc chuyển màn hình tức thì
     try {
-      const currentOrders = loadStorage(STORAGE_KEYS.ORDERS, {});
-      currentOrders[orderId] = updatedOrder;
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(currentOrders));
+      const table = tables.find((t) => t.id === tableId);
+      if (!table) {
+        showToast('Bàn không tồn tại!', 'error');
+        return { success: false, message: 'Bàn không tồn tại' };
+      }
 
-      const currentTables = loadStorage(STORAGE_KEYS.TABLES, []);
-      const nextTables = currentTables.map((t) => (t.id === tableId ? updatedTable : t));
-      localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(nextTables));
+      if (!items || items.length === 0) {
+        showToast('Đơn hàng chưa có món nào! Vui lòng chọn món trước khi lưu.', 'error');
+        return { success: false, message: 'Đơn hàng trống' };
+      }
 
-      dualWriteToIndexedDB('orders', currentOrders);
-      dualWriteToIndexedDB('tables', nextTables);
-    } catch (e) {
-      console.warn('Sync storage error:', e);
-    }
+      // Billing Lock check
+      const activeLock = isTableBillingLocked(table);
+      const myId = currentUser?.id || currentUser?.uid || 'current-user';
+      if (activeLock && activeLock.lockedById !== myId) {
+        showToast(`Bàn ${table.name} đang được tính tiền bởi ${activeLock.staffName}. Không thể lưu đơn lúc này!`, 'error');
+        return { success: false, locked: true, message: `Bàn đang tính tiền bởi ${activeLock.staffName}` };
+      }
 
-    // Phát Realtime Broadcast tức thời (<5ms) cho toàn bộ các thiết bị đang kết nối
-    if (realtimeChannelRef.current) {
-      realtimeChannelRef.current.send({
-        type: 'broadcast',
-        event: 'order_sync',
-        payload: {
-          order: updatedOrder,
-          table: updatedTable,
-          senderId: currentUser?.id || currentUser?.uid || 'staff'
+      let orderId = table.activeOrderId;
+      let existingOrder = orderId ? orders[orderId] : null;
+      if (!existingOrder) {
+        existingOrder = Object.values(orders).find(
+          (o) => o.tableId === tableId && o.status === 'serving'
+        ) || null;
+        if (existingOrder) {
+          orderId = existingOrder.id;
         }
-      }).catch((e) => console.warn('Broadcast order_sync error:', e));
+      }
+
+      // OCC Conflict Guard (Optimistic Concurrency Control)
+      if (
+        existingOrder &&
+        expectedVersion !== null &&
+        expectedVersion !== undefined &&
+        (existingOrder.version || 1) > expectedVersion
+      ) {
+        showToast(`Bàn ${table.name} vừa được cập nhật bởi nhân viên khác. Vui lòng kiểm tra lại trước khi lưu!`, 'error');
+        return {
+          success: false,
+          conflict: true,
+          currentOrder: existingOrder,
+          message: 'Đơn hàng vừa được cập nhật bởi nhân viên khác, vui lòng tải lại bàn'
+        };
+      }
+
+      const nextVersion = existingOrder ? ((existingOrder.version || 1) + 1) : 1;
+
+      if (!existingOrder) {
+        orderId = 'ORD-' + Date.now().toString().slice(-6);
+        existingOrder = {
+          id: orderId,
+          tableId: table.id,
+          tableName: table.name,
+          status: 'serving',
+          businessDate: getVietnamTodayString(),
+          paymentStatus: 'unpaid',
+          createdAt: new Date().toISOString(),
+          cashier: (settings.currentCashier || 'Thu ngân').split('(')[0].trim(),
+          customerCount: table.capacity || 2,
+          items: [],
+          kitchenSentItems: [],
+          discountPercent: 0,
+          surcharge: 0,
+          subtotal: 0,
+          total: 0,
+          paidAmount: 0,
+          remainingAmount: 0,
+          splitPayments: [],
+          version: nextVersion
+        };
+      }
+
+      const updatedOrder = recalculateOrder({
+        ...existingOrder,
+        items: items,
+        version: nextVersion
+      });
+
+      const updatedTable = {
+        ...table,
+        status: 'occupied',
+        activeOrderId: orderId,
+        seatedAt: table.seatedAt || new Date().toISOString(),
+        customerCount: updatedOrder.customerCount
+      };
+
+      setOrders((prev) => ({ ...prev, [orderId]: updatedOrder }));
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? updatedTable : t))
+      );
+
+      // Ghi đồng bộ ngay vào LocalStorage & IndexedDB để tránh mất dữ liệu khi F5 hoặc chuyển màn hình tức thì
+      try {
+        const currentOrders = loadStorage(STORAGE_KEYS.ORDERS, {});
+        currentOrders[orderId] = updatedOrder;
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(currentOrders));
+
+        const currentTables = loadStorage(STORAGE_KEYS.TABLES, []);
+        const nextTables = currentTables.map((t) => (t.id === tableId ? updatedTable : t));
+        localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(nextTables));
+
+        dualWriteToIndexedDB('orders', currentOrders);
+        dualWriteToIndexedDB('tables', nextTables);
+      } catch (e) {
+        console.warn('Sync storage error:', e);
+      }
+
+      // Phát Realtime Broadcast tức thời (<5ms) cho toàn bộ các thiết bị đang kết nối
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'order_sync',
+          payload: {
+            order: updatedOrder,
+            table: updatedTable,
+            senderId: currentUser?.id || currentUser?.uid || 'staff',
+            senderInstance: clientInstanceIdRef.current,
+            timestamp: Date.now()
+          }
+        }).catch((e) => console.warn('Broadcast order_sync error:', e));
+      }
+
+      // Lưu nguyên tử qua Atomic RPC
+      const rpcResult = await savePosOrderAtomicRpc({
+        order: updatedOrder,
+        table: updatedTable,
+        expectedVersion
+      });
+
+      if (rpcResult && rpcResult.conflict) {
+        showToast(`Bàn ${table.name} vừa được cập nhật bởi thiết bị khác. Vui lòng tải lại trước khi lưu!`, 'error');
+        return {
+          success: false,
+          conflict: true,
+          serverVersion: rpcResult.server_version,
+          currentOrder: rpcResult.current_order ? mapOrderFromDb(rpcResult.current_order) : existingOrder,
+          message: 'Đơn hàng vừa được cập nhật bởi thiết bị khác'
+        };
+      }
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        enqueueOutbox({
+          actionType: 'SAVE_ORDER',
+          orderId: updatedOrder.id,
+          payload: updatedOrder
+        }).then(() => refreshPendingOutboxCount());
+      }
+
+      showToast(`Đã lưu đơn thành công cho ${table.name}!`, 'success');
+      return { success: true, order: updatedOrder, table: updatedTable };
+    } finally {
+      saveOrderMutexRef.current.delete(tableId);
     }
-
-    await cloudUpsertOrder(updatedOrder);
-    await cloudUpsertTable(updatedTable);
-
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      enqueueOutbox({
-        actionType: 'SAVE_ORDER',
-        orderId: updatedOrder.id,
-        payload: updatedOrder
-      }).then(() => refreshPendingOutboxCount());
-    }
-
-    showToast(`Đã lưu đơn thành công cho ${table.name}!`, 'success');
-    return { success: true, order: updatedOrder, table: updatedTable };
   };
 
   // Ghi nhận in phiếu chế biến: Cập nhật kitchenSentItems và lưu record vào preparation_tickets
@@ -2356,6 +2388,7 @@ export function PosProvider({ children }) {
   const finalizeOrder = async (tableId, completedOrder) => {
     const finishedAt = new Date().toISOString();
     const today = getVietnamTodayString();
+    const payAmount = Number(completedOrder.paidAmount || completedOrder.total) || 0;
     const finalOrder = {
       ...completedOrder,
       status: 'completed',
@@ -2365,6 +2398,36 @@ export function PosProvider({ children }) {
       paidAt: finishedAt,
       finishedAt
     };
+
+    // Deterministic idempotency key: strictly unique to this order and amount!
+    const idempotencyKey = `PAY_${finalOrder.id}_${payAmount}`;
+
+    const currentTbl = tables.find((t) => t.id === tableId);
+    const resetTable = {
+      ...(currentTbl || { id: tableId, name: completedOrder.tableName }),
+      status: 'empty',
+      activeOrderId: null,
+      seatedAt: null,
+      customerCount: 0,
+      billingLock: null
+    };
+
+    // Call Atomic RPC on database
+    const rpcResult = await finalizePosOrderAtomicRpc({
+      orderId: finalOrder.id,
+      tableId,
+      amount: payAmount,
+      paymentMethod: finalOrder.paymentMethod || 'cash',
+      cashier: finalOrder.cashier || 'Thu ngân',
+      idempotencyKey,
+      finalOrder,
+      resetTable
+    });
+
+    if (rpcResult && rpcResult.success === false) {
+      console.error('Finalize transaction failed:', rpcResult.error || rpcResult.message);
+      return { success: false, message: rpcResult.message || 'Lỗi cơ sở dữ liệu khi thanh toán' };
+    }
 
     try {
       const width = settings?.receiptPaperWidth || '58mm';
@@ -2381,16 +2444,6 @@ export function PosProvider({ children }) {
       delete copy[completedOrder.id];
       return copy;
     });
-
-    const currentTbl = tables.find((t) => t.id === tableId);
-    const resetTable = {
-      ...(currentTbl || { id: tableId, name: completedOrder.tableName }),
-      status: 'empty',
-      activeOrderId: null,
-      seatedAt: null,
-      customerCount: 0,
-      billingLock: null
-    };
 
     setTables((prev) =>
       prev.map((t) =>
@@ -2421,41 +2474,24 @@ export function PosProvider({ children }) {
       console.warn('Sync storage error on finalize:', e);
     }
 
-    const paymentId = 'PAY_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const paymentId = rpcResult?.payment_id || ('PAY_' + Date.now() + '_' + Math.floor(Math.random() * 1000));
     const payRecord = {
       id: paymentId,
       orderId: finalOrder.id,
-      amount: Number(finalOrder.paidAmount || finalOrder.total) || 0,
+      amount: payAmount,
       paymentMethod: finalOrder.paymentMethod || 'cash',
       paymentStatus: 'completed',
       paidAt: finishedAt,
       businessDate: today,
       cashierId: finalOrder.cashier || 'Thu ngân',
-      idempotencyKey: `ORD_FIN_${finalOrder.id}_${Date.now()}`,
+      idempotencyKey,
       notes: `Thanh toán tại bàn ${completedOrder.tableName}`,
       createdAt: finishedAt
     };
-    setPayments((prev) => [payRecord, ...prev]);
-
-    // Ghi đồng bộ chắc chắn lên Cloud Supabase với cơ chế retry an toàn
-    const safeSyncFinalize = async () => {
-      let orderOk = false;
-      let tableOk = false;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        if (!orderOk) {
-          const res = await cloudUpsertOrder(finalOrder);
-          if (res?.success) orderOk = true;
-        }
-        if (!tableOk) {
-          const res = await cloudUpsertTable(resetTable);
-          if (res?.success) tableOk = true;
-        }
-        if (orderOk && tableOk) break;
-        await new Promise((r) => setTimeout(r, attempt * 200));
-      }
-      cloudUpsertPayment(payRecord).catch(() => {});
-    };
-    await safeSyncFinalize();
+    setPayments((prev) => {
+      if (prev.some((p) => p.id === payRecord.id || p.idempotencyKey === idempotencyKey)) return prev;
+      return [payRecord, ...prev];
+    });
 
     if (realtimeChannelRef.current) {
       realtimeChannelRef.current.send({
@@ -2466,7 +2502,8 @@ export function PosProvider({ children }) {
           table: resetTable,
           payment: payRecord,
           senderId: currentUser?.id || currentUser?.uid || 'cashier',
-          senderInstance: clientInstanceIdRef.current
+          senderInstance: clientInstanceIdRef.current,
+          timestamp: Date.now()
         }
       }).catch((e) => console.warn('Broadcast finalize order error:', e));
     }
@@ -2480,47 +2517,62 @@ export function PosProvider({ children }) {
     }
 
     setSelectedTableId(null);
-    return { success: true, order: finalOrder, table: resetTable };
+    return { success: true, order: finalOrder, table: resetTable, payment: payRecord };
   };
 
   const fullCheckout = async (tableId, paymentMethod = 'cash') => {
-    const table = tables.find((t) => t.id === tableId) || { id: tableId };
-    let order = table?.activeOrderId ? orders[table.activeOrderId] : null;
-    if (!order) {
-      order = Object.values(orders).find(
-        (o) => o.tableId === tableId && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
-      ) || Object.values(orders).find(
-        (o) => o.tableId === tableId && o.status !== 'completed' && o.status !== 'cancelled'
-      );
+    // Mutex guard: prevent duplicate parallel checkouts
+    if (checkoutMutexRef.current.has(tableId)) {
+      return false;
     }
-    if (!order) return false;
+    checkoutMutexRef.current.add(tableId);
 
-    const amount = order.remainingAmount > 0 ? order.remainingAmount : order.total;
+    try {
+      const table = tables.find((t) => t.id === tableId) || { id: tableId };
+      let order = table?.activeOrderId ? orders[table.activeOrderId] : null;
+      if (!order) {
+        order = Object.values(orders).find(
+          (o) => o.tableId === tableId && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+        ) || Object.values(orders).find(
+          (o) => o.tableId === tableId && o.status !== 'completed' && o.status !== 'cancelled'
+        );
+      }
+      if (!order) return false;
 
-    const paymentRecord = {
-      method: paymentMethod,
-      amount,
-      note: 'Thanh toán trọn gói'
-    };
+      const amount = order.remainingAmount > 0 ? order.remainingAmount : order.total;
 
-    const finalOrder = {
-      ...order,
-      paidAmount: order.total,
-      remainingAmount: 0,
-      paymentMethod,
-      splitPayments: [
-        ...(order.splitPayments || []),
-        {
-          ...paymentRecord,
-          timestamp: new Date().toISOString(),
-          paymentId: 'PAY-' + Date.now()
-        }
-      ]
-    };
+      const paymentRecord = {
+        method: paymentMethod,
+        amount,
+        note: 'Thanh toán trọn gói'
+      };
 
-    await finalizeOrder(tableId, finalOrder);
-    showToast(`Thanh toán thành công ${order.tableName || table?.name}! Đã giải phóng bàn.`, 'success');
-    return true;
+      const finalOrder = {
+        ...order,
+        paidAmount: order.total,
+        remainingAmount: 0,
+        paymentMethod,
+        splitPayments: [
+          ...(order.splitPayments || []),
+          {
+            ...paymentRecord,
+            timestamp: new Date().toISOString(),
+            paymentId: 'PAY-' + Date.now()
+          }
+        ]
+      };
+
+      const result = await finalizeOrder(tableId, finalOrder);
+      if (result && result.success) {
+        showToast(`Thanh toán thành công ${order.tableName || table?.name}! Đã giải phóng bàn.`, 'success');
+        return true;
+      } else {
+        showToast(result?.message || 'Thanh toán không thành công. Vui lòng kiểm tra lại.', 'error');
+        return false;
+      }
+    } finally {
+      checkoutMutexRef.current.delete(tableId);
+    }
   };
 
   // =================== ADMIN EMERGENCY OVERRIDE TOOLS ===================
