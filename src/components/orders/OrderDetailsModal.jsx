@@ -18,6 +18,18 @@ import {
 import { formatVND } from '../../utils/currency';
 import { formatShortDate } from '../../utils/dateTime';
 import { triggerHaptic } from '../../utils/haptics';
+import SaveOrderPrintPromptModal from '../ordering/SaveOrderPrintPromptModal';
+import PreparationTicketTemplate from '../printing/PreparationTicketTemplate';
+import {
+  computeKitchenItemsDiff,
+  buildKitchenTicketModel,
+  mergeSentItems,
+  DEFAULT_KITCHEN_TICKET_SETTINGS
+} from '../../utils/kitchenTicketEngine';
+import {
+  getBluetoothPrinterStatus,
+  printKitchenTicketThermal
+} from '../../utils/bluetoothPrinter';
 
 export default function OrderDetailsModal({
   isOpen,
@@ -31,11 +43,13 @@ export default function OrderDetailsModal({
   onSave,
   onHistoricalPay
 }) {
-  const { saveOrderForTable, showToast } = usePos();
+  const { saveOrderForTable, recordKitchenTicketPrint, settings, currentUser, showToast } = usePos();
 
   // Local state of items to allow real-time editing (qty + / - or remove)
   const [items, setItems] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [printPromptState, setPrintPromptState] = useState(null);
+  const [activeKitchenTicketModel, setActiveKitchenTicketModel] = useState(null);
 
   // Sync items when modal opens or order/draftItems change
   useEffect(() => {
@@ -165,6 +179,26 @@ export default function OrderDetailsModal({
           setIsSubmitting(false);
           return;
         }
+
+        const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
+        if (kitchenSettings.enabled !== false) {
+          const diffResult = computeKitchenItemsDiff(
+            items,
+            res.order?.kitchenSentItems || [],
+            kitchenSettings.printMode || 'diff'
+          );
+
+          if (diffResult.hasChanges && kitchenSettings.promptOnSave !== false) {
+            setPrintPromptState({
+              isOpen: true,
+              order: res.order,
+              table: res.table || table,
+              diffResult
+            });
+            setIsSubmitting(false);
+            return;
+          }
+        }
       }
       triggerHaptic('success');
       onClose();
@@ -175,6 +209,54 @@ export default function OrderDetailsModal({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleConfirmKitchenPrint = async () => {
+    if (!printPromptState?.order) return;
+    const { order: savedOrder, table: savedTable, diffResult } = printPromptState;
+    const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
+
+    const ticketModel = buildKitchenTicketModel({
+      order: savedOrder,
+      table: savedTable || table,
+      diffItems: diffResult.diffItems,
+      settings,
+      currentUser,
+      printMode: kitchenSettings.printMode || 'diff'
+    });
+
+    const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, diffResult.diffItems);
+    if (recordKitchenTicketPrint) {
+      await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems);
+    }
+
+    const btStatus = getBluetoothPrinterStatus();
+    if (btStatus.isConnected) {
+      try {
+        await printKitchenTicketThermal(ticketModel);
+        showToast('Đã in phiếu chế biến thành công!', 'success');
+      } catch (e) {
+        console.warn('Lỗi in bluetooth ticket:', e);
+        showToast('Chuyển in phiếu qua hộp thoại in hệ thống', 'info');
+        setActiveKitchenTicketModel(ticketModel);
+        setTimeout(() => {
+          window.print();
+        }, 150);
+      }
+    } else {
+      setActiveKitchenTicketModel(ticketModel);
+      setTimeout(() => {
+        window.print();
+      }, 150);
+    }
+
+    setPrintPromptState(null);
+    onClose();
+  };
+
+  const handleDismissKitchenPrint = () => {
+    setPrintPromptState(null);
+    onClose();
   };
 
   // 3. ACTION: THANH TOÁN
@@ -462,6 +544,24 @@ export default function OrderDetailsModal({
           )}
         </div>
       </div>
+
+      {/* Save Order Kitchen Ticket Print Prompt */}
+      {printPromptState?.isOpen && (
+        <SaveOrderPrintPromptModal
+          isOpen={printPromptState.isOpen}
+          tableName={table?.name || printPromptState.order?.tableName}
+          itemCount={printPromptState.diffResult?.totalDeltaCount || 0}
+          onConfirmPrint={handleConfirmKitchenPrint}
+          onDismiss={handleDismissKitchenPrint}
+        />
+      )}
+
+      {/* Hidden Printable Preparation Ticket for Browser / Mobile System Print */}
+      {activeKitchenTicketModel && (
+        <div className="hidden">
+          <PreparationTicketTemplate ticketModel={activeKitchenTicketModel} />
+        </div>
+      )}
     </div>,
     document.body
   );

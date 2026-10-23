@@ -5,6 +5,18 @@ import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
 import ItemCustomizerModal from './ItemCustomizerModal';
 import OrderDetailsModal from '../orders/OrderDetailsModal';
 import ViewOrderIconButton from '../common/ViewOrderIconButton';
+import SaveOrderPrintPromptModal from './SaveOrderPrintPromptModal';
+import PreparationTicketTemplate from '../printing/PreparationTicketTemplate';
+import {
+  computeKitchenItemsDiff,
+  buildKitchenTicketModel,
+  mergeSentItems,
+  DEFAULT_KITCHEN_TICKET_SETTINGS
+} from '../../utils/kitchenTicketEngine';
+import {
+  getBluetoothPrinterStatus,
+  printKitchenTicketThermal
+} from '../../utils/bluetoothPrinter';
 import {
   ArrowLeft,
   Search,
@@ -51,6 +63,8 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     categories,
     orders,
     saveOrderForTable,
+    recordKitchenTicketPrint,
+    settings,
     showToast,
     isTableBillingLocked,
     currentUser
@@ -70,6 +84,8 @@ export default function OrderView({ table, onBack, onGoToBill }) {
   const [customizingItem, setCustomizingItem] = useState(null);
   const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
   const [isConfirmDiscardOpen, setIsConfirmDiscardOpen] = useState(false);
+  const [printPromptState, setPrintPromptState] = useState(null);
+  const [activeKitchenTicketModel, setActiveKitchenTicketModel] = useState(null);
 
   // Track previous table ID to differentiate table switching vs state re-render
   const prevTableIdRef = useRef(table?.id);
@@ -195,10 +211,12 @@ export default function OrderView({ table, onBack, onGoToBill }) {
   };
 
   // ================= COMMIT ORDER HANDLER (LƯU NHANH) =================
-  const handleSaveOrder = async () => {
+  const handleSaveOrder = async (overrideItems = null) => {
     if (isSaving) return;
 
-    if (cartItems.length === 0) {
+    const itemsToSave = Array.isArray(overrideItems) ? overrideItems : cartItems;
+
+    if (itemsToSave.length === 0) {
       triggerHaptic('error');
       showToast('Đơn hàng chưa có món nào! Vui lòng chọn món trước khi lưu.', 'error');
       return;
@@ -213,11 +231,33 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     triggerHaptic('medium');
     setIsSaving(true);
     try {
-      const result = await saveOrderForTable(table.id, cartItems, loadedOrderVersionRef.current);
+      const result = await saveOrderForTable(table.id, itemsToSave, loadedOrderVersionRef.current);
       if (result && result.success) {
         triggerHaptic('success');
         setIsDirty(false);
         setIsOrderDetailsOpen(false);
+
+        const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
+        if (kitchenSettings.enabled !== false) {
+          const diffResult = computeKitchenItemsDiff(
+            itemsToSave,
+            result.order?.kitchenSentItems || [],
+            kitchenSettings.printMode || 'diff'
+          );
+
+          if (diffResult.hasChanges && kitchenSettings.promptOnSave !== false) {
+            setPrintPromptState({
+              isOpen: true,
+              order: result.order,
+              table: result.table || table,
+              diffResult
+            });
+            setIsSaving(false);
+            return;
+          }
+        }
+
+        setIsSaving(false);
         onBack();
       } else if (result && result.conflict) {
         triggerHaptic('error');
@@ -236,6 +276,54 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       showToast('Có lỗi xảy ra khi lưu đơn!', 'error');
       setIsSaving(false);
     }
+  };
+
+  const handleConfirmKitchenPrint = async () => {
+    if (!printPromptState?.order) return;
+    const { order: savedOrder, table: savedTable, diffResult } = printPromptState;
+    const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
+
+    const ticketModel = buildKitchenTicketModel({
+      order: savedOrder,
+      table: savedTable || table,
+      diffItems: diffResult.diffItems,
+      settings,
+      currentUser,
+      printMode: kitchenSettings.printMode || 'diff'
+    });
+
+    const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, diffResult.diffItems);
+    if (recordKitchenTicketPrint) {
+      await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems);
+    }
+
+    const btStatus = getBluetoothPrinterStatus();
+    if (btStatus.isConnected) {
+      try {
+        await printKitchenTicketThermal(ticketModel);
+        showToast('Đã in phiếu chế biến thành công!', 'success');
+      } catch (e) {
+        console.warn('Lỗi in bluetooth ticket:', e);
+        showToast('Chuyển in phiếu qua hộp thoại in hệ thống', 'info');
+        setActiveKitchenTicketModel(ticketModel);
+        setTimeout(() => {
+          window.print();
+        }, 150);
+      }
+    } else {
+      setActiveKitchenTicketModel(ticketModel);
+      setTimeout(() => {
+        window.print();
+      }, 150);
+    }
+
+    setPrintPromptState(null);
+    onBack();
+  };
+
+  const handleDismissKitchenPrint = () => {
+    setPrintPromptState(null);
+    onBack();
   };
 
   // Handle back button with discard confirmation
@@ -586,14 +674,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
             setIsOrderDetailsOpen(false);
           }}
           onSave={async (tbl, itemsToSave) => {
-            triggerHaptic('success');
-            const items = itemsToSave && Array.isArray(itemsToSave) ? itemsToSave : cartItems;
-            const res = await saveOrderForTable(table.id, items);
-            if (res && res.success) {
-              setIsDirty(false);
-              setIsOrderDetailsOpen(false);
-              onBack();
-            }
+            await handleSaveOrder(itemsToSave);
           }}
           onCheckout={async () => {
             triggerHaptic('medium');
@@ -684,6 +765,24 @@ export default function OrderView({ table, onBack, onGoToBill }) {
           </div>,
           document.body
         )}
+
+      {/* ================= 7. MODAL XÁC NHẬN IN PHIẾU CHẾ BIẾN SAU KHI LƯU ĐƠN ================= */}
+      {printPromptState?.isOpen && (
+        <SaveOrderPrintPromptModal
+          isOpen={printPromptState.isOpen}
+          tableName={table?.name || printPromptState.order?.tableName}
+          itemCount={printPromptState.diffResult?.totalDeltaCount || 0}
+          onConfirmPrint={handleConfirmKitchenPrint}
+          onDismiss={handleDismissKitchenPrint}
+        />
+      )}
+
+      {/* Hidden Printable Preparation Ticket for Browser / Mobile System Print */}
+      {activeKitchenTicketModel && (
+        <div className="hidden">
+          <PreparationTicketTemplate ticketModel={activeKitchenTicketModel} />
+        </div>
+      )}
     </div>
   );
 }

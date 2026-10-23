@@ -19,10 +19,20 @@ import {
   Eye,
   AlertCircle,
   HelpCircle,
-  Sparkles
+  Sparkles,
+  ChefHat
 } from 'lucide-react';
 import { processThermalLogo, validateLogoFile } from '../../utils/thermalLogoProcessor';
 import ReceiptPrintView from '../billing/ReceiptPrintView';
+import PreparationTicketTemplate from '../printing/PreparationTicketTemplate';
+import {
+  buildKitchenTicketModel,
+  DEFAULT_KITCHEN_TICKET_SETTINGS
+} from '../../utils/kitchenTicketEngine';
+import {
+  getBluetoothPrinterStatus,
+  printKitchenTicketThermal
+} from '../../utils/bluetoothPrinter';
 import { triggerHaptic } from '../../utils/haptics';
 
 export default function StoreConfigSubpage({ onBack }) {
@@ -75,6 +85,24 @@ export default function StoreConfigSubpage({ onBack }) {
   const [accountNo, setAccountNo] = useState(settings?.bankAccount?.accountNo || '0988776655');
   const [accountHolder, setAccountHolder] = useState(settings?.bankAccount?.accountHolder || 'QUAN CA PHE GOC');
   const [enableVietQR, setEnableVietQR] = useState(settings?.enableVietQR !== false);
+
+  // 5. Kitchen / Bar Preparation Ticket State
+  const [kitchenTicketSettings, setKitchenTicketSettings] = useState(
+    settings?.kitchenTicketSettings || {
+      enabled: true,
+      paperWidth: '58mm',
+      promptOnSave: true,
+      printMode: 'diff',
+      showTable: true,
+      showOrderId: true,
+      showTime: true,
+      showToppings: true,
+      showNotes: true,
+      showItemCount: true
+    }
+  );
+  const [isTestingKitchenPrint, setIsTestingKitchenPrint] = useState(false);
+  const [testKitchenTicketModel, setTestKitchenTicketModel] = useState(null);
 
   // Modal / UI State
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -204,11 +232,49 @@ export default function StoreConfigSubpage({ onBack }) {
           ...settings?.bankAccount,
           accountNo,
           accountHolder
-        }
+        },
+        kitchenTicketSettings
       });
       setIsSubmitting(false);
       showToast?.('Đã lưu cấu hình quán & hóa đơn thành công!', 'success');
     }, 250);
+  };
+
+  const handleTestKitchenPrint = async () => {
+    triggerHaptic('medium');
+    setIsTestingKitchenPrint(true);
+    try {
+      const dummyTicketModel = buildKitchenTicketModel({
+        order: { id: 'ORD-DEMO88', tableName: 'Bàn B02' },
+        table: { name: 'Bàn B02' },
+        diffItems: [
+          { id: 'it-1', name: 'Cà phê Muối GÓC Đặc Biệt', size: 'Lớn', quantity: 2, toppings: ['Kem Cheese béo mặn'], notes: 'Ít đường, nhiều đá' },
+          { id: 'it-2', name: 'Trà Sen Vàng Hạt Sen Huế', size: 'Vừa', quantity: 1, toppings: ['Hạt sen thêm'], notes: '' },
+          { id: 'it-3', name: 'Espresso sữa non', size: '', quantity: 1, isAdditional: true, notes: 'Món gọi thêm' }
+        ],
+        settings: { kitchenTicketSettings },
+        currentUser: { name: cashier.split('(')[0].trim() || 'Admin' },
+        ticketNumber: 'TEST-BAR-01',
+        printMode: kitchenTicketSettings.printMode || 'diff'
+      });
+
+      const bt = getBluetoothPrinterStatus();
+      if (bt.isConnected) {
+        await printKitchenTicketThermal(dummyTicketModel);
+        showToast?.('Đã in thử phiếu chế biến qua Bluetooth!', 'success');
+      } else {
+        setTestKitchenTicketModel(dummyTicketModel);
+        setTimeout(() => {
+          window.print();
+        }, 150);
+        showToast?.('Đã mở lệnh in thử phiếu chế biến!', 'info');
+      }
+    } catch (err) {
+      console.warn('Lỗi khi in thử phiếu chế biến:', err);
+      showToast?.('Lỗi in thử: ' + (err.message || 'Không thể in'), 'error');
+    } finally {
+      setIsTestingKitchenPrint(false);
+    }
   };
 
   return (
@@ -592,6 +658,180 @@ export default function StoreConfigSubpage({ onBack }) {
         </div>
 
         {/* ==================================================================== */}
+        {/* NHÓM 3: CẤU HÌNH PHIẾU CHẾ BIẾN (BẾP / BAR) */}
+        {/* ==================================================================== */}
+        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-xs space-y-3.5">
+          <div className="flex items-center justify-between border-b border-gray-50 pb-2">
+            <h3 className="font-extrabold text-xs text-forest-950 uppercase tracking-wider flex items-center gap-1.5">
+              <ChefHat className="w-4 h-4 text-forest-800" />
+              <span>Cấu hình Phiếu chế biến (Bếp / Bar)</span>
+            </h3>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <span className="text-[10px] font-bold text-gray-500">
+                {kitchenTicketSettings.enabled !== false ? 'Đang bật' : 'Đã tắt'}
+              </span>
+              <input
+                type="checkbox"
+                checked={kitchenTicketSettings.enabled !== false}
+                onChange={(e) =>
+                  setKitchenTicketSettings((prev) => ({ ...prev, enabled: e.target.checked }))
+                }
+                className="w-4 h-4 accent-forest-800 rounded cursor-pointer"
+              />
+            </label>
+          </div>
+
+          <p className="text-[11px] text-gray-500 leading-relaxed">
+            Phiếu in riêng độc lập cho quầy pha chế và bếp khi nhấn Lưu đơn. Tuyệt đối không hiển thị giá tiền, doanh thu hay VietQR để đảm bảo tốc độ pha chế tối đa.
+          </p>
+
+          {kitchenTicketSettings.enabled !== false && (
+            <div className="space-y-3 pt-1">
+              {/* Khổ giấy phiếu chế biến */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1.5">
+                  Khổ giấy in phiếu chế biến
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['58mm', '80mm'].map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() =>
+                        setKitchenTicketSettings((prev) => ({ ...prev, paperWidth: w }))
+                      }
+                      className={`h-9 rounded-xl font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                        (kitchenTicketSettings.paperWidth || '58mm') === w
+                          ? 'bg-forest-900 text-white border-forest-900 shadow-xs'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>{w === '58mm' ? 'Khổ nhỏ 58mm' : 'Khổ chuẩn 80mm'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tùy chọn hỏi khi lưu đơn */}
+              <div className="p-3 bg-forest-50/70 rounded-2xl border border-forest-100 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-forest-950 text-xs">
+                    Hỏi in phiếu sau khi lưu đơn
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={kitchenTicketSettings.promptOnSave !== false}
+                    onChange={(e) =>
+                      setKitchenTicketSettings((prev) => ({ ...prev, promptOnSave: e.target.checked }))
+                    }
+                    className="w-4 h-4 accent-forest-800 rounded cursor-pointer"
+                  />
+                </div>
+                <p className="text-[10.5px] text-forest-800/80 leading-tight">
+                  Tự động hiển thị popup <em>"Đơn đã được lưu. Bạn có muốn in danh sách món cần làm không?"</em> sau khi lưu đơn thành công.
+                </p>
+              </div>
+
+              {/* Chế độ in món */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1.5">
+                  Chế độ in danh sách món
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setKitchenTicketSettings((prev) => ({ ...prev, printMode: 'diff' }))
+                    }
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      (kitchenTicketSettings.printMode || 'diff') === 'diff'
+                        ? 'bg-amber-50/80 border-amber-300 text-amber-950 shadow-2xs'
+                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="font-extrabold text-[11px] flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Chỉ in món mới thêm</span>
+                    </div>
+                    <div className="text-[9.5px] text-gray-500 mt-0.5 leading-tight">
+                      Tiết kiệm giấy, chỉ in món hoặc số lượng tăng thêm
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setKitchenTicketSettings((prev) => ({ ...prev, printMode: 'all' }))
+                    }
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      kitchenTicketSettings.printMode === 'all'
+                        ? 'bg-amber-50/80 border-amber-300 text-amber-950 shadow-2xs'
+                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="font-extrabold text-[11px] flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>In toàn bộ món trong đơn</span>
+                    </div>
+                    <div className="text-[9.5px] text-gray-500 mt-0.5 leading-tight">
+                      In toàn bộ danh sách món mỗi lần gửi phiếu
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tùy chọn hiển thị chi tiết */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-gray-700 font-bold">
+                  Chi tiết hiển thị trên phiếu chế biến
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { key: 'showTable', label: 'Tên / Số bàn to' },
+                    { key: 'showOrderId', label: 'Mã đơn hàng' },
+                    { key: 'showTime', label: 'Thời gian gửi' },
+                    { key: 'showToppings', label: 'Topping món' },
+                    { key: 'showNotes', label: 'Ghi chú món' },
+                    { key: 'showItemCount', label: 'Tổng số lượng món' }
+                  ].map((f) => (
+                    <label
+                      key={f.key}
+                      className="p-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200/70 flex items-center justify-between cursor-pointer transition-colors"
+                    >
+                      <span className="font-semibold text-gray-700 text-[11px]">{f.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={kitchenTicketSettings[f.key] !== false}
+                        onChange={(e) =>
+                          setKitchenTicketSettings((prev) => ({ ...prev, [f.key]: e.target.checked }))
+                        }
+                        className="w-3.5 h-3.5 accent-forest-800 rounded cursor-pointer"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Nút in thử phiếu chế biến */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  disabled={isTestingKitchenPrint}
+                  onClick={handleTestKitchenPrint}
+                  className="w-full h-10 px-3 rounded-xl bg-forest-50 hover:bg-forest-100 text-forest-900 border border-forest-200/80 font-bold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99] disabled:opacity-50"
+                >
+                  <Printer className="w-4 h-4 text-forest-800" />
+                  <span>
+                    {isTestingKitchenPrint ? 'Đang gửi lệnh in thử...' : 'In thử Phiếu chế biến mẫu'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ==================================================================== */}
         {/* NHÓM 4: THANH TOÁN & VIETQR */}
         {/* ==================================================================== */}
         <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-xs space-y-3">
@@ -724,6 +964,13 @@ export default function StoreConfigSubpage({ onBack }) {
           isPrePrint={false}
           overridePaperWidth={paperWidth}
         />
+      )}
+
+      {/* Hidden Printable Preparation Ticket for Test Printing */}
+      {testKitchenTicketModel && (
+        <div className="hidden">
+          <PreparationTicketTemplate ticketModel={testKitchenTicketModel} />
+        </div>
       )}
     </div>
   );

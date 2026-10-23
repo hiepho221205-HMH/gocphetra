@@ -652,12 +652,151 @@ export function buildReceiptThermalBytes(model, options = {}) {
 }
 
 /**
+ * Generates raw ESC/POS binary bytes for Kitchen / Bar Preparation Tickets
+ * STRICTLY OMITS ALL PRICING, SUB-TOTALS, DISCOUNTS, REVENUE, VIETQR, AND WIFI.
+ * Features extra-large Table Name, item quantity, toppings, and special notes.
+ * 
+ * @param {object} ticketModel - Output of buildKitchenTicketModel()
+ * @param {object} [options]
+ * @returns {Uint8Array}
+ */
+export function buildKitchenTicketThermalBytes(ticketModel, options = {}) {
+  const is80 = ticketModel.paperWidth === '80mm';
+  const lineWidth = is80 ? LINE_WIDTH_80MM : LINE_WIDTH_57MM;
+  const useNoAccents = options.useNoAccents === true;
+  const bytes = [];
+
+  const addBytes = (arr) => {
+    for (let i = 0; i < arr.length; i++) bytes.push(arr[i]);
+  };
+
+  const addText = (str) => {
+    const b = textToBytes(str, useNoAccents);
+    addBytes(b);
+  };
+
+  const addLine = (str = '') => {
+    addText(str + '\n');
+  };
+
+  const sep = (char = '-') => char.repeat(lineWidth);
+  const kv = (k, v) => {
+    const kStr = String(k);
+    const vStr = String(v);
+    const space = lineWidth - kStr.length - vStr.length;
+    return space <= 0 ? kStr + ' ' + vStr : kStr + ' '.repeat(space) + vStr;
+  };
+
+  // 1. Initialize
+  addBytes(ESC_POS.INIT);
+
+  // 2. Title Header: PHIẾU CHẾ BIẾN
+  addBytes(ESC_POS.ALIGN_CENTER);
+  addBytes(ESC_POS.BOLD_ON);
+  addBytes(ESC_POS.DOUBLE_HEIGHT);
+  addLine('PHIẾU CHẾ BIẾN');
+  addBytes(ESC_POS.NORMAL_SIZE);
+  addBytes(ESC_POS.BOLD_OFF);
+  addLine(sep('='));
+
+  // 3. Highlighted Table Name (Big, bold font for kitchen visibility)
+  if (ticketModel.settings?.showTable !== false && ticketModel.tableName) {
+    addBytes(ESC_POS.ALIGN_CENTER);
+    addBytes(ESC_POS.BOLD_ON);
+    addBytes(ESC_POS.DOUBLE_WIDTH_HEIGHT);
+    addLine(`BÀN: ${ticketModel.tableName.toUpperCase()}`);
+    addBytes(ESC_POS.NORMAL_SIZE);
+    addBytes(ESC_POS.BOLD_OFF);
+    addLine(sep('-'));
+  }
+
+  // 4. Ticket Metadata (Left Aligned)
+  addBytes(ESC_POS.ALIGN_LEFT);
+  if (ticketModel.settings?.showOrderId !== false && ticketModel.orderId) {
+    addLine(`Mã đơn: #${ticketModel.orderId}`);
+  }
+  if (ticketModel.settings?.showTime !== false && ticketModel.printedAtDisplay) {
+    addLine(`Thời gian: ${ticketModel.printedAtDisplay}`);
+  }
+  if (ticketModel.ticketNumber) {
+    addLine(`Số phiếu: ${ticketModel.ticketNumber}`);
+  }
+  addLine(sep('-'));
+
+  // 5. Items to prepare
+  const items = ticketModel.items || [];
+  if (items.length === 0) {
+    addLine('(Không có món mới cần làm)');
+  } else {
+    items.forEach((it, idx) => {
+      const idxNum = it.index || idx + 1;
+      const extraTag = it.isAdditional ? ' [MÓN THÊM]' : '';
+      const sizeTag = it.size ? ` (${it.size})` : '';
+
+      addBytes(ESC_POS.BOLD_ON);
+      addLine(`${idxNum}. ${it.name}${sizeTag}${extraTag}`);
+      addBytes(ESC_POS.BOLD_OFF);
+
+      // Toppings
+      if (ticketModel.settings?.showToppings !== false && Array.isArray(it.toppings) && it.toppings.length > 0) {
+        it.toppings.forEach((top) => {
+          addLine(`   + ${top}`);
+        });
+      }
+
+      // Notes
+      if (ticketModel.settings?.showNotes !== false && it.notes) {
+        addLine(`   * Ghi chú: ${it.notes}`);
+      }
+
+      // Quantity row (prominent)
+      addBytes(ESC_POS.BOLD_ON);
+      addLine(kv('   Số lượng:', `x ${it.quantity}`));
+      addBytes(ESC_POS.BOLD_OFF);
+
+      if (idx < items.length - 1) {
+        addLine(sep('.'));
+      }
+    });
+  }
+
+  // 6. Total items summary
+  addLine(sep('='));
+  if (ticketModel.settings?.showItemCount !== false) {
+    addBytes(ESC_POS.ALIGN_LEFT);
+    addBytes(ESC_POS.BOLD_ON);
+    addBytes(ESC_POS.DOUBLE_HEIGHT);
+    addLine(kv('TỔNG SỐ LƯỢNG:', `${ticketModel.totalQuantity || 0} món`));
+    addBytes(ESC_POS.NORMAL_SIZE);
+    addBytes(ESC_POS.BOLD_OFF);
+    addLine(sep('='));
+  }
+
+  // 7. Feed & Cut
+  addBytes(ESC_POS.FEED_3);
+  addBytes(ESC_POS.CUT);
+
+  return new Uint8Array(bytes);
+}
+
+/**
  * Universal Action: Print any Thermal Receipt model
  * @param {object} receiptModel
  * @param {object} [options]
  */
 export async function printReceiptThermal(receiptModel, options = {}) {
   const bytes = buildReceiptThermalBytes(receiptModel, options);
+  await sendRawToPrinter(bytes);
+  return true;
+}
+
+/**
+ * Universal Action: Print Kitchen / Bar Preparation Ticket directly to Thermal Printer
+ * @param {object} ticketModel - Output of buildKitchenTicketModel()
+ * @param {object} [options]
+ */
+export async function printKitchenTicketThermal(ticketModel, options = {}) {
+  const bytes = buildKitchenTicketThermalBytes(ticketModel, options);
   await sendRawToPrinter(bytes);
   return true;
 }

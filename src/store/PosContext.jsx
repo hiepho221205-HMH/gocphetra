@@ -77,6 +77,7 @@ import {
   saveReceiptSnapshotToCloud,
   fetchReceiptByOrderId,
   incrementReceiptReprint,
+  savePreparationTicketToCloud,
   uploadStoreLogoToStorage,
   fetchStoreSettingsFromCloud,
   upsertStoreSettingsToCloud
@@ -2096,6 +2097,7 @@ export function PosProvider({ children }) {
         cashier: (settings.currentCashier || 'Thu ngân').split('(')[0].trim(),
         customerCount: table.capacity || 2,
         items: [],
+        kitchenSentItems: [],
         discountPercent: 0,
         surcharge: 0,
         subtotal: 0,
@@ -2168,6 +2170,58 @@ export function PosProvider({ children }) {
 
     showToast(`Đã lưu đơn thành công cho ${table.name}!`, 'success');
     return { success: true, order: updatedOrder, table: updatedTable };
+  };
+
+  // Ghi nhận in phiếu chế biến: Cập nhật kitchenSentItems và lưu record vào preparation_tickets
+  const recordKitchenTicketPrint = async (orderId, ticketModel, newSentItems) => {
+    try {
+      const order = orders[orderId];
+      if (!order) return { success: false, message: 'Đơn hàng không tồn tại' };
+
+      const updatedOrder = {
+        ...order,
+        kitchenSentItems: newSentItems
+      };
+
+      setOrders((prev) => ({ ...prev, [orderId]: updatedOrder }));
+
+      // Dual write to storage
+      try {
+        const currentOrders = loadStorage(STORAGE_KEYS.ORDERS, {});
+        currentOrders[orderId] = updatedOrder;
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(currentOrders));
+        dualWriteToIndexedDB('orders', currentOrders);
+      } catch (e) {
+        console.warn('Sync storage error:', e);
+      }
+
+      // Upsert order to cloud
+      cloudUpsertOrder(updatedOrder).catch((e) => console.warn('cloudUpsertOrder error:', e));
+
+      // Record preparation ticket
+      const ticketRecord = {
+        id: ticketModel.ticketId || `TKT-${Date.now()}`,
+        order_id: orderId,
+        store_id: 'default_store',
+        table_id: ticketModel.tableId || null,
+        table_name: ticketModel.tableName || '',
+        ticket_number: ticketModel.ticketNumber || ticketModel.ticketId,
+        items: ticketModel.items || [],
+        item_count: ticketModel.totalQuantity || 0,
+        print_mode: ticketModel.printMode || 'diff',
+        printed_at: ticketModel.printedAt || new Date().toISOString(),
+        printed_by: ticketModel.printedBy || 'Thu ngân',
+        printer_type: 'thermal',
+        created_at: new Date().toISOString()
+      };
+
+      savePreparationTicketToCloud(ticketRecord).catch((e) => console.warn('savePreparationTicketToCloud error:', e));
+
+      return { success: true, updatedOrder };
+    } catch (err) {
+      console.warn('recordKitchenTicketPrint error:', err);
+      return { success: false, error: err };
+    }
   };
 
   // Hủy đơn hàng và giải phóng bàn (chuyển sang trạng thái cancelled, đưa vào lịch sử)
@@ -3506,6 +3560,7 @@ export function PosProvider({ children }) {
     getOrCreateOrder,
     getOrderForTable,
     saveOrderForTable,
+    recordKitchenTicketPrint,
     addItemToOrder,
     updateItemQuantity,
     removeItemFromOrder,

@@ -198,6 +198,7 @@ export function mapOrderToDb(o) {
     is_demo: Boolean(o.isDemo),
     branch_id: o.branchId || 'main',
     version: Number(o.version) || 1,
+    kitchen_sent_items: o.kitchenSentItems || o.kitchen_sent_items || [],
     created_at: o.createdAt || new Date().toISOString(),
     finished_at: o.finishedAt || null
   };
@@ -231,6 +232,7 @@ export function mapOrderFromDb(o) {
     isDemo: Boolean(o.is_demo),
     branchId: o.branch_id || 'main',
     version: Number(o.version) || 1,
+    kitchenSentItems: o.kitchen_sent_items || o.kitchenSentItems || [],
     createdAt: o.created_at,
     finishedAt: o.finished_at
   };
@@ -1607,6 +1609,18 @@ export function mapStoreSettingsFromDb(row) {
       accountNo: row.bank_account || '',
       accountHolder: row.bank_account_name || ''
     },
+    kitchenTicketSettings: row.kitchen_ticket_settings || {
+      enabled: true,
+      paperWidth: '58mm',
+      promptOnSave: true,
+      printMode: 'diff',
+      showTable: true,
+      showOrderId: true,
+      showTime: true,
+      showToppings: true,
+      showNotes: true,
+      showItemCount: true
+    },
     updatedAt: row.updated_at
   };
 }
@@ -1639,6 +1653,18 @@ export function mapStoreSettingsToDb(settings) {
     bank_account: settings.bankAccount?.accountNo || settings.bank_account || '',
     bank_account_name: settings.bankAccount?.accountHolder || settings.bank_account_name || '',
     vietqr_enabled: settings.enableVietQR !== false && settings.vietqr_enabled !== false,
+    kitchen_ticket_settings: settings.kitchenTicketSettings || settings.kitchen_ticket_settings || {
+      enabled: true,
+      paper_width: '58mm',
+      prompt_on_save: true,
+      print_mode: 'diff',
+      show_table: true,
+      show_order_id: true,
+      show_time: true,
+      show_toppings: true,
+      show_notes: true,
+      show_item_count: true
+    },
     updated_at: new Date().toISOString()
   };
 }
@@ -1848,6 +1874,46 @@ export async function incrementReceiptReprint(receiptId) {
       { key: 'pos_receipt_snapshots', value: updated, updated_at: now }
     ], { onConflict: 'key' });
     return { success: true, reprintCount: nextCount };
+  } catch (err) {
+    return { success: false, error: err };
+  }
+}
+
+export async function savePreparationTicketToCloud(ticketRecord) {
+  if (!supabase || !ticketRecord?.order_id) return { success: false };
+  try {
+    if (schemaCapabilities.preparation_tickets !== false) {
+      const { data, error } = await supabase
+        .from('preparation_tickets')
+        .insert(ticketRecord)
+        .select()
+        .maybeSingle();
+
+      if (!error) {
+        schemaCapabilities.preparation_tickets = true;
+        return { success: true, data };
+      }
+      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+        schemaCapabilities.preparation_tickets = false;
+      }
+    }
+
+    // Fallback sync to settings pos_preparation_tickets
+    try {
+      const { data: currentTickets } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('key', 'pos_preparation_tickets')
+        .maybeSingle();
+      const existing = currentTickets?.value && Array.isArray(currentTickets.value) ? currentTickets.value : [];
+      const updated = [ticketRecord, ...existing.filter(t => t.id !== ticketRecord.id)].slice(0, 100);
+      await supabase.from('settings').upsert([
+        { key: 'pos_preparation_tickets', value: updated, updated_at: new Date().toISOString() }
+      ], { onConflict: 'key' });
+      return { success: true, data: ticketRecord };
+    } catch {
+      return { success: true, data: ticketRecord };
+    }
   } catch (err) {
     return { success: false, error: err };
   }
