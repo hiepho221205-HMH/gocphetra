@@ -343,13 +343,16 @@ export function PosProvider({ children }) {
         });
 
         if (isSupabaseConfigured) {
-          const cloudClosures = await fetchDailyClosuresFromCloud();
+          const currentSess = await getCurrentSession();
+          if (currentSess?.user) {
+            const cloudClosures = await fetchDailyClosuresFromCloud();
           (cloudClosures || []).forEach((c) => {
             if (!closuresMap[c.date] || new Date(c.closedAt) >= new Date(closuresMap[c.date].closedAt)) {
               closuresMap[c.date] = c;
               saveDailyClosure(c).catch(() => {});
             }
           });
+          }
         }
 
         setDailyClosures(closuresMap);

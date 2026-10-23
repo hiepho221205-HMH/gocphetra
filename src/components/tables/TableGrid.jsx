@@ -167,7 +167,7 @@ export default function TableGrid({
       </div>
 
       {/* 3. Segmented Control Filter Pills (Soft Inset Well) */}
-      <div className="clay-inset p-1 flex items-center justify-between gap-1 mb-3.5">
+      <div role="tablist" aria-label="Lọc trạng thái bàn" className="clay-inset p-1 flex items-center justify-between gap-1 mb-3.5">
         {[
           { key: 'all', label: 'Tất cả' },
           { key: 'occupied', label: `Có khách (${occupiedCount})` },
@@ -178,11 +178,13 @@ export default function TableGrid({
             <button
               key={tab.key}
               type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => handleStatusChange(tab.key)}
               className={`flex-1 py-1.5 px-2 rounded-[14px] text-xs font-extrabold transition-all duration-150 cursor-pointer touch-target ${
                 isActive
                   ? 'bg-white text-[#214E34] shadow-[0_4px_12px_rgba(160,175,200,0.25),inset_0_1px_1px_rgba(255,255,255,1)]'
-                  : 'text-gray-500 hover:text-gray-700'
+                  : 'text-gray-700 hover:text-gray-900 font-bold'
               }`}
             >
               {tab.label}

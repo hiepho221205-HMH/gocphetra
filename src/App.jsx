@@ -1,24 +1,35 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { PosProvider, usePos } from './store/PosContext';
 import { useVersionChecker } from './hooks/useVersionChecker';
 import { useIosKeyboardFix } from './hooks/useIosKeyboardFix';
 import BottomNav from './components/common/BottomNav';
 import Toast from './components/common/Toast';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import TableGrid from './components/tables/TableGrid';
-import TableActionModal from './components/tables/TableActionModal';
-import AddEditTableModal from './components/tables/AddEditTableModal';
-import OrderView from './components/ordering/OrderView';
-import OrderDetailsModal from './components/orders/OrderDetailsModal';
-import BillCheckoutModal from './components/billing/BillCheckoutModal';
-import MenuManagementView from './components/menu/MenuManagementView';
-import OrderHistoryView from './components/orders/OrderHistoryView';
-import ReportsView from './components/reports/ReportsView';
-import SettingsView from './components/settings/SettingsView';
 import PageHeader from './components/common/PageHeader';
 import AccessDeniedView from './components/common/AccessDeniedView';
-import LoginPage from './components/auth/LoginPage';
 import { Sparkles, ArrowRight } from 'lucide-react';
+
+// Code-split heavy views and modals for optimal bundle size and Lighthouse scores
+const TableGrid = lazy(() => import('./components/tables/TableGrid'));
+const TableActionModal = lazy(() => import('./components/tables/TableActionModal'));
+const AddEditTableModal = lazy(() => import('./components/tables/AddEditTableModal'));
+const OrderView = lazy(() => import('./components/ordering/OrderView'));
+const OrderDetailsModal = lazy(() => import('./components/orders/OrderDetailsModal'));
+const BillCheckoutModal = lazy(() => import('./components/billing/BillCheckoutModal'));
+const MenuManagementView = lazy(() => import('./components/menu/MenuManagementView'));
+const OrderHistoryView = lazy(() => import('./components/orders/OrderHistoryView'));
+const ReportsView = lazy(() => import('./components/reports/ReportsView'));
+const SettingsView = lazy(() => import('./components/settings/SettingsView'));
+const LoginPage = lazy(() => import('./components/auth/LoginPage'));
+
+const ViewLoadingFallback = () => (
+  <div className="flex-1 min-h-[240px] flex items-center justify-center p-6 text-[#214E34]">
+    <div className="flex flex-col items-center gap-2">
+      <div className="w-7 h-7 rounded-full border-2 border-[#214E34] border-t-transparent animate-spin"></div>
+      <span className="text-[11px] font-bold text-gray-500">Đang tải giao diện...</span>
+    </div>
+  </div>
+);
 
 function PosContent() {
   const {
@@ -148,119 +159,123 @@ function PosContent() {
 
         {/* Scrollable Main Area (overflow-hidden on independent-scroll tabs to prevent root scroll drift) */}
         <main
-          className={`flex-1 relative no-scrollbar ${
+          id="main-content"
+          tabIndex="-1"
+          className={`flex-1 relative no-scrollbar outline-none ${
             activeOrderingTable || activeTab === 'menu'
               ? 'overflow-hidden flex flex-col min-h-0 h-full'
               : 'overflow-y-auto'
           }`}
         >
-          {/* TAB 1: BÀN (TABLES) */}
-          {activeTab === 'tables' && (
-            <>
-              {activeOrderingTable ? (
-                <OrderView
-                  table={tables.find((t) => t.id === activeOrderingTable.id) || activeOrderingTable}
-                  onBack={() => setActiveOrderingTable(null)}
-                  onGoToBill={(tbl) => {
-                    setBillingTable(resolveTableForBill(tbl));
-                  }}
-                />
-              ) : (
-                <div className="animate-fadeIn">
-                  <TableGrid
-                    onSelectTable={(table) => {
-                      const freshTable = tables.find((t) => t.id === table.id) || table;
-                      if (freshTable.status === 'empty') {
-                        setActiveOrderingTable(freshTable);
-                      } else if (freshTable.status === 'awaiting_payment') {
-                        setBillingTable(resolveTableForBill(freshTable));
-                      } else {
-                        setActiveOrderingTable(freshTable);
-                      }
-                    }}
-                    onOpenActions={(table) => {
-                      const freshTable = tables.find((t) => t.id === table.id) || table;
-                      setActionTable(freshTable);
-                    }}
-                    onAddNewTable={() => {
-                      setEditingTable(null);
-                      setIsAddTableOpen(true);
-                    }}
-                    onViewOrderDetails={(table, order) => {
-                      const freshTable = tables.find((t) => t.id === table.id) || table;
-                      setViewingOrderTable(freshTable);
-                    }}
-                    onOpenOrder={(table) => {
-                      const freshTable = tables.find((t) => t.id === table.id) || table;
-                      setActiveOrderingTable(freshTable);
-                    }}
-                    onOpenBill={(table) => {
-                      setBillingTable(resolveTableForBill(table));
+          <Suspense fallback={<ViewLoadingFallback />}>
+            {/* TAB 1: BÀN (TABLES) */}
+            {activeTab === 'tables' && (
+              <>
+                {activeOrderingTable ? (
+                  <OrderView
+                    table={tables.find((t) => t.id === activeOrderingTable.id) || activeOrderingTable}
+                    onBack={() => setActiveOrderingTable(null)}
+                    onGoToBill={(tbl) => {
+                      setBillingTable(resolveTableForBill(tbl));
                     }}
                   />
-                </div>
-              )}
-            </>
-          )}
+                ) : (
+                  <div className="animate-fadeIn">
+                    <TableGrid
+                      onSelectTable={(table) => {
+                        const freshTable = tables.find((t) => t.id === table.id) || table;
+                        if (freshTable.status === 'empty') {
+                          setActiveOrderingTable(freshTable);
+                        } else if (freshTable.status === 'awaiting_payment') {
+                          setBillingTable(resolveTableForBill(freshTable));
+                        } else {
+                          setActiveOrderingTable(freshTable);
+                        }
+                      }}
+                      onOpenActions={(table) => {
+                        const freshTable = tables.find((t) => t.id === table.id) || table;
+                        setActionTable(freshTable);
+                      }}
+                      onAddNewTable={() => {
+                        setEditingTable(null);
+                        setIsAddTableOpen(true);
+                      }}
+                      onViewOrderDetails={(table, order) => {
+                        const freshTable = tables.find((t) => t.id === table.id) || table;
+                        setViewingOrderTable(freshTable);
+                      }}
+                      onOpenOrder={(table) => {
+                        const freshTable = tables.find((t) => t.id === table.id) || table;
+                        setActiveOrderingTable(freshTable);
+                      }}
+                      onOpenBill={(table) => {
+                        setBillingTable(resolveTableForBill(table));
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
 
-          {/* TAB 2: THỰC ĐƠN (MENU MANAGEMENT) - RBAC GUARD */}
-          {activeTab === 'menu' && (
-            <div className="animate-fadeIn h-full flex flex-col min-h-0">
-              {canManageMenu ? (
-                <MenuManagementView />
-              ) : (
-                <AccessDeniedView
-                  requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
-                  onBack={() => setActiveTab('tables')}
+            {/* TAB 2: THỰC ĐƠN (MENU MANAGEMENT) - RBAC GUARD */}
+            {activeTab === 'menu' && (
+              <div className="animate-fadeIn h-full flex flex-col min-h-0">
+                {canManageMenu ? (
+                  <MenuManagementView />
+                ) : (
+                  <AccessDeniedView
+                    requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
+                    onBack={() => setActiveTab('tables')}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: ĐƠN HÀNG (ORDER HISTORY) */}
+            {activeTab === 'orders' && (
+              <div className="animate-fadeIn">
+                <OrderHistoryView
+                  onGoToOrder={(tbl) => {
+                    const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
+                    setActiveOrderingTable(freshTable);
+                    setActiveTab('tables');
+                  }}
+                  onGoToBill={(tbl) => {
+                    const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
+                    setBillingTable(freshTable);
+                  }}
                 />
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* TAB 3: ĐƠN HÀNG (ORDER HISTORY) */}
-          {activeTab === 'orders' && (
-            <div className="animate-fadeIn">
-              <OrderHistoryView
-                onGoToOrder={(tbl) => {
-                  const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
-                  setActiveOrderingTable(freshTable);
-                  setActiveTab('tables');
-                }}
-                onGoToBill={(tbl) => {
-                  const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
-                  setBillingTable(freshTable);
-                }}
-              />
-            </div>
-          )}
+            {/* TAB 4: BÁO CÁO (REPORTS) - RBAC GUARD */}
+            {activeTab === 'reports' && (
+              <div className="animate-fadeIn">
+                {canViewReports ? (
+                  <ReportsView />
+                ) : (
+                  <AccessDeniedView
+                    requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
+                    onBack={() => setActiveTab('tables')}
+                  />
+                )}
+              </div>
+            )}
 
-          {/* TAB 4: BÁO CÁO (REPORTS) - RBAC GUARD */}
-          {activeTab === 'reports' && (
-            <div className="animate-fadeIn">
-              {canViewReports ? (
-                <ReportsView />
-              ) : (
-                <AccessDeniedView
-                  requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
-                  onBack={() => setActiveTab('tables')}
-                />
-              )}
-            </div>
-          )}
-
-          {/* TAB 5: CÀI ĐẶT & QUẢN LÝ (SETTINGS) - RBAC GUARD */}
-          {activeTab === 'settings' && (
-            <div className="animate-fadeIn">
-              {canAccessSettings ? (
-                <SettingsView onBack={() => setActiveTab(previousTab || 'tables')} />
-              ) : (
-                <AccessDeniedView
-                  requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
-                  onBack={() => setActiveTab('tables')}
-                />
-              )}
-            </div>
-          )}
+            {/* TAB 5: CÀI ĐẶT & QUẢN LÝ (SETTINGS) - RBAC GUARD */}
+            {activeTab === 'settings' && (
+              <div className="animate-fadeIn">
+                {canAccessSettings ? (
+                  <SettingsView onBack={() => setActiveTab(previousTab || 'tables')} />
+                ) : (
+                  <AccessDeniedView
+                    requiredRole="Cửa hàng trưởng hoặc Quản lý (Manager/Admin)"
+                    onBack={() => setActiveTab('tables')}
+                  />
+                )}
+              </div>
+            )}
+          </Suspense>
         </main>
 
         {/* Bottom Navigation (Chỉ hiện trên các tab chính, ẩn khi đang gọi món hoặc vào Cài đặt) */}
@@ -268,62 +283,64 @@ function PosContent() {
           <BottomNav isKeyboardOpen={isKeyboardOpen} />
         )}
 
-        {/* Modals */}
-        <TableActionModal
-          isOpen={Boolean(actionTable)}
-          table={actionTable ? (tables.find((t) => t.id === actionTable.id) || actionTable) : null}
-          onClose={() => setActionTable(null)}
-          onGoToOrder={(table) => {
-            const freshTable = tables.find((t) => t.id === table.id) || table;
-            setActiveOrderingTable(freshTable);
-            setActiveTab('tables');
-          }}
-          onGoToBill={(table) => {
-            const freshTable = tables.find((t) => t.id === table.id) || table;
-            setBillingTable(freshTable);
-          }}
-          onEditTable={(table) => {
-            setEditingTable(table);
-            setIsAddTableOpen(true);
-          }}
-        />
-
-        <AddEditTableModal
-          isOpen={isAddTableOpen}
-          onClose={() => setIsAddTableOpen(false)}
-          tableToEdit={editingTable}
-        />
-
-        <BillCheckoutModal
-          isOpen={Boolean(billingTable)}
-          table={resolveTableForBill(billingTable)}
-          onClose={() => setBillingTable(null)}
-          onPaymentSuccess={handlePaymentSuccess}
-          onGoBackToOrder={(tbl) => {
-            setBillingTable(null);
-            const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
-            setActiveOrderingTable(freshTable);
-          }}
-        />
-
-        {/* Fast Order Details Modal directly from Floorplan */}
-        {viewingOrderTable && (
-          <OrderDetailsModal
-            isOpen={Boolean(viewingOrderTable)}
-            table={viewingOrderTable}
-            order={viewingActiveOrder}
-            onClose={() => setViewingOrderTable(null)}
-            onAddMoreItems={(table) => {
-              setViewingOrderTable(null);
+        {/* Modals with Suspense */}
+        <Suspense fallback={null}>
+          <TableActionModal
+            isOpen={Boolean(actionTable)}
+            table={actionTable ? (tables.find((t) => t.id === actionTable.id) || actionTable) : null}
+            onClose={() => setActionTable(null)}
+            onGoToOrder={(table) => {
               const freshTable = tables.find((t) => t.id === table.id) || table;
               setActiveOrderingTable(freshTable);
+              setActiveTab('tables');
             }}
-            onCheckout={(table, order) => {
-              setViewingOrderTable(null);
-              setBillingTable(resolveTableForBill(table));
+            onGoToBill={(table) => {
+              const freshTable = tables.find((t) => t.id === table.id) || table;
+              setBillingTable(freshTable);
+            }}
+            onEditTable={(table) => {
+              setEditingTable(table);
+              setIsAddTableOpen(true);
             }}
           />
-        )}
+
+          <AddEditTableModal
+            isOpen={isAddTableOpen}
+            onClose={() => setIsAddTableOpen(false)}
+            tableToEdit={editingTable}
+          />
+
+          <BillCheckoutModal
+            isOpen={Boolean(billingTable)}
+            table={resolveTableForBill(billingTable)}
+            onClose={() => setBillingTable(null)}
+            onPaymentSuccess={handlePaymentSuccess}
+            onGoBackToOrder={(tbl) => {
+              setBillingTable(null);
+              const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
+              setActiveOrderingTable(freshTable);
+            }}
+          />
+
+          {/* Fast Order Details Modal directly from Floorplan */}
+          {viewingOrderTable && (
+            <OrderDetailsModal
+              isOpen={Boolean(viewingOrderTable)}
+              table={viewingOrderTable}
+              order={viewingActiveOrder}
+              onClose={() => setViewingOrderTable(null)}
+              onAddMoreItems={(table) => {
+                setViewingOrderTable(null);
+                const freshTable = tables.find((t) => t.id === table.id) || table;
+                setActiveOrderingTable(freshTable);
+              }}
+              onCheckout={(table, order) => {
+                setViewingOrderTable(null);
+                setBillingTable(resolveTableForBill(table));
+              }}
+            />
+          )}
+        </Suspense>
 
         {/* Safe Update Confirmation Modal */}
         {showUpdateConfirm && (
@@ -395,7 +412,18 @@ function PosAppRoot() {
   if (!isAuthenticated) {
     return (
       <ErrorBoundary>
-        <LoginPage />
+        <Suspense fallback={
+          <div className="h-[100dvh] w-full bg-[#EAEFEA] flex flex-col items-center justify-center font-sans">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl bg-[#214E34] text-white flex items-center justify-center shadow-lg animate-pulse">
+                <span className="font-black text-xl">GÓC</span>
+              </div>
+              <p className="text-xs font-bold text-[#214E34] tracking-wide">Đang nạp ứng dụng...</p>
+            </div>
+          </div>
+        }>
+          <LoginPage />
+        </Suspense>
       </ErrorBoundary>
     );
   }

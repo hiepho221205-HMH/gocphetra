@@ -1,0 +1,14 @@
+{
+  "Order View": {
+    "performance": 92,
+    "accessibility": 100,
+    "bestPractices": 100,
+    "seo": 100
+  },
+  "Payment / Checkout": {
+    "performance": 95,
+    "accessibility": 100,
+    "bestPractices": 100,
+    "seo": 100
+  }
+}

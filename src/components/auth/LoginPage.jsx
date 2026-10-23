@@ -86,7 +86,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-full bg-[#EAEFEA] flex flex-col items-center justify-center p-0 sm:py-3 sm:px-4 font-sans select-none overflow-hidden">
+    <main id="main-content" tabIndex="-1" className="h-[100dvh] max-h-[100dvh] w-full bg-[#EAEFEA] flex flex-col items-center justify-center p-0 sm:py-3 sm:px-4 font-sans select-none overflow-hidden">
       {/* Mobile Device Frame Container (Fixed 390px default mockup with rounded frame & speaker notch) */}
       <div className="w-full max-w-[400px] h-[100dvh] max-h-[100dvh] sm:h-[844px] sm:max-h-[92vh] sm:rounded-[40px] sm:border-[8px] sm:border-[#1E2E22] ambient-clay-bg flex flex-col relative shadow-2xl overflow-hidden transition-all">
         
@@ -165,7 +165,7 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-3.5">
               {/* Email Input */}
               <div className="space-y-1">
-                <label className="text-[11.5px] font-bold text-gray-700 block">
+                <label htmlFor="login-email" className="text-[11.5px] font-bold text-gray-700 block">
                   Email nhân viên
                 </label>
                 <div className="relative">
@@ -174,7 +174,7 @@ export default function LoginPage() {
                   </div>
                   <input
                     type="email"
-                    data-testid="login-email-input"
+                    id="login-email" data-testid="login-email-input"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin01@gocpos.vn"
@@ -188,7 +188,7 @@ export default function LoginPage() {
               {/* Password Input */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11.5px] font-bold text-gray-700">
+                  <label htmlFor="login-password" className="text-[11.5px] font-bold text-gray-700">
                     Mật khẩu
                   </label>
                   <button
@@ -208,7 +208,7 @@ export default function LoginPage() {
                   </div>
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    data-testid="login-password-input"
+                    id="login-password" data-testid="login-password-input"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••"
@@ -255,7 +255,7 @@ export default function LoginPage() {
 
             {/* Quick-fill Pills for testing/convenience */}
             <div className="pt-2 border-t border-gray-100/80">
-              <span className="text-[10px] font-bold text-gray-400 block mb-1.5 uppercase tracking-wider text-center">
+              <span className="text-[10px] font-bold text-gray-600 block mb-1.5 uppercase tracking-wider text-center">
                 Tài khoản mẫu thử nghiệm
               </span>
               <div className="flex items-center justify-center gap-1.5 flex-wrap">
@@ -290,7 +290,7 @@ export default function LoginPage() {
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
               <span>Bảo mật Supabase Auth • Phân quyền RBAC</span>
             </div>
-            <p className="text-[10px] text-gray-400 mt-1">
+            <p className="text-[10px] text-gray-600 mt-1">
               GÓC POS v1.0 • Chỉ dành cho nhân sự nội bộ quán
             </p>
           </div>
@@ -327,6 +327,6 @@ export default function LoginPage() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }

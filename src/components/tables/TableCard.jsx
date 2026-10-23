@@ -90,7 +90,7 @@ export default function TableCard({
             className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider transition-all ${
               isOccupied
                 ? 'clay-disc-green ring-2 ring-white shadow-sm'
-                : 'clay-inset text-gray-500 border border-gray-200/60'
+                : 'clay-inset text-gray-700 font-black border border-gray-200/80'
             }`}
           >
             {isOccupied ? 'CÓ KHÁCH' : 'TRỐNG'}
@@ -123,7 +123,7 @@ export default function TableCard({
             <span className="text-sm font-black text-[#214E34] tracking-tight">{formatVND(totalAmount)}</span>
           </div>
         ) : (
-          <div className="text-gray-400 text-xs italic font-medium">
+          <div className="text-gray-600 text-xs italic font-medium">
             Sẵn sàng phục vụ
           </div>
         )}

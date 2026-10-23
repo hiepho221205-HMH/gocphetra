@@ -28,17 +28,34 @@ export const supabase = isSupabaseConfigured
  * Prevents redundant failing HTTP requests / 404 console errors when optional
  * enterprise tables have not yet been migrated to remote Supabase instance.
  */
+const savedCaps = typeof window !== 'undefined' ? (() => {
+  try {
+    return JSON.parse(localStorage.getItem('goc_schema_capabilities') || '{}');
+  } catch {
+    return {};
+  }
+})() : {};
+
 export const schemaCapabilities = {
-  staff_profiles: null,
-  daily_closures: null,
-  payments: null,
-  profiles: null,
-  user_roles: null,
-  rollover_daily_orders: null,
-  store_settings: null,
-  receipts: null,
-  store_assets: null
+  staff_profiles: savedCaps.staff_profiles ?? false,
+  daily_closures: savedCaps.daily_closures ?? false,
+  payments: savedCaps.payments ?? false,
+  profiles: savedCaps.profiles ?? null,
+  user_roles: savedCaps.user_roles ?? null,
+  rollover_daily_orders: savedCaps.rollover_daily_orders ?? false,
+  store_settings: savedCaps.store_settings ?? false,
+  receipts: savedCaps.receipts ?? null,
+  store_assets: savedCaps.store_assets ?? null
 };
+
+export function persistCapability(key, val) {
+  schemaCapabilities[key] = val;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('goc_schema_capabilities', JSON.stringify(schemaCapabilities));
+    } catch {}
+  }
+}
 
 // ============================================================================
 // DATA MAPPERS (camelCase <-> snake_case)
@@ -451,10 +468,10 @@ export async function fetchAllCloudData() {
 
     if (staffRes?.error) {
       if (staffRes.error.code === 'PGRST205' || staffRes.error.message?.includes('schema cache')) {
-        schemaCapabilities.staff_profiles = false;
+        schemaCapabilities.staff_profiles = false; persistCapability('staff_profiles', false);
       }
     } else if (staffRes && !staffRes.error) {
-      schemaCapabilities.staff_profiles = true;
+      schemaCapabilities.staff_profiles = true; persistCapability('staff_profiles', true);
     }
 
     // Nếu bất kỳ bảng chính nào lỗi (chưa tạo schema) thì return null để fallback
@@ -503,14 +520,14 @@ export async function fetchAllCloudData() {
           .maybeSingle();
 
         if (storeErr && (storeErr.code === 'PGRST205' || storeErr.message?.includes('schema cache'))) {
-          schemaCapabilities.store_settings = false;
+          schemaCapabilities.store_settings = false; persistCapability('store_settings', false);
         } else if (storeRow) {
-          schemaCapabilities.store_settings = true;
+          schemaCapabilities.store_settings = true; persistCapability('store_settings', true);
           const mapped = mapStoreSettingsFromDb(storeRow);
           settings = { ...(settings || {}), ...mapped };
         }
       } catch {
-        schemaCapabilities.store_settings = false;
+        schemaCapabilities.store_settings = false; persistCapability('store_settings', false);
       }
     }
 
@@ -523,13 +540,13 @@ export async function fetchAllCloudData() {
       try {
         const paymentsRes = await supabase.from('payments').select('*').order('paid_at', { ascending: false }).limit(500);
         if (paymentsRes?.error && (paymentsRes.error.code === 'PGRST205' || paymentsRes.error.message?.includes('schema cache'))) {
-          schemaCapabilities.payments = false;
+          schemaCapabilities.payments = false; persistCapability('payments', false);
         } else if (paymentsRes && !paymentsRes.error && Array.isArray(paymentsRes.data)) {
-          schemaCapabilities.payments = true;
+          schemaCapabilities.payments = true; persistCapability('payments', true);
           payments = paymentsRes.data.map(mapPaymentFromDb);
         }
       } catch {
-        schemaCapabilities.payments = false;
+        schemaCapabilities.payments = false; persistCapability('payments', false);
       }
     }
 
@@ -787,9 +804,9 @@ export async function cloudUpsertSettings(settings) {
         .from('store_settings')
         .upsert(dbRow, { onConflict: 'store_id' });
       if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
-        schemaCapabilities.store_settings = false;
+        schemaCapabilities.store_settings = false; persistCapability('store_settings', false);
       } else if (!error) {
-        schemaCapabilities.store_settings = true;
+        schemaCapabilities.store_settings = true; persistCapability('store_settings', true);
       }
     }
   } catch (e) {
@@ -820,13 +837,13 @@ export async function fetchStaffProfiles() {
 
     if (error) {
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-        schemaCapabilities.staff_profiles = false;
+        schemaCapabilities.staff_profiles = false; persistCapability('staff_profiles', false);
       }
       fallback.error = error;
       return fallback;
     }
 
-    schemaCapabilities.staff_profiles = true;
+    schemaCapabilities.staff_profiles = true; persistCapability('staff_profiles', true);
     const mapped = (data || []).map(mapStaffProfileFromDb);
     mapped.data = mapped;
     mapped.error = null;
@@ -870,13 +887,13 @@ export async function upsertStaffProfile(staff) {
 
     if (error) {
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-        schemaCapabilities.staff_profiles = false;
+        schemaCapabilities.staff_profiles = false; persistCapability('staff_profiles', false);
         return upsertStaffProfile(staff);
       }
       return { success: false, data: null, error };
     }
 
-    schemaCapabilities.staff_profiles = true;
+    schemaCapabilities.staff_profiles = true; persistCapability('staff_profiles', true);
     const mapped = data ? mapStaffProfileFromDb(data) : staff;
     return { success: true, data: mapped, error: null };
   } catch (err) {
@@ -922,13 +939,13 @@ export async function bulkUpsertStaffProfiles(staffList = []) {
 
     if (error) {
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-        schemaCapabilities.staff_profiles = false;
+        schemaCapabilities.staff_profiles = false; persistCapability('staff_profiles', false);
         return bulkUpsertStaffProfiles(staffList);
       }
       return { success: false, count: 0, error };
     }
 
-    schemaCapabilities.staff_profiles = true;
+    schemaCapabilities.staff_profiles = true; persistCapability('staff_profiles', true);
     const mapped = (data || []).map(mapStaffProfileFromDb);
     return { success: true, count: records.length, data: mapped, error: null };
   } catch (err) {
@@ -1066,14 +1083,14 @@ export async function rolloverDailyOrdersRpc(targetBusinessDate) {
     });
     if (error) {
       if (error.code === 'PGRST202' || error.message?.includes('Could not find') || error.message?.includes('schema cache')) {
-        schemaCapabilities.rollover_daily_orders = false;
+        schemaCapabilities.rollover_daily_orders = false; persistCapability('rollover_daily_orders', false);
       }
       return { success: false, error };
     }
-    schemaCapabilities.rollover_daily_orders = true;
+    schemaCapabilities.rollover_daily_orders = true; persistCapability('rollover_daily_orders', true);
     return data || { success: true };
   } catch (err) {
-    schemaCapabilities.rollover_daily_orders = false;
+    schemaCapabilities.rollover_daily_orders = false; persistCapability('rollover_daily_orders', false);
     return { success: false, error: err };
   }
 }
@@ -1122,11 +1139,11 @@ export async function cloudUpsertPayment(payment) {
     const { error } = await supabase.from('payments').upsert(mapPaymentToDb(payment));
     if (error) {
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-        schemaCapabilities.payments = false;
+        schemaCapabilities.payments = false; persistCapability('payments', false);
       }
       return { success: false, error };
     }
-    schemaCapabilities.payments = true;
+    schemaCapabilities.payments = true; persistCapability('payments', true);
     return { success: true };
   } catch (e) {
     console.warn('Lỗi cloudUpsertPayment:', e);
@@ -1391,8 +1408,8 @@ export async function fetchUserProfileAndRole(userId) {
       ]);
 
       if (profileRes?.error && (profileRes.error.code === 'PGRST205' || profileRes.error.message?.includes('schema cache'))) {
-        schemaCapabilities.profiles = false;
-        schemaCapabilities.user_roles = false;
+        schemaCapabilities.profiles = false; persistCapability('profiles', false);
+        schemaCapabilities.user_roles = false; persistCapability('user_roles', false);
       } else {
         profileData = profileRes?.data || null;
         roleData = roleRes?.data || null;
@@ -1400,7 +1417,7 @@ export async function fetchUserProfileAndRole(userId) {
     }
 
     if (profileData) {
-      schemaCapabilities.profiles = true;
+      schemaCapabilities.profiles = true; persistCapability('profiles', true);
       return {
         id: userId,
         email: profileData.email,
@@ -1421,9 +1438,9 @@ export async function fetchUserProfileAndRole(userId) {
         .maybeSingle();
 
       if (staffErr && (staffErr.code === 'PGRST205' || staffErr.message?.includes('schema cache'))) {
-        schemaCapabilities.staff_profiles = false;
+        schemaCapabilities.staff_profiles = false; persistCapability('staff_profiles', false);
       } else if (staffData) {
-        schemaCapabilities.staff_profiles = true;
+        schemaCapabilities.staff_profiles = true; persistCapability('staff_profiles', true);
         return {
           id: userId,
           email: staffData.email,
@@ -1535,13 +1552,13 @@ export async function upsertDailyClosureToCloud(closureData) {
 
     if (error) {
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-        schemaCapabilities.daily_closures = false;
+        schemaCapabilities.daily_closures = false; persistCapability('daily_closures', false);
         return upsertDailyClosureToCloud(closureData);
       }
       return { success: false, error };
     }
 
-    schemaCapabilities.daily_closures = true;
+    schemaCapabilities.daily_closures = true; persistCapability('daily_closures', true);
     return { success: true, data: data ? mapDailyClosureFromDb(data) : closureData };
   } catch (err) {
     return { success: false, error: err };
@@ -1558,12 +1575,12 @@ export async function fetchDailyClosuresFromCloud() {
 
     if (error) {
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-        schemaCapabilities.daily_closures = false;
+        schemaCapabilities.daily_closures = false; persistCapability('daily_closures', false);
       }
       return [];
     }
 
-    schemaCapabilities.daily_closures = true;
+    schemaCapabilities.daily_closures = true; persistCapability('daily_closures', true);
     return (data || []).map(mapDailyClosureFromDb);
   } catch (err) {
     return [];
@@ -1680,11 +1697,11 @@ export async function fetchStoreSettingsFromCloud() {
         .maybeSingle();
 
       if (!error && data) {
-        schemaCapabilities.store_settings = true;
+        schemaCapabilities.store_settings = true; persistCapability('store_settings', true);
         return mapStoreSettingsFromDb(data);
       }
       if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
-        schemaCapabilities.store_settings = false;
+        schemaCapabilities.store_settings = false; persistCapability('store_settings', false);
       }
     }
 
@@ -1719,10 +1736,10 @@ export async function upsertStoreSettingsToCloud(settings) {
 
       if (error) {
         if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-          schemaCapabilities.store_settings = false;
+          schemaCapabilities.store_settings = false; persistCapability('store_settings', false);
         }
       } else {
-        schemaCapabilities.store_settings = true;
+        schemaCapabilities.store_settings = true; persistCapability('store_settings', true);
       }
     }
 
@@ -1771,11 +1788,11 @@ export async function saveReceiptSnapshotToCloud(receiptRecord) {
         .maybeSingle();
 
       if (!error) {
-        schemaCapabilities.receipts = true;
+        schemaCapabilities.receipts = true; persistCapability('receipts', true);
         return { success: true, data };
       }
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-        schemaCapabilities.receipts = false;
+        schemaCapabilities.receipts = false; persistCapability('receipts', false);
       }
     }
 
@@ -1813,11 +1830,11 @@ export async function fetchReceiptByOrderId(orderId) {
         .maybeSingle();
 
       if (!error && data) {
-        schemaCapabilities.receipts = true;
+        schemaCapabilities.receipts = true; persistCapability('receipts', true);
         return data;
       }
       if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
-        schemaCapabilities.receipts = false;
+        schemaCapabilities.receipts = false; persistCapability('receipts', false);
       }
     }
 
@@ -1890,11 +1907,11 @@ export async function savePreparationTicketToCloud(ticketRecord) {
         .maybeSingle();
 
       if (!error) {
-        schemaCapabilities.preparation_tickets = true;
+        schemaCapabilities.preparation_tickets = true; persistCapability('preparation_tickets', true);
         return { success: true, data };
       }
       if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-        schemaCapabilities.preparation_tickets = false;
+        schemaCapabilities.preparation_tickets = false; persistCapability('preparation_tickets', false);
       }
     }
 

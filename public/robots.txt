@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://gocpos.vn/sitemap.xml

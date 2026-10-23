@@ -142,7 +142,7 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
         }`}
       >
         {/* Track Grid phân bổ theo số tab (2 cột cho Staff, 4 cột cho Manager/Admin) */}
-        <div className={`relative w-full h-full grid ${isStaff ? 'grid-cols-2' : 'grid-cols-4'} items-center`}>
+        <div role="tablist" aria-label="Thanh điều hướng chính" className={`relative w-full h-full grid ${isStaff ? 'grid-cols-2' : 'grid-cols-4'} items-center`}>
           {/* Khối Highlight Circle 48x48px nền xanh trượt ngang mượt mà */}
           <div
             className={`absolute top-0 bottom-0 left-0 ${isStaff ? 'w-1/2' : 'w-1/4'} flex items-center justify-center pointer-events-none transition-all duration-220 ease-[cubic-bezier(0.16,1,0.3,1)] ${
@@ -166,7 +166,7 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                aria-label={item.label}
+                aria-label={item.badge ? `${item.label} ${item.badge}` : item.label}
                 title={item.label}
                 data-testid={`bottom-nav-${item.id}`}
                 onClick={() => {
@@ -179,6 +179,7 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
                 className="touch-target col-span-1 h-full min-h-[44px] flex items-center justify-center relative z-10 active:scale-95 transition-transform duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[#214E34]/40 rounded-full cursor-pointer"
               >
                 <span className="sr-only">{item.label}</span>
+                
 
                 <div className="relative flex items-center justify-center w-11 h-11">
                   <Icon
@@ -190,7 +191,7 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
                   />
 
                   {item.badge && (
-                    <span className="absolute -top-1 -right-1.5 bg-rose-500 text-white text-[10.5px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-md ring-2 ring-white leading-none animate-fadeIn">
+                    <span aria-hidden="true" className="absolute -top-1 -right-1.5 bg-rose-500 text-white text-[10.5px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-md ring-2 ring-white leading-none animate-fadeIn">
                       {item.badge}
                     </span>
                   )}

@@ -3,16 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23214E34'><path d='M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z'/></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#214E34" />
-    <meta name="description" content="GÓC – Phê & Trà Mobile POS System" />
+    <meta name="description" content="GÓC – Phê & Trà Mobile POS System - Quản lý bàn, gọi món và thanh toán nhanh chóng" />
     <title>GÓC – Phê & Trà | Mobile POS</title>
-    <!-- Google Fonts: Inter -->
+    
+    <!-- PWA & Mobile Web Capabilities -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./default-logo.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="GÓC POS" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- SEO & Social Metadata -->
+    <link rel="canonical" href="https://gocpos.vn/" />
+    <meta property="og:title" content="GÓC – Phê & Trà | Mobile POS" />
+    <meta property="og:description" content="Hệ thống bán hàng và quản lý quán cà phê & trà GÓC POS" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./default-logo.png" />
+
+    <!-- Google Fonts: Inter & JetBrains Mono (Non-render-blocking) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" media="print" onload="this.media='all'">
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap">
+    </noscript>
   </head>
   <body class="bg-[#F4F6F4] text-[#1A261D] antialiased selection:bg-forest-800 selection:text-white">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:bg-[#214E34] focus:text-white focus:rounded-lg focus:font-bold focus:text-xs focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-white">
+      Chuyển đến nội dung chính
+    </a>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
