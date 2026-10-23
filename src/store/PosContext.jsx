@@ -2719,6 +2719,11 @@ export function PosProvider({ children }) {
     cashier = 'Thu ngân',
     idempotencyKey = null
   }) => {
+    if (currentRole === 'staff') {
+      showToast('403 Forbidden: Nhân viên không có quyền thu tiền đơn quá khứ!', 'error');
+      return { success: false, error: 'Permission denied: Staff cannot process historical payments' };
+    }
+
     const targetOrder = orderHistory.find((o) => o.id === orderId);
     if (!targetOrder) {
       showToast(`Không tìm thấy đơn hàng #${orderId}`, 'error');
@@ -2806,6 +2811,155 @@ export function PosProvider({ children }) {
     );
 
     return { success: true, payment: paymentRecord, order: updatedOrder };
+  };
+
+  // Thanh toán hàng loạt đơn quá khứ chưa thu tiền
+  const batchProcessHistoricalPayments = async ({
+    orderIds,
+    paymentMethod = 'cash',
+    cashier = null
+  }) => {
+    if (currentRole === 'staff') {
+      showToast('403 Forbidden: Nhân viên không có quyền thu tiền đơn quá khứ!', 'error');
+      return { success: false, error: 'Permission denied: Staff cannot process historical payments' };
+    }
+
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      showToast('Không có đơn nào được chọn để thanh toán!', 'error');
+      return { success: false, error: 'Empty order list' };
+    }
+
+    const currentBusinessDate = getVietnamTodayString();
+    const paidAt = new Date().toISOString();
+    const cashierName = cashier || currentUser?.name || 'Quản lý';
+
+    // Lọc các đơn thực sự chưa thanh toán
+    const targetOrders = orderHistory.filter(
+      (o) => orderIds.includes(o.id) && o.status !== 'completed' && o.paymentStatus !== 'paid'
+    );
+
+    if (targetOrders.length === 0) {
+      showToast('Không tìm thấy đơn nào cần thanh toán hoặc toàn bộ đơn đã được thu tiền!', 'info');
+      return { success: false, error: 'No unpaid orders found' };
+    }
+
+    const newPayments = [];
+    const updatedOrders = [];
+    let totalCollected = 0;
+
+    for (const targetOrder of targetOrders) {
+      const payAmount = Number(targetOrder.remainingAmount) || Number(targetOrder.total) || 0;
+      totalCollected += payAmount;
+      const paymentId = 'PAY_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+      const safeKey = `HIST_BATCH_${targetOrder.id}_${Date.now()}`;
+
+      // Gọi RPC Supabase nếu có cấu hình
+      if (isSupabaseConfigured && supabase) {
+        try {
+          await processHistoricalPaymentRpc({
+            orderId: targetOrder.id,
+            paymentMethod,
+            amount: payAmount,
+            paymentBusinessDate: currentBusinessDate,
+            cashier: cashierName,
+            idempotencyKey: safeKey
+          });
+        } catch (e) {
+          console.warn(`Lỗi RPC batch historical payment #${targetOrder.id}:`, e);
+        }
+      }
+
+      const paymentRecord = {
+        id: paymentId,
+        orderId: targetOrder.id,
+        amount: payAmount,
+        paymentMethod,
+        paymentStatus: 'completed',
+        paidAt,
+        businessDate: currentBusinessDate,
+        cashierId: cashierName,
+        idempotencyKey: safeKey,
+        notes: `Thu tiền hàng loạt đơn cũ (${targetOrder.tableName || targetOrder.id}) ngày ${targetOrder.businessDate || ''}`,
+        createdAt: paidAt
+      };
+
+      const updated = {
+        ...targetOrder,
+        status: 'completed',
+        paymentStatus: 'paid',
+        paidAmount: payAmount,
+        remainingAmount: 0,
+        paymentMethod,
+        paidAt,
+        paymentBusinessDate: currentBusinessDate,
+        finishedAt: targetOrder.finishedAt || paidAt,
+        splitPayments: [
+          ...(targetOrder.splitPayments || []),
+          {
+            method: paymentMethod,
+            amount: payAmount,
+            timestamp: paidAt,
+            paymentId
+          }
+        ]
+      };
+
+      newPayments.push(paymentRecord);
+      updatedOrders.push(updated);
+    }
+
+    // Cập nhật State & LocalStorage
+    setPayments((prev) => [...newPayments, ...prev]);
+    const updatedMap = new Map(updatedOrders.map((o) => [o.id, o]));
+    setOrderHistory((prev) => prev.map((ord) => updatedMap.get(ord.id) || ord));
+
+    try {
+      const currentHistory = loadStorage(STORAGE_KEYS.ORDER_HISTORY, []);
+      const nextHistory = currentHistory.map((ord) => updatedMap.get(ord.id) || ord);
+      localStorage.setItem(STORAGE_KEYS.ORDER_HISTORY, JSON.stringify(nextHistory));
+      dualWriteToIndexedDB('orderHistory', nextHistory);
+
+      const currentPayments = loadStorage(STORAGE_KEYS.PAYMENTS, []);
+      const nextPayments = [...newPayments, ...currentPayments];
+      localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(nextPayments));
+      dualWriteToIndexedDB('payments', nextPayments);
+    } catch (e) {
+      console.warn('Sync storage error batch historical payments:', e);
+    }
+
+    // Cloud upsert song song
+    updatedOrders.forEach((ord) => cloudUpsertOrder(ord).catch(() => {}));
+    newPayments.forEach((pay) => cloudUpsertPayment(pay).catch(() => {}));
+
+    // Audit log
+    const auditRecord = {
+      id: `audit-batch-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      userId: currentUser?.uid || currentUser?.id || 'admin',
+      role: currentRole,
+      action: 'batch_historical_payment',
+      resource: 'order_history',
+      details: {
+        ordersCount: updatedOrders.length,
+        totalRevenue: totalCollected,
+        orderIds: updatedOrders.map((o) => o.id),
+        paymentMethod,
+        performedBy: cashierName
+      },
+      createdAt: paidAt
+    };
+    cloudRecordAuditLog(auditRecord).catch(() => {});
+
+    showToast(
+      `Đã thanh toán ${updatedOrders.length} đơn quá khứ, tổng thu ${formatVND(totalCollected)}!`,
+      'success'
+    );
+
+    return {
+      success: true,
+      processedCount: updatedOrders.length,
+      totalAmount: totalCollected,
+      orders: updatedOrders
+    };
   };
 
   // =================== MENU & TOPPING CRUD ===================
@@ -3518,7 +3672,7 @@ export function PosProvider({ children }) {
     toppings,
     productToppings,
     orders,
-    orderHistory,
+    orderHistory: visibleOrderHistory,
     payments,
     setPayments,
     settings,
@@ -3535,6 +3689,7 @@ export function PosProvider({ children }) {
     // Rollover & Historical Payments
     runCatchupRollover,
     processHistoricalPayment,
+    batchProcessHistoricalPayments,
 
     // Router & Navigation
     currentRoute,
@@ -3610,6 +3765,8 @@ export function PosProvider({ children }) {
     canChangeUserRole: currentRole === 'admin',
     canCleanupData: currentRole === 'admin',
     canAccessSettings: ['admin', 'manager', 'staff'].includes(currentRole),
+    canViewPastOrders: ['admin', 'manager'].includes(currentRole),
+    canBatchSettlePastOrders: ['admin', 'manager'].includes(currentRole),
     userProfiles,
     updateCurrentUserProfile,
     allOrderHistory: orderHistory,

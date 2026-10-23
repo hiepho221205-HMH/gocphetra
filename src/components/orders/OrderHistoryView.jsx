@@ -4,6 +4,7 @@ import ReceiptPrintView from '../billing/ReceiptPrintView';
 import HistoricalPaymentModal from '../billing/HistoricalPaymentModal';
 import OrderDetailsModal from './OrderDetailsModal';
 import DatePickerModal from './DatePickerModal';
+import BatchHistoricalPaymentModal from './BatchHistoricalPaymentModal';
 import ViewOrderIconButton from '../common/ViewOrderIconButton';
 import {
   Calendar,
@@ -21,7 +22,8 @@ import {
   Banknote,
   QrCode,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ArrowRight
 } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
 import {
@@ -35,7 +37,19 @@ import {
 import { triggerHaptic } from '../../utils/haptics';
 
 export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
-  const { orderHistory, orders, tables, fetchReceiptSnapshot } = usePos();
+  const {
+    orderHistory,
+    orders,
+    tables,
+    fetchReceiptSnapshot,
+    currentRole,
+    currentUser,
+    canViewPastOrders,
+    canBatchSettlePastOrders,
+    batchProcessHistoricalPayments
+  } = usePos();
+
+  const isStaff = currentRole === 'staff';
 
   // Current Vietnam Date
   const todayStr = useMemo(() => getVietnamTodayString(), []);
@@ -50,10 +64,18 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
 
   // Modals
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isBatchPaymentModalOpen, setIsBatchPaymentModalOpen] = useState(false);
   const [activeDetailOrder, setActiveDetailOrder] = useState(null); // For serving & unpaid order details
   const [printOrder, setPrintOrder] = useState(null); // For completed read-only receipt
   const [printReceiptRecord, setPrintReceiptRecord] = useState(null); // For historical immutable snapshot
   const [payingOrder, setPayingOrder] = useState(null); // For historical order payment
+
+  // Strict Staff Guard: Staff is permanently locked to today
+  useEffect(() => {
+    if (isStaff && selectedDate !== todayStr) {
+      setSelectedDate(todayStr);
+    }
+  }, [isStaff, selectedDate, todayStr]);
 
   const handleOpenReceipt = (ord) => {
     triggerHaptic('light');
@@ -70,11 +92,12 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
 
   // Date classification
   const isToday = selectedDate === todayStr;
-  const isPast = compareVietnamDateStrings(selectedDate, todayStr) < 0;
-  const isFuture = compareVietnamDateStrings(selectedDate, todayStr) > 0;
+  const isPast = !isStaff && compareVietnamDateStrings(selectedDate, todayStr) < 0;
+  const isFuture = !isStaff && compareVietnamDateStrings(selectedDate, todayStr) > 0;
 
   // Brief loading feedback on date change
   const handleSelectDate = (newDateStr) => {
+    if (isStaff) return; // Strict guard: Staff cannot navigate dates
     if (newDateStr === selectedDate) return;
     triggerHaptic('light');
     setIsLoading(true);
@@ -86,6 +109,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
   };
 
   const handlePrevDay = () => {
+    if (isStaff) return; // Strict guard: Staff cannot navigate past dates
     const prev = addDaysToDateString(selectedDate, -1);
     handleSelectDate(prev);
   };
@@ -166,6 +190,14 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
       .reduce((sum, ord) => sum + (Number(ord.paidAmount) || Number(ord.total) || 0), 0);
   }, [completedOrdersForDate, selectedDate]);
 
+  // Total Unpaid Amount for Past Date
+  const unpaidTotalAmount = useMemo(() => {
+    return unpaidOrdersForDate.reduce(
+      (sum, o) => sum + (Number(o.remainingAmount) || Number(o.total) || 0),
+      0
+    );
+  }, [unpaidOrdersForDate]);
+
   // Filtered by Search Query
   const filteredServingOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -215,42 +247,64 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
       <div className="mb-3.5 clay-card p-3 space-y-2.5">
         {/* Row 1: Simplified Date Filter Bar - Only Date Card + Single Back Button */}
         <div className="flex items-center gap-2">
-          {/* Main Date Picker Trigger Button (Displays Date, Day of Week, Status) */}
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setIsDatePickerOpen(true);
-            }}
-            aria-label="Chọn ngày xem đơn"
-            className="flex-1 min-h-[46px] px-3.5 py-2 rounded-[16px] clay-inset transition-all flex items-center justify-between text-left cursor-pointer active:scale-98"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full clay-disc-base clay-disc-green text-white flex items-center justify-center shrink-0">
-                <Calendar className="w-4 h-4 text-emerald-200" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[10px] uppercase font-black text-[#214E34] tracking-wider leading-tight">
-                  {isToday ? 'Hôm nay' : isPast ? 'Quá khứ' : 'Tương lai'}
+          {isStaff ? (
+            /* Static Date Card for Staff (No click, no calendar button, no arrows) */
+            <div className="flex-1 min-h-[46px] px-3.5 py-2 rounded-[16px] clay-inset flex items-center justify-between text-left select-none">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full clay-disc-base clay-disc-green text-white flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4 text-emerald-200" />
                 </div>
-                <div className="text-xs font-black truncate text-gray-900 leading-tight mt-0.5">
-                  {formatVietnamDisplayDate(selectedDate)}
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase font-black text-[#214E34] tracking-wider leading-tight">
+                    Hôm nay
+                  </div>
+                  <div className="text-xs font-black truncate text-gray-900 leading-tight mt-0.5">
+                    {formatVietnamDisplayDate(todayStr)}
+                  </div>
                 </div>
               </div>
             </div>
-          </button>
+          ) : (
+            /* Admin & Manager Interactive Date Picker + Back Button */
+            <>
+              {/* Main Date Picker Trigger Button (Displays Date, Day of Week, Status) */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setIsDatePickerOpen(true);
+                }}
+                aria-label="Chọn ngày xem đơn"
+                className="flex-1 min-h-[46px] px-3.5 py-2 rounded-[16px] clay-inset transition-all flex items-center justify-between text-left cursor-pointer active:scale-98"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-full clay-disc-base clay-disc-green text-white flex items-center justify-center shrink-0">
+                    <Calendar className="w-4 h-4 text-emerald-200" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase font-black text-[#214E34] tracking-wider leading-tight">
+                      {isToday ? 'Hôm nay' : isPast ? 'Quá khứ' : 'Tương lai'}
+                    </div>
+                    <div className="text-xs font-black truncate text-gray-900 leading-tight mt-0.5">
+                      {formatVietnamDisplayDate(selectedDate)}
+                    </div>
+                  </div>
+                </div>
+              </button>
 
-          {/* Single Back Day Navigation Button (<) */}
-          <button
-            type="button"
-            onClick={handlePrevDay}
-            aria-label="Lùi 1 ngày"
-            title="Lùi 1 ngày"
-            data-testid="order-date-prev-btn"
-            className="w-11 h-[46px] rounded-[16px] clay-pill-btn flex items-center justify-center shrink-0 text-forest-800 hover:text-forest-900 active:scale-95 transition-all cursor-pointer shadow-xs"
-          >
-            <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
-          </button>
+              {/* Single Back Day Navigation Button (<) */}
+              <button
+                type="button"
+                onClick={handlePrevDay}
+                aria-label="Lùi 1 ngày"
+                title="Lùi 1 ngày"
+                data-testid="order-date-prev-btn"
+                className="w-11 h-[46px] rounded-[16px] clay-pill-btn flex items-center justify-center shrink-0 text-forest-800 hover:text-forest-900 active:scale-95 transition-all cursor-pointer shadow-xs"
+              >
+                <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Row 2: Daily Stat Summary Bar */}
@@ -265,18 +319,37 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         </div>
       </div>
 
-      {/* Guidance Banner for Past & Future Dates */}
-      {isPast && (
-        <div className="mb-3.5 px-3.5 py-2.5 rounded-[16px] bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 shadow-xs">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span className="leading-tight text-[11px] font-semibold">
-            Đang xem ngày quá khứ (<b>{formatShortDate(selectedDate)}</b>).
-            {unpaidOrdersForDate.length > 0 ? (
-              <span> Có <b>{unpaidOrdersForDate.length} đơn chưa thanh toán</b> được kết chuyển sang tab Chưa thanh toán.</span>
-            ) : (
-              <span> Toàn bộ đơn hàng đã được hoàn tất hoặc thu tiền.</span>
-            )}
-          </span>
+      {/* Red CTA Card for Batch Past Orders Payment (Replaces old yellow guidance banner) */}
+      {isPast && unpaidOrdersForDate.length > 0 && canBatchSettlePastOrders !== false && !isStaff && (
+        <div className="mb-3.5 p-3.5 rounded-[18px] bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white shadow-md shadow-red-600/20 flex items-center justify-between gap-3 border border-red-500/80 animate-in fade-in duration-200">
+          <div className="min-w-0 flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center shrink-0 border border-white/20">
+              <Banknote className="w-5 h-5 text-amber-200" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="font-black text-xs sm:text-sm tracking-tight leading-tight flex items-center gap-1.5">
+                <span>Thanh toán tất cả đơn quá khứ</span>
+                <span className="px-1.5 py-0.2 bg-white/20 text-white text-[9.5px] rounded-full font-bold">
+                  {unpaidOrdersForDate.length} đơn
+                </span>
+              </h4>
+              <p className="text-[10.5px] text-red-100/90 truncate font-medium mt-0.5">
+                Thu tiền hàng loạt ({formatVND(unpaidTotalAmount)})
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('medium');
+              setIsBatchPaymentModalOpen(true);
+            }}
+            className="touch-target py-2 px-3.5 rounded-xl bg-white hover:bg-red-50 active:scale-95 text-red-700 font-black text-xs shadow-xs shrink-0 flex items-center gap-1 transition-all cursor-pointer"
+          >
+            <span>Thu tiền</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -669,13 +742,15 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
         </div>
       )}
 
-      {/* ================= MODAL 1: DATE PICKER MODAL ================= */}
-      <DatePickerModal
-        isOpen={isDatePickerOpen}
-        onClose={() => setIsDatePickerOpen(false)}
-        selectedDate={selectedDate}
-        onSelectDate={handleSelectDate}
-      />
+      {/* ================= MODAL 1: DATE PICKER MODAL (ADMIN / MANAGER ONLY) ================= */}
+      {!isStaff && isDatePickerOpen && (
+        <DatePickerModal
+          isOpen={isDatePickerOpen}
+          onClose={() => setIsDatePickerOpen(false)}
+          selectedDate={selectedDate}
+          onSelectDate={handleSelectDate}
+        />
+      )}
 
       {/* ================= MODAL 2: CHI TIẾT ĐƠN HÀNG ================= */}
       {activeDetailOrder && (
@@ -724,6 +799,28 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
           isOpen={Boolean(payingOrder)}
           onClose={() => setPayingOrder(null)}
           order={payingOrder}
+        />
+      )}
+
+      {/* ================= MODAL 5: THU TIỀN HÀNG LOẠT ĐƠN QUÁ KHỨ ================= */}
+      {isBatchPaymentModalOpen && (
+        <BatchHistoricalPaymentModal
+          isOpen={isBatchPaymentModalOpen}
+          onClose={() => setIsBatchPaymentModalOpen(false)}
+          date={selectedDate}
+          orders={unpaidOrdersForDate}
+          onConfirm={async () => {
+            const ids = unpaidOrdersForDate.map((o) => o.id);
+            const res = await batchProcessHistoricalPayments({
+              orderIds: ids,
+              paymentMethod: 'cash',
+              cashier: currentUser?.name || 'Quản lý'
+            });
+            if (res && res.success) {
+              setIsBatchPaymentModalOpen(false);
+              setActiveHistoryTab('completed');
+            }
+          }}
         />
       )}
     </div>
