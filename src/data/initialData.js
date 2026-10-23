@@ -23,77 +23,88 @@ export const INITIAL_TOPPINGS = [
   { id: 'top-6', name: 'Thêm 1 Shot Espresso', price: 12000, inStock: true, isGlobal: false },
   { id: 'top-7', name: 'Trái vải thiều ngâm', price: 12000, inStock: true, isGlobal: false },
   { id: 'top-8', name: 'Đào miếng giòn', price: 10000, inStock: true, isGlobal: false },
+  { id: 'top-extra-5k', name: 'Topping thêm', price: 5000, inStock: true, isGlobal: true },
 ];
 
 // Bảng liên kết topping với món (priceOverride: null = thừa hưởng giá chung, number = giá ghi đè riêng)
-export const INITIAL_PRODUCT_TOPPINGS = [
-  { productId: 'prod-1', toppingId: 'top-6', priceOverride: null },
-  { productId: 'prod-2', toppingId: 'top-1', priceOverride: null },
-  { productId: 'prod-2', toppingId: 'top-6', priceOverride: null },
-  { productId: 'prod-3', toppingId: 'top-2', priceOverride: 18000 },
-  { productId: 'prod-3', toppingId: 'top-6', priceOverride: null },
-  { productId: 'prod-4', toppingId: 'top-1', priceOverride: null },
-  { productId: 'prod-5', toppingId: 'top-2', priceOverride: null },
-  { productId: 'prod-5', toppingId: 'top-5', priceOverride: null },
-  { productId: 'prod-7', toppingId: 'top-7', priceOverride: null },
-  { productId: 'prod-8', toppingId: 'top-8', priceOverride: null },
-];
+export const INITIAL_PRODUCT_TOPPINGS = [];
 
 // Danh mục thực tế (Danh mục 'Tất cả' là danh mục ảo do hệ thống tự sinh trên giao diện)
 export const INITIAL_CATEGORIES = [
   { id: 'cat-coffee', name: 'Cà phê', icon: 'Coffee' },
-  { id: 'cat-fruit-tea', name: 'Trà quả', icon: 'Citrus' },
   { id: 'cat-milk-tea', name: 'Trà sữa', icon: 'CupSoda' },
-  { id: 'cat-freeze', name: 'Đá xay', icon: 'Snowflake' },
+  { id: 'cat-latte', name: 'Latte', icon: 'Layers' },
+  { id: 'cat-other', name: 'Khác', icon: 'UtensilsCrossed' },
+  { id: 'cat-tea', name: 'Trà', icon: 'Citrus' },
   { id: 'cat-juice', name: 'Nước ép', icon: 'GlassWater' },
-  { id: 'cat-bakery', name: 'Bánh ngọt', icon: 'Cake' },
+  { id: 'cat-yogurt', name: 'Sữa chua', icon: 'Snowflake' },
+  { id: 'cat-hot-drinks', name: 'Đồ nóng', icon: 'Sparkles' },
 ];
 
 export const INITIAL_MENU = [
-  // Cà phê
-  {
-    id: 'prod-1',
-    code: 'CF01',
-    name: 'Cà phê đen đá',
-    categoryId: 'cat-coffee',
-    basePrice: 25000,
-    description: 'Robusta Buôn Ma Thuột đậm đà, thơm nồng đắng dịu',
-    toppings: ['top-6'],
-    inStock: true
-  },
-  {
-    id: 'prod-2',
-    code: 'CF02',
-    name: 'Cà phê Sữa đá Sài Gòn',
-    categoryId: 'cat-coffee',
-    basePrice: 35000,
-    description: 'Cà phê rang mộc pha phin hòa cùng sữa đặc béo ngọt',
-    toppings: ['top-1', 'top-6'],
-    inStock: true
-  },
+  // CÀ PHÊ
+  { id: 'prod-cf01', code: 'CF01', name: 'Cà phê đen', categoryId: 'cat-coffee', basePrice: 14000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf02', code: 'CF02', name: 'Cà phê sữa', categoryId: 'cat-coffee', basePrice: 16000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf03', code: 'CF03', name: 'Espresso nóng / đá', categoryId: 'cat-coffee', basePrice: 15000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf04', code: 'CF04', name: 'Espresso sữa nóng / đá', categoryId: 'cat-coffee', basePrice: 17000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf05', code: 'CF05', name: 'Cà phê kem muối', categoryId: 'cat-coffee', basePrice: 20000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf06', code: 'CF06', name: 'Cà phê kem trứng', categoryId: 'cat-coffee', basePrice: 20000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf07', code: 'CF07', name: 'Phindi hạnh nhân', categoryId: 'cat-coffee', basePrice: 22000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf08', code: 'CF08', name: 'Bạc xỉu', categoryId: 'cat-coffee', basePrice: 20000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf09', code: 'CF09', name: 'Bạc xỉu kem muối', categoryId: 'cat-coffee', basePrice: 22000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf10', code: 'CF10', name: 'Bạc xỉu kem trứng', categoryId: 'cat-coffee', basePrice: 22000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf11', code: 'CF11', name: 'Cacao đá', categoryId: 'cat-coffee', basePrice: 20000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf12', code: 'CF12', name: 'Cacao kem muối', categoryId: 'cat-coffee', basePrice: 23000, description: '', toppings: [], inStock: true },
+  { id: 'prod-cf13', code: 'CF13', name: 'Cacao kem trứng', categoryId: 'cat-coffee', basePrice: 23000, description: '', toppings: [], inStock: true },
 
-  // Trà quả
-  {
-    id: 'prod-5',
-    code: 'TQ01',
-    name: 'Trà Đào Cam Sả',
-    categoryId: 'cat-fruit-tea',
-    basePrice: 45000,
-    description: 'Đào giòn mọng nước, cam vàng thanh mát và hương sả ấm',
-    toppings: ['top-3', 'top-8'],
-    inStock: true
-  },
-  // Bánh ngọt
-  {
-    id: 'prod-14',
-    code: 'BN01',
-    name: 'Croissant Bơ Pháp Nướng',
-    categoryId: 'cat-bakery',
-    basePrice: 32000,
-    description: 'Bánh sừng bò ngàn lớp thơm nức bơ cao cấp',
-    toppings: [],
-    inStock: true
-  }
+  // TRÀ SỮA
+  { id: 'prod-ts01', code: 'TS01', name: 'Sữa tươi TCĐĐ', categoryId: 'cat-milk-tea', basePrice: 20000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ts02', code: 'TS02', name: 'Trà sữa truyền thống', categoryId: 'cat-milk-tea', basePrice: 20000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ts03', code: 'TS03', name: 'Trà sữa Thái xanh', categoryId: 'cat-milk-tea', basePrice: 20000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ts04', code: 'TS04', name: 'Trà sữa khoai môn', categoryId: 'cat-milk-tea', basePrice: 25000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ts05', code: 'TS05', name: 'Trà sữa gạo rang', categoryId: 'cat-milk-tea', basePrice: 25000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ts06', code: 'TS06', name: 'Trà sữa ô long', categoryId: 'cat-milk-tea', basePrice: 25000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ts07', code: 'TS07', name: 'Trà sữa matcha', categoryId: 'cat-milk-tea', basePrice: 25000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ts08', code: 'TS08', name: 'Trà sữa socola', categoryId: 'cat-milk-tea', basePrice: 25000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ts09', code: 'TS09', name: 'Trà sữa kem macchiato', categoryId: 'cat-milk-tea', basePrice: 25000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ts10', code: 'TS10', name: 'Trà sữa kem trứng cháy', categoryId: 'cat-milk-tea', basePrice: 25000, description: '', toppings: [], inStock: true },
+
+  // LATTE
+  { id: 'prod-lt01', code: 'LT01', name: 'Matcha latte', categoryId: 'cat-latte', basePrice: 22000, description: '', toppings: [], inStock: true },
+  { id: 'prod-lt02', code: 'LT02', name: 'Matcha latte kem muối', categoryId: 'cat-latte', basePrice: 25000, description: '', toppings: [], inStock: true },
+  { id: 'prod-lt03', code: 'LT03', name: 'Khoai môn latte', categoryId: 'cat-latte', basePrice: 25000, description: '', toppings: [], inStock: true },
+
+  // KHÁC
+  { id: 'prod-kh01', code: 'KH01', name: 'Nước ngọt (15.000)', categoryId: 'cat-other', basePrice: 15000, description: '', toppings: [], inStock: true },
+  { id: 'prod-kh02', code: 'KH02', name: 'Nước ngọt (20.000)', categoryId: 'cat-other', basePrice: 20000, description: '', toppings: [], inStock: true },
+
+  // TRÀ
+  { id: 'prod-tr01', code: 'TR01', name: 'Trà chanh trân châu trắng', categoryId: 'cat-tea', basePrice: 18000, description: '', toppings: [], inStock: true },
+  { id: 'prod-tr02', code: 'TR02', name: 'Trà trái cây nhiệt đới', categoryId: 'cat-tea', basePrice: 23000, description: '', toppings: [], inStock: true },
+  { id: 'prod-tr03', code: 'TR03', name: 'Trà ổi hồng', categoryId: 'cat-tea', basePrice: 23000, description: '', toppings: [], inStock: true },
+  { id: 'prod-tr04', code: 'TR04', name: 'Trà xoài chanh dây', categoryId: 'cat-tea', basePrice: 23000, description: '', toppings: [], inStock: true },
+  { id: 'prod-tr05', code: 'TR05', name: 'Trà măng cầu', categoryId: 'cat-tea', basePrice: 23000, description: '', toppings: [], inStock: true },
+  { id: 'prod-tr06', code: 'TR06', name: 'Trà dưa lưới', categoryId: 'cat-tea', basePrice: 23000, description: '', toppings: [], inStock: true },
+
+  // NƯỚC ÉP
+  { id: 'prod-ep01', code: 'EP01', name: 'Cam ép', categoryId: 'cat-juice', basePrice: 20000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ep02', code: 'EP02', name: 'Ép cà rốt', categoryId: 'cat-juice', basePrice: 15000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ep03', code: 'EP03', name: 'Ép ổi', categoryId: 'cat-juice', basePrice: 15000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ep04', code: 'EP04', name: 'Ép thơm', categoryId: 'cat-juice', basePrice: 20000, description: '', toppings: [], inStock: true },
+  { id: 'prod-ep05', code: 'EP05', name: 'Ép táo', categoryId: 'cat-juice', basePrice: 20000, description: '', toppings: [], inStock: true },
+
+  // SỮA CHUA
+  { id: 'prod-sc01', code: 'SC01', name: 'Sữa chua đá', categoryId: 'cat-yogurt', basePrice: 18000, description: '', toppings: [], inStock: true },
+  { id: 'prod-sc02', code: 'SC02', name: 'Sữa chua việt quất', categoryId: 'cat-yogurt', basePrice: 22000, description: '', toppings: [], inStock: true },
+  { id: 'prod-sc03', code: 'SC03', name: 'Sữa chua dâu', categoryId: 'cat-yogurt', basePrice: 22000, description: '', toppings: [], inStock: true },
+  { id: 'prod-sc04', code: 'SC04', name: 'Sữa chua xoài', categoryId: 'cat-yogurt', basePrice: 22000, description: '', toppings: [], inStock: true },
+  { id: 'prod-sc05', code: 'SC05', name: 'Sữa chua dưa lưới', categoryId: 'cat-yogurt', basePrice: 22000, description: '', toppings: [], inStock: true },
+  { id: 'prod-sc06', code: 'SC06', name: 'Sữa chua đào', categoryId: 'cat-yogurt', basePrice: 22000, description: '', toppings: [], inStock: true },
+  { id: 'prod-sc07', code: 'SC07', name: 'Sữa chua ổi hồng', categoryId: 'cat-yogurt', basePrice: 22000, description: '', toppings: [], inStock: true },
+
+  // ĐỒ NÓNG
+  { id: 'prod-dn01', code: 'DN01', name: 'Trà gừng mật ong', categoryId: 'cat-hot-drinks', basePrice: 18000, description: '', toppings: [], inStock: true },
+  { id: 'prod-dn02', code: 'DN02', name: 'Trà Lipton', categoryId: 'cat-hot-drinks', basePrice: 22000, description: '', toppings: [], inStock: true }
 ];
 
 export const INITIAL_ORDERS = {};
