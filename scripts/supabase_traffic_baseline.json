@@ -1,0 +1,35 @@
+{
+  "totalRequests": 74,
+  "initialLoadCount": 14,
+  "pageNavTraffic": {
+    "Table Management (tables)": 0,
+    "Menu Management (menu)": 0,
+    "Order History (history)": 0,
+    "Reports / Dashboard (reports)": 0,
+    "Settings (settings)": 0,
+    "Return to Table Management": 0
+  },
+  "focusDelta": 58,
+  "focusEventsTested": 5,
+  "requestsPerFocus": 11.6,
+  "totalIdleRequests": 2,
+  "idleDurationSeconds": 300,
+  "endpointCounts": {
+    "/rest/v1/tables": 13,
+    "/rest/v1/categories": 6,
+    "/rest/v1/menu_items": 6,
+    "/rest/v1/toppings": 6,
+    "/rest/v1/product_toppings": 6,
+    "/rest/v1/orders": 6,
+    "/rest/v1/settings": 31
+  },
+  "methodCounts": {
+    "GET": 60,
+    "OPTIONS": 2,
+    "POST": 12
+  },
+  "statusCounts": {
+    "200": 74
+  },
+  "timestamp": "2026-10-23T16:38:25.143Z"
+}

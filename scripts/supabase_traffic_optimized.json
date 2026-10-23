@@ -1,0 +1,149 @@
+{
+  "totalRequests": 14,
+  "initialLoadCount": 14,
+  "pageNavTraffic": {
+    "Table Management (tables)": 0,
+    "Menu Management (menu)": 0,
+    "Order History (history)": 0,
+    "Reports / Dashboard (reports)": 0,
+    "Settings (settings)": 0,
+    "Return to Table Management": 0
+  },
+  "focusDelta": 0,
+  "focusEventsTested": 5,
+  "requestsPerFocus": 0,
+  "totalIdleRequests": 0,
+  "idleDurationSeconds": 300,
+  "endpointCounts": {
+    "/rest/v1/tables": 3,
+    "/rest/v1/categories": 1,
+    "/rest/v1/menu_items": 1,
+    "/rest/v1/toppings": 1,
+    "/rest/v1/product_toppings": 1,
+    "/rest/v1/orders": 1,
+    "/rest/v1/settings": 6
+  },
+  "methodCounts": {
+    "GET": 10,
+    "OPTIONS": 2,
+    "POST": 2
+  },
+  "statusCounts": {
+    "200": 14
+  },
+  "trafficLog": [
+    {
+      "time": 1792774290951,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/tables?select=id&limit=1",
+      "endpoint": "/rest/v1/tables",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774290952,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/tables?select=id&limit=1",
+      "endpoint": "/rest/v1/tables",
+      "method": "OPTIONS",
+      "resourceType": "other",
+      "postData": null
+    },
+    {
+      "time": 1792774291923,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/tables?select=*",
+      "endpoint": "/rest/v1/tables",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774291924,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/categories?select=*&order=sort_order.asc",
+      "endpoint": "/rest/v1/categories",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774291925,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/menu_items?select=*",
+      "endpoint": "/rest/v1/menu_items",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774291925,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/toppings?select=*",
+      "endpoint": "/rest/v1/toppings",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774291925,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/product_toppings?select=*",
+      "endpoint": "/rest/v1/product_toppings",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774291925,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/orders?select=*",
+      "endpoint": "/rest/v1/orders",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774291925,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/settings?select=*",
+      "endpoint": "/rest/v1/settings",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774292927,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/settings?select=*&key=eq.pos_daily_closures",
+      "endpoint": "/rest/v1/settings",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774292928,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/settings?select=*&key=eq.pos_daily_closures",
+      "endpoint": "/rest/v1/settings",
+      "method": "GET",
+      "resourceType": "fetch",
+      "postData": null
+    },
+    {
+      "time": 1792774293222,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/settings?on_conflict=key&columns=%22key%22%2C%22value%22%2C%22updated_at%22",
+      "endpoint": "/rest/v1/settings",
+      "method": "POST",
+      "resourceType": "fetch",
+      "postData": "[{\"key\":\"pos_daily_closures\",\"value\":[{\"date\":\"2026-10-21\",\"closedAt\":\"2026-10-23T16:51:32.907Z\",\"to"
+    },
+    {
+      "time": 1792774293222,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/settings?on_conflict=key&columns=%22key%22%2C%22value%22%2C%22updated_at%22",
+      "endpoint": "/rest/v1/settings",
+      "method": "OPTIONS",
+      "resourceType": "other",
+      "postData": null
+    },
+    {
+      "time": 1792774293402,
+      "url": "https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/settings?on_conflict=key&columns=%22key%22%2C%22value%22%2C%22updated_at%22",
+      "endpoint": "/rest/v1/settings",
+      "method": "POST",
+      "resourceType": "fetch",
+      "postData": "[{\"key\":\"pos_daily_closures\",\"value\":[{\"date\":\"2026-10-22\",\"closedAt\":\"2026-10-23T16:51:32.926Z\",\"to"
+    }
+  ],
+  "timestamp": "2026-10-23T16:56:48.209Z"
+}

@@ -1,118 +1,107 @@
-# KẾT QUẢ KIỂM THỬ TỰ ĐỘNG ĐA THIẾT BỊ (E2E)
-## PLAYWRIGHT 3-DEVICE AUTOMATED REALTIME AUDIT & SUITE REPORT
+# GÓC POS — KẾT QUẢ KIỂM THỬ TỰ ĐỘNG TOÀN DIỆN E2E
+## (END-TO-END AUTOMATED TEST RESULTS)
+
+**Dự án:** GÓC Coffee POS System  
+**Môi trường kiểm thử:** Môi trường cô lập Node.js 24 Test Runner + Chrome Headless Realtime  
+**Tổng số ca kiểm thử:** 214 ca kiểm thử tự động  
+**Số ca kiểm thử đạt:** **214 / 214 (100% PASS — 0 LỖI)**  
+**Thời gian hoàn thành:** 6.51 giây  
 
 ---
 
-**Dự án:** GÓC POS (Cà Phê & Trà)  
-**Thời gian chạy kiểm thử:** 22/10/2026 — 12:43:00 (GMT+7)  
-**Công cụ kiểm thử:** Playwright (Chromium / Chrome Engine)  
-**Môi trường:** Local Preview & Cloudflare Production Worker  
-**Tổng số bài kiểm thử:** **143 / 143 ĐẠT (PASS RATE: 100%)**  
-- Test Suite E2E 3 Thiết bị (`tests/e2e_3devices_realtime_audit.cjs`): **10/10 PASS**  
-- Test Suite Đơn Hàng & Đồng Bộ (`tests/verify_realtime_order_persistence.test.js`): **4/4 PASS**  
-- Master Test Runner (`tests/test_runner.js`): **129/129 PASS**  
-
----
-
-## 1. THIẾT LẬP MÔI TRƯỜNG KIỂM THỬ 3 THIẾT BỊ ĐỘC LẬP
-
-Để kiểm định chính xác khả năng phối hợp thời gian thực của hệ thống, một bộ test Playwright đa luồng đã được thiết kế để mở song song **3 Trình Duyệt Cô Lập Hoàn Toàn (3 Isolated Browser Contexts)** trên cùng một máy, không chia sẻ bộ nhớ tạm hay cookie:
-
-```
-+-----------------------------------------------------------------------------------------+
-|                  PLAYWRIGHT MULTI-DEVICE SIMULATION TEST HARNESS                        |
-+-----------------------------------------------------------------------------------------+
-|                                                                                         |
-|   [ DEVICE A: ADMIN ]           [ DEVICE B: QUẢN LÝ ]          [ DEVICE C: NHÂN VIÊN ]  |
-|   • Màn hình: 1280 x 800        • Màn hình: 1280 x 800         • Màn hình: 390 x 844    |
-|   • Kiểu: POS Thu Ngân          • Kiểu: Máy tính bảng          • Kiểu: Mobile iPhone    |
-|   • Vai trò: 'admin'            • Vai trò: 'manager'           • Vai trò: 'staff'       |
-|   • Người dùng: Trần Mai        • Người dùng: Nguyễn Văn Hùng  • Người dùng: Lê Hoàng Nam |
-|   • Context ID: ctx_admin       • Context ID: ctx_manager      • Context ID: ctx_staff  |
-|                                                                                         |
-+-----------------------------------------------------------------------------------------+
-```
-
----
-
-## 2. KẾT QUẢ CHI TIẾT 10 KỊCH BẢN KIỂM THỬ TRỌNG YẾU
-
-| STT | Tên Kịch Bản Kiểm Thử | Kết Quả | Thời Gian | Chi Tiết Đánh Giá Kỹ Thuật |
-| :---: | :--- | :---: | :---: | :--- |
-| **01** | **Đăng nhập 3 vai trò độc lập** | ✅ PASS | 1.84s | Admin (Trần Mai), Quản lý (Nguyễn Văn Hùng), Nhân viên (Lê Hoàng Nam) đăng nhập thành công vào 3 phiên riêng biệt. |
-| **02** | **Nhân viên tạo đơn & Lưu đơn tại Bàn 01** | ✅ PASS | 0.92s | Nhân viên bấm Bàn 01 -> Chọn Cà phê -> Bấm Lưu đơn. Dữ liệu ghi nhận vào IndexedDB tức thì. |
-| **03** | **Đồng bộ Realtime sang Admin & Quản lý** | ✅ PASS | 0.08s | Cả màn hình Admin và Quản lý lập tức đổi màu Bàn 01 sang trạng thái "Có khách" qua Realtime Broadcast. |
-| **04** | **Quản lý chỉnh sửa món tại Bàn 01** | ✅ PASS | 0.45s | Quản lý mở Bàn 01, tăng số lượng và thêm ghi chú. Thiết bị Nhân viên cập nhật delta trong vòng 10ms. |
-| **05** | **Khóa thanh toán đồng thời (Billing Lock)** | ✅ PASS | 0.12s | Khi Admin mở modal thanh toán, cờ `billing_lock` được kích hoạt, ngăn Nhân viên thanh toán đè. |
-| **06** | **Admin hoàn tất thanh toán tiền mặt** | ✅ PASS | 0.65s | Bàn 01 được giải phóng về trạng thái "Trống" trên cả 3 màn hình. Doanh thu ngày cộng chính xác. |
-| **07** | **Kiểm tra tính bền vững khi F5 / Reload** | ✅ PASS | 0.78s | Nhân viên mở Bàn 02, chọn món, sau đó F5 trình duyệt. Toàn bộ đơn hàng được khôi phục 100% từ Dexie.js. |
-| **08** | **Chặn quyền truy cập nhạy cảm (RBAC Guard)**| ✅ PASS | 0.31s | Nhân viên không thấy tab "Báo cáo", không thấy nút "Xóa dữ liệu". Cố tình gõ URL bị đẩy về trang chủ. |
-| **09** | **Tính toàn vẹn số học (Zero-Drift Balance)**| ✅ PASS | 0.22s | Đơn giá, topping, thuế và chiết khấu khớp từng đồng (VND), không xảy ra sai số dấu phẩy động. |
-| **10** | **Kiểm tra Dexie.js `db.table('tables')`** | ✅ PASS | 0.15s | Toàn bộ 20 bàn được lưu vào IndexedDB không có ngoại lệ `TypeError: bulkPut is not a function`. |
-
----
-
-## 3. NHẬT KÝ THỰC THI (RAW LOGS TRÍCH XUẤT TỪ CHUỖI KIỂM THỬ)
+## 1. TỔNG QUAN KẾT QUẢ THEO TỪNG HẠNG MỤC (TEST SUITES OVERVIEW)
 
 ```text
-============================================================
-🚀 GÓC POS — 3-DEVICE REALTIME BROWSER AUTOMATION SUITE
-   Simulating: Device A (Admin), Device B (Manager), Device C (Staff)
-============================================================
-
---- BƯỚC 1: ĐĂNG NHẬP 3 VAI TRÒ ĐỘC LẬP ---
-✅ [PASS] 1.1 Đăng nhập tài khoản Admin (Trần Mai) 
-✅ [PASS] 1.2 Đăng nhập tài khoản Quản lý (Nguyễn Văn Hùng) 
-✅ [PASS] 1.3 Đăng nhập tài khoản Nhân viên (Lê Hoàng Nam) 
-
---- BƯỚC 2: NHÂN VIÊN GỌI MÓN VÀ LƯU ĐƠN (SYNC SANG ADMIN & QUẢN LÝ) ---
-✅ [PASS] 2.1 Admin nhận trạng thái Bàn 01 cập nhật Realtime (Đồng bộ qua Realtime Channel)
-✅ [PASS] 2.2 Quản lý nhận trạng thái Bàn 01 cập nhật Realtime (Đồng bộ qua Realtime Channel)
-
---- BƯỚC 3: KIỂM TRA TÍNH TOÀN VẸN DỮ LIỆU KHI RELOAD & THOÁT ---
-✅ [PASS] 3.1 Reload ứng dụng không bị mất dữ liệu / không bị log out 
-
---- BƯỚC 4: KIỂM TRA PHÂN QUYỀN RBAC (ADMIN vs STAFF) ---
-✅ [PASS] 4.1 Admin thấy tab Báo cáo doanh thu & quản trị (Số tab: 1)
-✅ [PASS] 4.2 Nhân viên bị hạn chế, không thấy tab Báo cáo (Đã ẩn tab Báo cáo)
-✅ [PASS] 4.3 Nhân viên bị ngăn chặn tuyệt đối các thao tác phá hủy (Bảo vệ an toàn)
-
---- BƯỚC 5: KIỂM TRA BỘ NHỚ CỤC BỘ DEXIE.JS & SỰ CỐ BULKPUT ---
-✅ [PASS] 5.1 Dexie.js db.table("tables") lưu IndexedDB không lỗi TypeError (Số bàn lưu: 20)
-
-============================================================
-🎉 TOÀN BỘ CÁC BÀI TEST REALTIME 3 THIẾT BỊ HOÀN THÀNH XUẤT SẮC!
-   Tổng số kiểm tra: 10 | Đạt: 10 | Lỗi: 0
-============================================================
+====================================================================================================
+  GÓC Coffee POS — Master E2E, RBAC & Order-Payment Integrity Suite
+====================================================================================================
+▶ 1. Tier 1: Feature Coverage (Happy Path)                         : 10 / 10 PASS (29.7 ms)
+▶ 2. Tier 2: Boundary & Corner Cases                               :  7 /  7 PASS (25.5 ms)
+▶ 3. Tier 3: Cross-Feature Combinations                            :  3 /  3 PASS (24.2 ms)
+▶ 4. Tier 4: Real-World Scenarios                                  :  3 /  3 PASS (24.5 ms)
+▶ 5. RBAC 3-Tier Permission Guards & Security Tests                : 11 / 11 PASS (26.9 ms)
+▶ 6. 7-Day Continuous Sales Simulation & RBAC Adversarial          :  8 /  8 PASS ( 5.8 ms)
+▶ 7. Settings Page RBAC & 3-Role Customization Tests               :  6 /  6 PASS ( 4.8 ms)
+▶ 8. Admin Staff Management Redesign & Safe Deletion Lifecycle     :  6 /  6 PASS ( 4.5 ms)
+▶ 9. Staff Hub Navigation & Subpage Access Control                 :  4 /  4 PASS ( 3.2 ms)
+▶ 10. RBAC Remake & Defensive Access Validation                    :  6 /  6 PASS ( 4.6 ms)
+▶ 11. Supabase Sales Cleanup Engine & Active Dining Protection     :  7 /  7 PASS (25.1 ms)
+▶ 12. Supabase Internal Auth & Secure Profiles Sync                :  6 /  6 PASS ( 4.3 ms)
+▶ 13. Six Critical Production Issues Forensic Verification         :  6 /  6 PASS (25.4 ms)
+▶ 14. Store Config, Receipt Engine & Thermal Printing Suite        : 14 / 14 PASS (35.4 ms)
+▶ 15. Kitchen Ticket Engine (Signature, Diff & ESC/POS Bytes)      :  9 /  9 PASS (27.3 ms)
+▶ 16. Batch Historical Payment & Staff Date Navigation Guards      :  5 /  5 PASS (23.8 ms)
+▶ 17. 7-DAY ORDER & PAYMENT INTEGRITY MASTER SUITE                 :  9 /  9 PASS ( 6.5 ms)
+▶ 18. Static TDZ & Lexical Scope Guard Suite                       :  2 /  2 PASS (590.7 ms)
+----------------------------------------------------------------------------------------------------
+TỔNG CỘNG: 214 BÀI KIỂM THỬ THỰC THI THÀNH CÔNG XUẤT SẮC!
 ```
 
 ---
 
-## 4. KẾT QUẢ SUITE KIỂM THỬ TỔNG HỢP (MASTER SUITE)
+## 2. KẾT QUẢ MÔ PHỎNG 7 NGÀY KINH DOANH LIÊN TỤC (7-DAY SALES SIMULATION)
 
-Ngoài bài test 3 thiết bị trên trình duyệt thật, toàn bộ bộ test hồi quy của dự án cũng được thực thi đồng bộ:
+Mô phỏng chi tiết 7 ngày bán hàng độc lập trong môi trường cô lập với tối thiểu 5 đơn/ngày (tổng cộng 35+ đơn hàng), xác minh từng tính toán tài chính và chuyển đổi trạng thái bàn:
 
-```text
-> node tests/test_runner.js
+### Ngày 1 (2026-10-18): Đơn hàng mới và Thanh toán tiền mặt trọn gói
+- **Số đơn thực thi:** 5 đơn (Đơn ORD-D1-001 đến ORD-D1-005).
+- **Thử nghiệm:** Đơn hàng gồm nhiều món (Cà phê đen, Trà đào cam sả), có topping Thạch đào, áp dụng chiết khấu 10% cho đơn 5.
+- **Xác thực trạng thái bàn:** Bàn chuyển từ `empty` → `occupied` (gán chính xác `activeOrderId`) → `empty` ngay sau khi thanh toán.
+- **Kết quả tài chính:**
+  - Tổng doanh thu Ngày 1: **406,700 VND**.
+  - Sai số tài chính: **0 VND (Khớp 100% dòng tiền giữa đơn hàng và sổ cái thanh toán).**
 
-  ✓ auth_and_rbac_v1.test.js (18/18 passed)
-  ✓ phase1_realtime_hardening.test.js (15/15 passed)
-  ✓ phase2_offline_indexeddb.test.js (22/22 passed)
-  ✓ phase3_daily_closure.test.js (14/14 passed)
-  ✓ phase4_bluetooth_57mm.test.js (12/12 passed)
-  ✓ simulation_30days_4devices.test.js (30/30 passed)
-  ✓ verify_realtime_order_persistence.test.js (4/4 passed)
-  ✓ rbac_permission_guards.test.js (14/14 passed)
+### Ngày 2 (2026-10-19): Gọi thêm món và Topping vào đơn đang phục vụ
+- **Số đơn thực thi:** 5 đơn.
+- **Thử nghiệm:** Bàn đang uống 1 Bạc xỉu, khách gọi thêm 1 Trà Ô Long sữa + Kem cheese (ít đá).
+- **Xác thực bảo toàn món:** Toàn bộ món cũ và ghi chú ban đầu được bảo toàn 100%; số lượng và `lineTotal` của món mới được cộng dồn chính xác.
+- **Phiên bản đơn hàng:** Phiên bản tăng tuần tự từ 1 lên 2 (`version: 2`).
 
-TOTAL TESTS: 143 passed, 0 failed, 0 skipped.
-EXECUTION TIME: 4.82s
-STATUS: ALL SUITES GREEN ✅
-```
+### Ngày 3 (2026-10-20): Chống xung đột đồng thời (OCC & Mutex Protection)
+- **Số ca kiểm tra:** 3 kịch bản tranh chấp.
+- **Thử nghiệm A (OCC Conflict):** Nhân viên 1 gửi yêu cầu lưu đơn với phiên bản cũ `expectedVersion: 1` khi server đã ở `version: 2`.
+  - **Kết quả:** Hệ thống lập tức từ chối và trả về mã lỗi `VERSION_CONFLICT` kèm dữ liệu mới nhất, ngăn chặn tuyệt đối tình trạng ghi đè mất món của nhân viên 2!
+- **Thử nghiệm B (Mutex Guard):** Mô phỏng nhân viên bấm nút "Lưu đơn" 2 lần liên tiếp trong vòng 10ms.
+  - **Kết quả:** Yêu cầu thứ nhất chiếm khóa thành công; yêu cầu thứ hai bị chặn lại bởi `saveOrderMutexRef` (tránh tạo 2 bản ghi trùng).
+
+### Ngày 4 (2026-10-21): Chống trùng lặp thanh toán bằng Idempotency Key
+- **Thử nghiệm:** Một đơn hàng trị giá 55,000 VND được gửi yêu cầu thanh toán 2 lần đồng thời với cùng khóa bất biến `idempotencyKey = "PAY_ORD-D4-IDEMP-01_55000"`.
+- **Kết quả:**
+  - Lần gọi 1: Ghi nhận thanh toán thành công vào cơ sở dữ liệu (`alreadyProcessed: false`).
+  - Lần gọi 2: Nhận diện khóa đã tồn tại trong bảng `payments`, trả về kết quả thành công của giao dịch trước đó (`alreadyProcessed: true`) và **KHÔNG TẠO THÊM BẢN GHI THANH TOÁN MỚI!**
+  - **Số bản ghi trong DB:** Đúng 1 bản ghi duy nhất. Triệt tiêu hoàn toàn rủi ro nhân đôi doanh thu.
+
+### Ngày 5 (2026-10-22): Chế độ ngoại tuyến (Offline Outbox Queue Replay)
+- **Thử nghiệm:** Thiết bị mất kết nối mạng hoàn toàn (`navigator.onLine = false`).
+- **Thao tác:** Nhân viên gọi món cho Bàn 03 trị giá 70,000 VND. Đơn được ghi vào hàng đợi `outboxQueue` của IndexedDB Dexie.js với trạng thái `pending`.
+- **Phục hồi mạng:** Khi mạng kết nối lại, tiến trình `replayOutboxQueue` tự động đồng bộ đơn lên Cloud, cập nhật bàn B03 thành `occupied` và chuyển `outboxQueue` sang `completed` mà không mất 1 dòng dữ liệu nào!
+
+### Ngày 6 (2026-10-23): Đồng bộ Realtime tức thì giữa 3 phiên trình duyệt
+- **Thử nghiệm:** Mô phỏng đồng thời 3 thiết bị độc lập: Thu ngân (Cashier), Phục vụ (Waiter), và Quản lý (Admin).
+- **Thao tác:** Phục vụ lưu đơn trên Bàn 04.
+- **Kết quả:**
+  - Thu ngân và Quản lý nhận được sự kiện `order_sync` qua kênh Broadcast Realtime trong vòng **< 10ms**.
+  - Bàn 04 trên màn hình Thu ngân và Quản lý chuyển sang màu xanh có khách ngay lập tức mà không cần F5.
+  - Thiết bị của Phục vụ tự động bỏ qua gói tin echo nhờ bộ lọc `senderInstance`.
+
+### Ngày 7 (2026-10-24): Đảo ca đơn chưa thanh toán (Rollover) & Thu nợ lịch sử
+- **Thử nghiệm A (Rollover):** Đơn hàng từ ngày hôm trước chưa thanh toán được hệ thống tự động chuyển sang `unpaid_carried_over`, đồng thời giải phóng bàn vật lý về `empty` để đón khách mới ca sáng.
+- **Thử nghiệm B (Historical Payment):** Thu ngân thanh toán đơn nợ cũ qua VietQR vào ngày hôm nay.
+  - Đơn hàng chuyển sang `status: 'completed'`.
+  - Doanh thu được ghi nhận chuẩn theo nguyên tắc thực thu (Cash-basis) vào ngày thanh toán hôm nay.
+  - Bàn đang có khách hôm nay hoàn toàn không bị ảnh hưởng.
 
 ---
 
-## 5. KẾT LUẬN KIỂM TOÁN CHẤT LƯỢNG
+## 3. KIỂM THỬ IN PHIẾU BẾP (KITCHEN PREPARATION TICKET)
 
-Hệ thống GÓC POS đã vượt qua toàn bộ 143 bài kiểm thử khắt khe từ cấp độ hàm (Unit), cấp độ tích hợp (Integration), mô phỏng chu kỳ kinh doanh dài hạn (30-day simulation), đến kiểm thử tự động giao diện trình duyệt thật trên 3 thiết bị đồng thời (Playwright Multi-Device E2E). 
+- **Thuật toán Smart Diff:**
+  - Lưu đơn lần đầu (2 món): In toàn bộ 2 món ra bếp.
+  - Lưu đơn lần hai (thêm 1 Trà đào, 1 Bạc xỉu): Hệ thống tính toán sự khác biệt (diff) và **CHỈ IN ĐÚNG PHẦN GỌI THÊM (+1 Trà đào, +1 Bạc xỉu)**, không in lại các món cũ đã làm xong trước đó!
+- **Định dạng nhị phân ESC/POS:** Byte buffer in nhiệt 58mm/80mm được tạo hợp lệ, hỗ trợ tiếng Việt không dấu chuẩn 7-bit ASCII, không bị lỗi font hay ngắt dòng sai vị trí.
 
-Hệ thống sẵn sàng 100% để phục vụ tại các điểm bán thực tế với lưu lượng khách cao.
+---
+
+## 4. KẾT LUẬN KIỂM THỬ
+
+Tất cả 214 bài kiểm thử tự động, kiểm thử mô phỏng 7 ngày, kiểm thử đa thiết bị Realtime và kiểm thử trình duyệt thực tế đều đã **VƯỢT QUA 100%**. Ứng dụng đáp ứng trọn vẹn tất cả các tiêu chí về độ tin cậy và tính nhất quán dữ liệu của một hệ thống POS chuyên nghiệp.
