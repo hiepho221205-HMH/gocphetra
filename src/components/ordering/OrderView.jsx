@@ -14,8 +14,7 @@ import {
   DEFAULT_KITCHEN_TICKET_SETTINGS
 } from '../../utils/kitchenTicketEngine';
 import {
-  getBluetoothPrinterStatus,
-  printKitchenTicketThermal
+  executeKitchenTicketPrint
 } from '../../utils/bluetoothPrinter';
 import {
   ArrowLeft,
@@ -278,7 +277,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     }
   };
 
-  const handleConfirmKitchenPrint = async () => {
+  const handleConfirmKitchenPrint = async (options = {}) => {
     if (!printPromptState?.order) return;
     const { order: savedOrder, table: savedTable, diffResult } = printPromptState;
     const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
@@ -297,28 +296,23 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems);
     }
 
-    const btStatus = getBluetoothPrinterStatus();
-    if (btStatus.isConnected) {
-      try {
-        await printKitchenTicketThermal(ticketModel);
-        showToast('Đã in phiếu chế biến thành công!', 'success');
-      } catch (e) {
-        console.warn('Lỗi in bluetooth ticket:', e);
-        showToast('Chuyển in phiếu qua hộp thoại in hệ thống', 'info');
-        setActiveKitchenTicketModel(ticketModel);
+    const printResult = await executeKitchenTicketPrint({
+      ticketModel,
+      settings,
+      method: options.method || 'bluetooth',
+      showToast,
+      onBrowserFallback: (model) => {
+        setActiveKitchenTicketModel(model);
         setTimeout(() => {
           window.print();
         }, 150);
       }
-    } else {
-      setActiveKitchenTicketModel(ticketModel);
-      setTimeout(() => {
-        window.print();
-      }, 150);
-    }
+    });
 
-    setPrintPromptState(null);
-    onBack();
+    if (printResult?.success) {
+      setPrintPromptState(null);
+      onBack();
+    }
   };
 
   const handleDismissKitchenPrint = () => {
@@ -779,7 +773,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
 
       {/* Hidden Printable Preparation Ticket for Browser / Mobile System Print */}
       {activeKitchenTicketModel && (
-        <div className="hidden">
+        <div className="hidden print:block">
           <PreparationTicketTemplate ticketModel={activeKitchenTicketModel} />
         </div>
       )}

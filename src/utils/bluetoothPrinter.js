@@ -802,6 +802,78 @@ export async function printKitchenTicketThermal(ticketModel, options = {}) {
 }
 
 /**
+ * High-level Action: Execute Kitchen / Preparation Ticket print with Web Bluetooth pairing
+ * and graceful browser print fallback. Matches the Bluetooth workflow of bill printing.
+ *
+ * @param {object} params
+ * @param {object} params.ticketModel - Model returned from buildKitchenTicketModel()
+ * @param {object} [params.settings] - App / Store settings
+ * @param {string} [params.method='bluetooth'] - 'bluetooth' | 'browser'
+ * @param {Function} [params.showToast] - PosContext showToast handler
+ * @param {Function} [params.onBrowserFallback] - Callback to trigger browser system print
+ * @returns {Promise<{ success: boolean, cancelled?: boolean, fallbackToBrowser?: boolean }>}
+ */
+export async function executeKitchenTicketPrint({
+  ticketModel,
+  settings = {},
+  method = 'bluetooth',
+  showToast,
+  onBrowserFallback
+}) {
+  // 1. If explicitly requested browser print
+  if (method === 'browser') {
+    if (onBrowserFallback) {
+      onBrowserFallback(ticketModel);
+    }
+    return { success: true };
+  }
+
+  // 2. Check Web Bluetooth support
+  if (!isBluetoothSupported()) {
+    showToast?.('Trình duyệt không hỗ trợ Web Bluetooth. Đang chuyển sang in trình duyệt!', 'info');
+    if (onBrowserFallback) {
+      onBrowserFallback(ticketModel);
+    }
+    return { success: true, fallbackToBrowser: true };
+  }
+
+  // 3. Check connection status; if not connected, initiate pairing dialog
+  const btStatus = getBluetoothPrinterStatus();
+  if (!btStatus.isConnected) {
+    try {
+      showToast?.('Vui lòng chọn máy in Bluetooth từ danh sách thiết bị...', 'info');
+      const res = await connectBluetoothPrinter();
+      showToast?.(`Đã kết nối máy in: ${res.deviceName}`, 'success');
+    } catch (err) {
+      console.warn('Bluetooth pairing failed or cancelled:', err);
+      // User dismissed or cancelled the device chooser dialog
+      if (err.name === 'NotFoundError' || err.message?.toLowerCase().includes('cancel')) {
+        showToast?.('Đã hủy chọn thiết bị Bluetooth', 'info');
+        return { success: false, cancelled: true };
+      }
+      showToast?.(err.message || 'Không thể kết nối máy in Bluetooth. Thử in qua trình duyệt!', 'error');
+      return { success: false };
+    }
+  }
+
+  // 4. Print via Bluetooth thermal printer
+  try {
+    await printKitchenTicketThermal(ticketModel, {
+      useNoAccents: settings?.printNoAccents === true
+    });
+    showToast?.('Đã in phiếu chế biến qua Bluetooth thành công!', 'success');
+    return { success: true };
+  } catch (printErr) {
+    console.warn('Bluetooth thermal kitchen ticket print failed:', printErr);
+    showToast?.(printErr.message || 'Lỗi gửi lệnh in tới máy in Bluetooth. Chuyển sang in hệ thống!', 'error');
+    if (onBrowserFallback) {
+      onBrowserFallback(ticketModel);
+    }
+    return { success: true, fallbackToBrowser: true };
+  }
+}
+
+/**
  * High-level Action: Print 57mm Daily Revenue Close Slip
  */
 export async function printDailyClose57mm(report, settings = {}, options = {}) {

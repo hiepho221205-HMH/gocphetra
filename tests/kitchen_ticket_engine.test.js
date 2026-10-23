@@ -15,7 +15,8 @@ import {
   DEFAULT_KITCHEN_TICKET_SETTINGS
 } from '../src/utils/kitchenTicketEngine.js';
 import {
-  buildKitchenTicketThermalBytes
+  buildKitchenTicketThermalBytes,
+  executeKitchenTicketPrint
 } from '../src/utils/bluetoothPrinter.js';
 
 test('Kitchen Ticket Engine — Signature & Normalization', async (t) => {
@@ -210,5 +211,42 @@ test('Kitchen Ticket Engine — Ticket Model Strict Isolation & ESC/POS Bytes', 
     assert.ok(!textOutput.includes('Thành tiền'), 'Ticket must not contain line total');
     assert.ok(!textOutput.includes('TỔNG CỘNG TIỀN'), 'Ticket must not contain revenue');
     assert.ok(!textOutput.includes('VietQR'), 'Ticket must not contain VietQR');
+  });
+
+  await t.test('executeKitchenTicketPrint routes browser method to onBrowserFallback', async () => {
+    let fallbackCalled = false;
+    let fallbackModel = null;
+    const result = await executeKitchenTicketPrint({
+      ticketModel: model,
+      method: 'browser',
+      onBrowserFallback: (m) => {
+        fallbackCalled = true;
+        fallbackModel = m;
+      }
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(fallbackCalled, true);
+    assert.equal(fallbackModel.orderId, 'ORD-9988');
+  });
+
+  await t.test('executeKitchenTicketPrint in non-Bluetooth environments gracefully falls back to browser', async () => {
+    let toastMsg = '';
+    let fallbackCalled = false;
+    const result = await executeKitchenTicketPrint({
+      ticketModel: model,
+      method: 'bluetooth',
+      showToast: (msg) => {
+        toastMsg = msg;
+      },
+      onBrowserFallback: () => {
+        fallbackCalled = true;
+      }
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.fallbackToBrowser, true);
+    assert.equal(fallbackCalled, true);
+    assert.ok(toastMsg.includes('Trình duyệt không hỗ trợ Web Bluetooth'));
   });
 });
