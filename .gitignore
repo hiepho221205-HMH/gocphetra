@@ -27,6 +27,7 @@ stitch-skills
 .DS_Store
 Thumbs.db
 .agents/
+tests/screenshots_simulation/
 
 # IDE & Editor configs
 .vscode/*

@@ -17,6 +17,7 @@ import RoleAuditLogSection from '../rbac/RoleAuditLogSection';
 import SafeLogoutModal from './SafeLogoutModal';
 import ProfileNavCard from './ProfileNavCard';
 import AccessDeniedView from '../common/AccessDeniedView';
+import EmergencyOrderManagerModal from './EmergencyOrderManagerModal';
 import {
   isBluetoothSupported,
   connectBluetoothPrinter,
@@ -36,7 +37,8 @@ import {
   Smartphone,
   Monitor,
   LogOut,
-  Camera
+  Camera,
+  ShieldAlert
 } from 'lucide-react';
 
 export default function ManagementProfileView({ onBack }) {
@@ -67,6 +69,7 @@ export default function ManagementProfileView({ onBack }) {
   const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
   const [btStatus, setBtStatus] = useState(() => getBluetoothPrinterStatus());
   const [isConnectingBt, setIsConnectingBt] = useState(false);
   const [isTestingBt, setIsTestingBt] = useState(false);
@@ -613,7 +616,26 @@ export default function ManagementProfileView({ onBack }) {
             testId="rbac-permissions-nav-card"
           />
         )}
+
+        {/* Card 5: Xử lý Khẩn cấp & Cứu bàn (Admin & Manager) */}
+        {['admin', 'manager'].includes(currentRole) && (
+          <ProfileNavCard
+            title="Xử lý Khẩn cấp & Cứu bàn"
+            description="Toàn quyền xóa đơn lỗi, quét đơn ma & mở khóa bàn"
+            icon={ShieldAlert}
+            bgColor="#FFF1F2"
+            iconColor="#E11D48"
+            iconBgColor="rgba(225, 29, 72, 0.12)"
+            onClick={() => setIsEmergencyModalOpen(true)}
+            testId="emergency-manager-nav-card"
+          />
+        )}
       </div>
+
+      <EmergencyOrderManagerModal
+        isOpen={isEmergencyModalOpen}
+        onClose={() => setIsEmergencyModalOpen(false)}
+      />
 
       {/* ========================================================= */}
       {/* 3. CHẾ ĐỘ HIỂN THỊ POS & THIẾT BỊ                         */}

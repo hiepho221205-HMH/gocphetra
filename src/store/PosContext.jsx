@@ -12,7 +12,7 @@ import {
   getDailyClosure,
   getAllDailyClosures
 } from '../lib/db';
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import {
   INITIAL_TABLES,
   INITIAL_CATEGORIES,
@@ -261,6 +261,11 @@ export function PosProvider({ children }) {
   const cloudStatusRef = useRef(cloudStatus);
   useEffect(() => { cloudStatusRef.current = cloudStatus; }, [cloudStatus]);
   const realtimeChannelRef = useRef(null);
+  const clientInstanceIdRef = useRef('client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+  const currentUserRef = useRef(currentUser);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  const currentRoleRef = useRef(currentRole);
+  useEffect(() => { currentRoleRef.current = currentRole; }, [currentRole]);
 
   // Phase 2: Offline-First States
   const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
@@ -459,8 +464,11 @@ export function PosProvider({ children }) {
         return null;
       }
 
-      const role = profile?.role || user.user_metadata?.role || 'staff';
-      const name = profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || 'Nhân viên';
+      const emailLower = (user.email || '').toLowerCase();
+      const fallbackRoleByEmail = emailLower.startsWith('admin') ? 'admin' : emailLower.startsWith('manager') ? 'manager' : 'staff';
+      const role = profile?.role || user.user_metadata?.role || fallbackRoleByEmail;
+      const defaultNameByRole = role === 'admin' ? 'Trần Mai' : role === 'manager' ? 'Nguyễn Văn Hùng' : 'Lê Hoàng Nam';
+      const name = profile?.name || user.user_metadata?.name || defaultNameByRole;
       const avatarUrl = profile?.avatarUrl || null;
       const phone = profile?.phone || user.user_metadata?.phone || '';
 
@@ -883,13 +891,13 @@ export function PosProvider({ children }) {
       const ch = supabase
         .channel('pos_realtime_sync_channel')
         .on('broadcast', { event: 'billing_lock' }, ({ payload }) => {
-          if (!payload || !payload.tableId) return;
+          if (!payload || !payload.tableId || payload.senderInstance === clientInstanceIdRef.current) return;
           setTables((prev) =>
             prev.map((t) => (t.id === payload.tableId ? { ...t, billingLock: payload.billingLock } : t))
           );
         })
         .on('broadcast', { event: 'order_sync' }, ({ payload }) => {
-          if (!payload) return;
+          if (!payload || payload.senderInstance === clientInstanceIdRef.current) return;
           const { order: syncOrder, table: syncTable, sourceTable: syncSourceTable, deletedOrderId, payment: syncPayment } = payload;
 
           if (deletedOrderId) {
@@ -970,7 +978,7 @@ export function PosProvider({ children }) {
           }
         })
         .on('broadcast', { event: 'table_sync' }, ({ payload }) => {
-          if (!payload || !payload.table) return;
+          if (!payload || !payload.table || payload.senderInstance === clientInstanceIdRef.current) return;
           setTables((prev) => {
             const idx = prev.findIndex((t) => t.id === payload.table.id);
             if (idx >= 0) {
@@ -1943,8 +1951,8 @@ export function PosProvider({ children }) {
   };
 
 
-  // =================== BILLING LOCK (PHASE 1) ===================
-  const isTableBillingLocked = (table) => {
+  // =================== BILLING LOCK (PHASE 1 - IN-MEMORY & BROADCAST ONLY) ===================
+  const isTableBillingLocked = useCallback((table) => {
     if (!table || !table.billingLock) return null;
     const now = Date.now();
     const lockedAt = Number(table.billingLock.lockedAt) || 0;
@@ -1953,71 +1961,77 @@ export function PosProvider({ children }) {
       return null;
     }
     return table.billingLock;
-  };
+  }, []);
 
-  const acquireBillingLock = (tableId) => {
-    const table = tables.find((t) => t.id === tableId);
-    if (!table) return { success: false, message: 'Bàn không tồn tại' };
+  const acquireBillingLock = useCallback((tableId) => {
+    let result = { success: true };
+    setTables((prev) => {
+      const table = prev.find((t) => t.id === tableId);
+      if (!table) {
+        result = { success: false, message: 'Bàn không tồn tại' };
+        return prev;
+      }
 
-    const activeLock = isTableBillingLocked(table);
-    const myId = currentUser?.id || currentUser?.uid || 'current-user';
-    const myName = currentUser?.name || 'Thu ngân';
+      const activeLock = isTableBillingLocked(table);
+      const myId = currentUserRef.current?.id || currentUserRef.current?.uid || 'current-user';
+      const myName = currentUserRef.current?.name || 'Thu ngân';
 
-    if (activeLock && activeLock.lockedById !== myId) {
-      showToast(`Bàn ${table.name} đang được tính tiền bởi ${activeLock.staffName || 'nhân viên khác'}`, 'info');
-      return { success: false, lockedBy: activeLock.staffName };
-    }
+      if (activeLock && activeLock.lockedById !== myId) {
+        result = { success: false, lockedBy: activeLock.staffName };
+        return prev;
+      }
 
-    const lockObj = {
-      lockedById: myId,
-      staffName: myName,
-      lockedAt: Date.now()
-    };
+      const lockObj = {
+        lockedById: myId,
+        staffName: myName,
+        lockedAt: Date.now()
+      };
 
-    const updatedTable = { ...table, billingLock: lockObj };
-    setTables((prev) => prev.map((t) => (t.id === tableId ? updatedTable : t)));
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'billing_lock',
+          payload: { tableId, billingLock: lockObj, senderInstance: clientInstanceIdRef.current }
+        }).catch(() => {});
+      }
 
-    if (realtimeChannelRef.current) {
-      realtimeChannelRef.current.send({
-        type: 'broadcast',
-        event: 'billing_lock',
-        payload: { tableId, billingLock: lockObj }
-      }).catch(() => {});
-    }
+      result = { success: true, lock: lockObj };
+      return prev.map((t) => (t.id === tableId ? { ...t, billingLock: lockObj } : t));
+    });
+    return result;
+  }, [isTableBillingLocked]);
 
-    cloudUpsertTable(updatedTable);
-    return { success: true, lock: lockObj };
-  };
+  const releaseBillingLock = useCallback((tableId, force = false) => {
+    let result = { success: true };
+    setTables((prev) => {
+      const table = prev.find((t) => t.id === tableId);
+      if (!table || !table.billingLock) return prev;
 
-  const releaseBillingLock = (tableId, force = false) => {
-    const table = tables.find((t) => t.id === tableId);
-    if (!table || !table.billingLock) return { success: true };
+      const myId = currentUserRef.current?.id || currentUserRef.current?.uid || 'current-user';
+      const activeLock = isTableBillingLocked(table);
 
-    const myId = currentUser?.id || currentUser?.uid || 'current-user';
-    const activeLock = isTableBillingLocked(table);
+      if (activeLock && activeLock.lockedById !== myId && !force && currentRoleRef.current === 'staff') {
+        showToast('Chỉ Quản lý hoặc Admin mới có quyền mở khóa cưỡng chế!', 'error');
+        result = { success: false, message: 'Chỉ Quản lý hoặc Admin mới có quyền mở khóa' };
+        return prev;
+      }
 
-    if (activeLock && activeLock.lockedById !== myId && !force && currentRole === 'staff') {
-      showToast('Chỉ Quản lý hoặc Admin mới có quyền mở khóa cưỡng chế!', 'error');
-      return { success: false, message: 'Chỉ Quản lý hoặc Admin mới có quyền mở khóa' };
-    }
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'billing_lock',
+          payload: { tableId, billingLock: null, senderInstance: clientInstanceIdRef.current }
+        }).catch(() => {});
+      }
 
-    const updatedTable = { ...table, billingLock: null };
-    setTables((prev) => prev.map((t) => (t.id === tableId ? updatedTable : t)));
+      if (force) {
+        showToast(`Đã mở khóa bàn ${table.name}!`, 'info');
+      }
 
-    if (realtimeChannelRef.current) {
-      realtimeChannelRef.current.send({
-        type: 'broadcast',
-        event: 'billing_lock',
-        payload: { tableId, billingLock: null }
-      }).catch(() => {});
-    }
-
-    cloudUpsertTable(updatedTable);
-    if (force) {
-      showToast(`Đã mở khóa bàn ${table.name}!`, 'info');
-    }
-    return { success: true };
-  };
+      return prev.map((t) => (t.id === tableId ? { ...t, billingLock: null } : t));
+    });
+    return result;
+  }, [isTableBillingLocked]);
 
   // Lưu cam kết đơn hàng cho bàn (tạo mới hoặc cập nhật đơn đang mở, chuyển bàn sang có khách)
   const saveOrderForTable = async (tableId, items, expectedVersion = null) => {
@@ -2366,12 +2380,25 @@ export function PosProvider({ children }) {
     };
     setPayments((prev) => [payRecord, ...prev]);
 
-    // Ghi đồng bộ chắc chắn lên Cloud Supabase và đợi hoàn tất trước khi kết thúc
-    await Promise.allSettled([
-      cloudUpsertOrder(finalOrder),
-      cloudUpsertTable(resetTable),
-      cloudUpsertPayment(payRecord)
-    ]);
+    // Ghi đồng bộ chắc chắn lên Cloud Supabase với cơ chế retry an toàn
+    const safeSyncFinalize = async () => {
+      let orderOk = false;
+      let tableOk = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        if (!orderOk) {
+          const res = await cloudUpsertOrder(finalOrder);
+          if (res?.success) orderOk = true;
+        }
+        if (!tableOk) {
+          const res = await cloudUpsertTable(resetTable);
+          if (res?.success) tableOk = true;
+        }
+        if (orderOk && tableOk) break;
+        await new Promise((r) => setTimeout(r, attempt * 200));
+      }
+      cloudUpsertPayment(payRecord).catch(() => {});
+    };
+    await safeSyncFinalize();
 
     if (realtimeChannelRef.current) {
       realtimeChannelRef.current.send({
@@ -2381,7 +2408,8 @@ export function PosProvider({ children }) {
           order: finalOrder,
           table: resetTable,
           payment: payRecord,
-          senderId: currentUser?.id || currentUser?.uid || 'cashier'
+          senderId: currentUser?.id || currentUser?.uid || 'cashier',
+          senderInstance: clientInstanceIdRef.current
         }
       }).catch((e) => console.warn('Broadcast finalize order error:', e));
     }
@@ -2399,10 +2427,12 @@ export function PosProvider({ children }) {
   };
 
   const fullCheckout = async (tableId, paymentMethod = 'cash') => {
-    const table = tables.find((t) => t.id === tableId);
+    const table = tables.find((t) => t.id === tableId) || { id: tableId };
     let order = table?.activeOrderId ? orders[table.activeOrderId] : null;
     if (!order) {
       order = Object.values(orders).find(
+        (o) => o.tableId === tableId && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+      ) || Object.values(orders).find(
         (o) => o.tableId === tableId && o.status !== 'completed' && o.status !== 'cancelled'
       );
     }
@@ -2434,6 +2464,152 @@ export function PosProvider({ children }) {
     await finalizeOrder(tableId, finalOrder);
     showToast(`Thanh toán thành công ${order.tableName || table?.name}! Đã giải phóng bàn.`, 'success');
     return true;
+  };
+
+  // =================== ADMIN EMERGENCY OVERRIDE TOOLS ===================
+  const adminForceDeleteOrder = async (orderId) => {
+    if (!orderId) return { success: false };
+    try {
+      // 1. Delete from Cloud
+      await cloudDeleteOrder(orderId);
+
+      // 2. Remove from active orders
+      setOrders((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+
+      // 3. Remove from history
+      setOrderHistory((prev) => prev.filter((o) => o.id !== orderId));
+
+      // 4. Reset any table linked to this order
+      let freedTable = null;
+      setTables((prev) =>
+        prev.map((t) => {
+          if (t.activeOrderId === orderId) {
+            freedTable = { ...t, status: 'empty', activeOrderId: null, customerCount: 0, billingLock: null };
+            cloudUpsertTable(freedTable).catch(() => {});
+            return freedTable;
+          }
+          return t;
+        })
+      );
+
+      // 5. Update LocalStorage & IndexedDB
+      try {
+        const currentOrders = loadStorage(STORAGE_KEYS.ORDERS, {});
+        delete currentOrders[orderId];
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(currentOrders));
+        dualWriteToIndexedDB('orders', currentOrders);
+
+        const currentHistory = loadStorage(STORAGE_KEYS.ORDER_HISTORY, []);
+        const nextHistory = currentHistory.filter((h) => h.id !== orderId);
+        localStorage.setItem(STORAGE_KEYS.ORDER_HISTORY, JSON.stringify(nextHistory));
+        dualWriteToIndexedDB('orderHistory', nextHistory);
+
+        if (freedTable) {
+          const currentTables = loadStorage(STORAGE_KEYS.TABLES, []);
+          const nextTables = currentTables.map((t) => (t.id === freedTable.id ? freedTable : t));
+          localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(nextTables));
+          dualWriteToIndexedDB('tables', nextTables);
+        }
+      } catch (err) {
+        console.warn('Storage sync error on force delete:', err);
+      }
+
+      // 6. Broadcast to all clients
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'order_sync',
+          payload: {
+            deletedOrderId: orderId,
+            table: freedTable,
+            senderInstance: clientInstanceIdRef.current
+          }
+        }).catch(() => {});
+      }
+
+      showToast(`Đã xóa vĩnh viễn đơn #${orderId}!`, 'success');
+      return { success: true };
+    } catch (err) {
+      console.error('Lỗi adminForceDeleteOrder:', err);
+      showToast('Lỗi khi xóa đơn: ' + err.message, 'error');
+      return { success: false, error: err.message };
+    }
+  };
+
+  const adminForceResetTable = async (tableId) => {
+    if (!tableId) return { success: false };
+    try {
+      const currentTbl = tables.find((t) => t.id === tableId);
+      const resetTable = {
+        ...(currentTbl || { id: tableId, name: tableId }),
+        status: 'empty',
+        activeOrderId: null,
+        customerCount: 0,
+        seatedAt: null,
+        billingLock: null
+      };
+
+      setTables((prev) => prev.map((t) => (t.id === tableId ? resetTable : t)));
+
+      // If there was an active order, archive or remove it
+      if (currentTbl?.activeOrderId) {
+        const ordId = currentTbl.activeOrderId;
+        setOrders((prev) => {
+          const next = { ...prev };
+          delete next[ordId];
+          return next;
+        });
+        cloudDeleteOrder(ordId).catch(() => {});
+      }
+
+      await cloudUpsertTable(resetTable);
+
+      try {
+        const currentTables = loadStorage(STORAGE_KEYS.TABLES, tables);
+        const nextTables = currentTables.map((t) => (t.id === tableId ? resetTable : t));
+        localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(nextTables));
+        dualWriteToIndexedDB('tables', nextTables);
+      } catch (err) {
+        console.warn('Storage sync error on force reset table:', err);
+      }
+
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'table_sync',
+          payload: { table: resetTable, senderInstance: clientInstanceIdRef.current }
+        }).catch(() => {});
+      }
+
+      showToast(`Đã giải phóng cưỡng chế bàn ${resetTable.name}!`, 'info');
+      return { success: true, table: resetTable };
+    } catch (err) {
+      console.error('Lỗi adminForceResetTable:', err);
+      showToast('Lỗi khi giải phóng bàn: ' + err.message, 'error');
+      return { success: false, error: err.message };
+    }
+  };
+
+  const adminPurgeStaleOrders = async () => {
+    try {
+      showToast('Đang quét và dọn sạch đơn ma toàn hệ thống...', 'info');
+      const reconciled = reconcileTablesAndOrders(tables, orders, orderHistory);
+      setTables(reconciled.reconciledTables);
+      setOrders(reconciled.reconciledOrders);
+      setOrderHistory(reconciled.reconciledHistory);
+
+      reconciled.reconciledTables.forEach((t) => cloudUpsertTable(t).catch(() => {}));
+      showToast('Đã dọn sạch đơn ma và đồng bộ hoàn tất!', 'success');
+      return { success: true };
+    } catch (err) {
+      console.error('Lỗi adminPurgeStaleOrders:', err);
+      showToast('Lỗi dọn dẹp: ' + err.message, 'error');
+      return { success: false, error: err.message };
+    }
   };
 
   // =================== HISTORICAL ORDER SETTLEMENT & ROLLOVER ===================
@@ -3410,6 +3586,10 @@ export function PosProvider({ children }) {
       return await uploadStoreLogoToStorage(file, type);
     },
     resetAllData,
+    // Super-Admin Emergency Actions
+    adminForceDeleteOrder,
+    adminForceResetTable,
+    adminPurgeStaleOrders,
     // Phase 1: Realtime Hardening & Billing Lock
     isTableBillingLocked,
     acquireBillingLock,

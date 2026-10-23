@@ -11,7 +11,9 @@ import {
   Clock,
   Users,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
 import { triggerHaptic } from '../../utils/haptics';
@@ -24,7 +26,7 @@ export default function TableActionModal({
   onGoToBill,
   onEditTable
 }) {
-  const { tables, orders, transferTable, mergeTables, deleteTable, requestBillForTable } = usePos();
+  const { tables, orders, transferTable, mergeTables, deleteTable, requestBillForTable, adminForceDeleteOrder, adminForceResetTable, currentRole } = usePos();
 
   // Mode: 'menu' | 'transfer' | 'merge'
   const [modalMode, setModalMode] = useState('menu');
@@ -32,7 +34,12 @@ export default function TableActionModal({
 
   if (!isOpen || !table) return null;
 
-  const activeOrder = table.activeOrderId ? orders[table.activeOrderId] : null;
+  const activeOrder =
+    (table.activeOrderId && orders[table.activeOrderId]) ||
+    Object.values(orders).find(
+      (o) => o.tableId === table.id && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+    ) ||
+    null;
 
   // Danh sách bàn trống cho chuyển bàn
   const emptyTables = tables.filter((t) => t.id !== table.id && t.status === 'empty');
@@ -225,6 +232,46 @@ export default function TableActionModal({
                     <span>Xóa bàn</span>
                   </button>
                 )}
+
+              {/* Action 6: Xử lý Khẩn cấp & Cứu bàn (Toàn quyền Admin / Quản lý) */}
+              {['admin', 'manager'].includes(currentRole) && (
+                <div className="pt-2 border-t border-dashed border-red-200">
+                  <div className="text-[11px] font-bold text-red-600 mb-1.5 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Xử lý khẩn cấp & Cứu bàn (Toàn quyền)</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {activeOrder && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm(`XÁC NHẬN: Xóa vĩnh viễn đơn #${activeOrder.id} của ${table.name} khỏi hệ thống?`)) {
+                            onClose();
+                            await adminForceDeleteOrder(activeOrder.id);
+                          }
+                        }}
+                        className="py-2 px-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-600" />
+                        <span>Xóa vĩnh viễn đơn</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (window.confirm(`XÁC NHẬN: Giải phóng cưỡng chế ${table.name} về trạng thái trống?`)) {
+                          onClose();
+                          await adminForceResetTable(table.id);
+                        }
+                      }}
+                      className={`py-2 px-2.5 bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer ${!activeOrder ? "col-span-2" : ""}`}
+                    >
+                      <RefreshCw className="w-3 h-3 text-orange-700" />
+                      <span>Cưỡng chế mở bàn</span>
+                    </button>
+                  </div>
+                </div>
+              )}
               </div>
             </div>
           )}

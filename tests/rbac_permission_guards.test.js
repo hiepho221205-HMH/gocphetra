@@ -231,9 +231,10 @@ describe('RBAC 3-Tier Permission Guards & Negative Security Tests', () => {
   it('2.1 - Manager is ALLOWED full POS operations, menu editing, and full history', () => {
     const sim = new RbacPosSimulator('manager');
     // Allowed menu edit
-    const updateRes = sim.updateMenuItem('prod-1', { basePrice: 28000 });
+    const firstId = sim.menu[0]?.id || 'prod-1';
+    const updateRes = sim.updateMenuItem(firstId, { basePrice: 28000 });
     assert.ok(updateRes);
-    assert.equal(sim.menu.find((m) => m.id === 'prod-1').basePrice, 28000);
+    assert.equal(sim.menu.find((m) => m.id === firstId).basePrice, 28000);
 
     // Allowed full history
     sim.orderHistory = [

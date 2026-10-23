@@ -48,6 +48,17 @@ function PosContent() {
     setActiveTab('tables');
   };
 
+  const resolveTableForBill = (tbl) => {
+    if (!tbl) return null;
+    const fromList = tables.find((t) => t.id === tbl.id);
+    return {
+      ...(fromList || {}),
+      ...tbl,
+      activeOrderId: tbl.activeOrderId || fromList?.activeOrderId || null,
+      status: tbl.status || fromList?.status || 'empty'
+    };
+  };
+
   const handleOpenSettings = () => {
     if (!canAccessSettings) {
       showToast?.('Từ chối quyền: Nhân viên không được phép truy cập Cài đặt hệ thống!', 'error');
@@ -112,8 +123,7 @@ function PosContent() {
                   table={tables.find((t) => t.id === activeOrderingTable.id) || activeOrderingTable}
                   onBack={() => setActiveOrderingTable(null)}
                   onGoToBill={(tbl) => {
-                    const freshTable = tables.find((t) => t.id === tbl.id) || tbl;
-                    setBillingTable(freshTable);
+                    setBillingTable(resolveTableForBill(tbl));
                   }}
                 />
               ) : (
@@ -124,7 +134,7 @@ function PosContent() {
                       if (freshTable.status === 'empty') {
                         setActiveOrderingTable(freshTable);
                       } else if (freshTable.status === 'awaiting_payment') {
-                        setBillingTable(freshTable);
+                        setBillingTable(resolveTableForBill(freshTable));
                       } else {
                         setActiveOrderingTable(freshTable);
                       }
@@ -142,8 +152,7 @@ function PosContent() {
                       setActiveOrderingTable(freshTable);
                     }}
                     onOpenBill={(table) => {
-                      const freshTable = tables.find((t) => t.id === table.id) || table;
-                      setBillingTable(freshTable);
+                      setBillingTable(resolveTableForBill(table));
                     }}
                   />
                 </div>
@@ -244,7 +253,7 @@ function PosContent() {
 
         <BillCheckoutModal
           isOpen={Boolean(billingTable)}
-          table={billingTable ? (tables.find((t) => t.id === billingTable.id) || billingTable) : null}
+          table={resolveTableForBill(billingTable)}
           onClose={() => setBillingTable(null)}
           onPaymentSuccess={handlePaymentSuccess}
           onGoBackToOrder={(tbl) => {

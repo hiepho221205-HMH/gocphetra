@@ -240,8 +240,9 @@ describe('7-Day Continuous Sales Simulation & RBAC Adversarial Verification', ()
     assert.equal(sim.visibleOrderHistory.length, 2, 'Manager can view history across multiple days');
 
     // Manager updates menu price
-    sim.updatePrice('prod-1', 26000);
-    assert.equal(sim.menu.find((m) => m.id === 'prod-1').basePrice, 26000);
+    const targetProdId = sim.menu[0]?.id || 'prod-1';
+    sim.updatePrice(targetProdId, 26000);
+    assert.equal(sim.menu.find((m) => m.id === targetProdId).basePrice, 26000);
     assert.equal(sim.auditLogs[0].action, 'price_change');
 
     // Manager attempts forbidden actions

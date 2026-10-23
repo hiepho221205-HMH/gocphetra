@@ -21,6 +21,7 @@ import { triggerHaptic } from '../../utils/haptics';
 export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOrder, onPaymentSuccess }) {
   const {
     orders,
+    orderHistory,
     updateBillAdjustments,
     fullCheckout,
     requestBillForTable,
@@ -41,7 +42,7 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
   const [isPrePrint, setIsPrePrint] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  // Phase 1: Billing Lock acquisition and cleanup - Always called in the same hook order
+  // Phase 1: Billing Lock acquisition and cleanup - Only triggered on open/close of this table
   useEffect(() => {
     if (isOpen && table?.id) {
       acquireBillingLock?.(table.id);
@@ -49,7 +50,7 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
         releaseBillingLock?.(table.id);
       };
     }
-  }, [isOpen, table?.id, acquireBillingLock, releaseBillingLock]);
+  }, [isOpen, table?.id]);
 
   if (!isOpen || !table) return null;
 
@@ -95,27 +96,50 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
     );
   }
 
-
   // Resilient order lookup: check table.activeOrderId first, then search orders by tableId
   const order =
     (table.activeOrderId && orders[table.activeOrderId]) ||
     Object.values(orders).find(
+      (o) => o.tableId === table.id && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+    ) ||
+    Object.values(orders).find(
       (o) => o.tableId === table.id && o.status !== 'completed' && o.status !== 'cancelled'
     ) ||
+    (orderHistory && orderHistory.find((o) => o.tableId === table.id && o.id === table.activeOrderId)) ||
     null;
 
   if (!order || !Array.isArray(order.items) || order.items.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
-        <div className="w-full max-w-sm clay-card p-6 text-center space-y-3">
-          <p className="text-sm text-gray-500 font-bold">Bàn này chưa có món nào để lên bill!</p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 clay-btn-primary text-white text-xs font-black cursor-pointer"
-          >
-            Đóng
-          </button>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fadeIn">
+        <div className="w-full max-w-sm clay-card p-6 text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-full bg-amber-50 flex items-center justify-center text-amber-600 font-black text-xl shadow-inner">
+            🍽️
+          </div>
+          <div>
+            <h3 className="text-base font-black text-gray-800">Bàn chưa có món nào</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Bàn <b>{table.name}</b> chưa có món để thanh toán. Bạn có muốn chuyển sang màn hình gọi món không?
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 clay-inset text-gray-600 rounded-xl text-xs font-bold cursor-pointer"
+            >
+              Đóng
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onGoBackToOrder?.(table);
+              }}
+              className="px-4 py-2.5 clay-btn-primary text-white rounded-xl text-xs font-black cursor-pointer shadow-sm"
+            >
+              Gọi món ngay
+            </button>
+          </div>
         </div>
       </div>
     );

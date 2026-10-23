@@ -26,61 +26,127 @@ export function reconcileTablesAndOrders(tablesArr, ordersObj, orderHistoryArr =
   const newOrders = { ...ordersObj };
   const newHistory = Array.isArray(orderHistoryArr) ? [...orderHistoryArr] : [];
 
-  // Table-First Rule: Clean up orphan orders where table is empty or missing
-  Object.values(newOrders).forEach((ord) => {
-    if (!ord || !ord.id) return;
+  // Group and sort serving orders by tableId to enforce Strict 1-to-1 Table-to-Active-Order Invariant
+  const servingOrdersByTable = {};
+  const ordersList = Object.values(newOrders).filter((o) => o && o.id);
+
+  // First pass: archive completed/cancelled/unpaid_carried_over
+  ordersList.forEach((ord) => {
     if (ord.status === 'completed' || ord.status === 'cancelled') {
-      newHistory.unshift(ord);
+      if (!newHistory.some((h) => h.id === ord.id)) {
+        newHistory.unshift(ord);
+      }
       delete newOrders[ord.id];
       changed = true;
       return;
     }
 
     if (ord.status === 'unpaid_carried_over') {
-      // Historical carried over order: preserve exactly as unpaid_carried_over
-      newHistory.unshift(ord);
+      if (!newHistory.some((h) => h.id === ord.id)) {
+        newHistory.unshift(ord);
+      }
       delete newOrders[ord.id];
       changed = true;
       return;
     }
 
-    const table = newTables.find((t) => t.id === ord.tableId);
-    if (!table) {
-      const cancelledOrder = {
-        ...ord,
-        status: 'cancelled',
-        finishedAt: ord.finishedAt || new Date().toISOString()
-      };
-      newHistory.unshift(cancelledOrder);
+    // Clean up empty orders with 0 items
+    if (!Array.isArray(ord.items) || ord.items.length === 0) {
       delete newOrders[ord.id];
       changed = true;
-    } else if (ord.items && ord.items.length > 0 && ord.status === 'serving') {
-      // Self-Healing Guarantee: If order is active with items, table MUST be occupied with this order!
-      if (table.status !== 'occupied' || table.activeOrderId !== ord.id) {
-        table.status = 'occupied';
-        table.activeOrderId = ord.id;
-        table.customerCount = ord.customerCount || table.customerCount || 1;
-        table.seatedAt = table.seatedAt || ord.createdAt || new Date().toISOString();
-        changed = true;
+      return;
+    }
+
+    if (ord.status === 'serving' && ord.tableId) {
+      if (!servingOrdersByTable[ord.tableId]) {
+        servingOrdersByTable[ord.tableId] = [];
       }
-    } else if (table.status === 'empty' || table.activeOrderId !== ord.id) {
-      delete newOrders[ord.id];
-      changed = true;
+      servingOrdersByTable[ord.tableId].push(ord);
     }
   });
 
-  // Verify occupied tables: if activeOrderId missing in newOrders or has 0 items, reset to empty
+  // Second pass: For each table with serving orders, pick ONLY the newest order
+  Object.keys(servingOrdersByTable).forEach((tId) => {
+    const list = servingOrdersByTable[tId];
+    // Sort descending by createdAt (or id timestamp)
+    list.sort((a, b) => {
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+
+    const primaryOrder = list[0];
+    const olderDuplicates = list.slice(1);
+
+    // Primary order binds to the table
+    const table = newTables.find((t) => t.id === tId);
+    if (!table) {
+      // Table doesn't exist: cancel order
+      const cancelledOrder = {
+        ...primaryOrder,
+        status: 'cancelled',
+        finishedAt: primaryOrder.finishedAt || new Date().toISOString()
+      };
+      newHistory.unshift(cancelledOrder);
+      delete newOrders[primaryOrder.id];
+      changed = true;
+    } else {
+      // Self-Healing Guarantee: primary order occupies table
+      if (table.status !== 'occupied' || table.activeOrderId !== primaryOrder.id) {
+        table.status = 'occupied';
+        table.activeOrderId = primaryOrder.id;
+        table.customerCount = primaryOrder.customerCount || table.customerCount || 1;
+        table.seatedAt = table.seatedAt || primaryOrder.createdAt || new Date().toISOString();
+        changed = true;
+      }
+    }
+
+    // Archive older duplicate serving orders so they NEVER resurrect
+    olderDuplicates.forEach((dupOrd) => {
+      const archivedDuplicate = {
+        ...dupOrd,
+        status: 'cancelled',
+        finishedAt: dupOrd.finishedAt || new Date().toISOString(),
+        notes: (dupOrd.notes ? dupOrd.notes + ' | ' : '') + 'Tự động đóng do trùng bàn với đơn #' + primaryOrder.id
+      };
+      newHistory.unshift(archivedDuplicate);
+      delete newOrders[dupOrd.id];
+      changed = true;
+    });
+  });
+
+  // Third pass: Verify occupied tables: if activeOrderId missing or has 0 items, check fallback or reset to empty
   newTables.forEach((t, idx) => {
     if (t.status === 'occupied') {
-      const activeOrder = t.activeOrderId ? newOrders[t.activeOrderId] : null;
+      let activeOrder = t.activeOrderId ? newOrders[t.activeOrderId] : null;
       if (!activeOrder || !activeOrder.items || activeOrder.items.length === 0) {
-        newTables[idx] = {
-          ...t,
-          status: 'empty',
-          activeOrderId: null,
-          seatedAt: null,
-          customerCount: 0
-        };
+        // Try fallback: find any valid serving order for this table
+        const fallback = Object.values(newOrders).find(
+          (o) => o.tableId === t.id && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+        );
+        if (fallback) {
+          newTables[idx] = {
+            ...t,
+            status: 'occupied',
+            activeOrderId: fallback.id,
+            customerCount: fallback.customerCount || t.customerCount || 1
+          };
+          changed = true;
+        } else {
+          newTables[idx] = {
+            ...t,
+            status: 'empty',
+            activeOrderId: null,
+            seatedAt: null,
+            customerCount: 0
+          };
+          changed = true;
+        }
+      }
+    } else {
+      // Table is marked empty: ensure activeOrderId is null
+      if (t.activeOrderId) {
+        newTables[idx] = { ...t, activeOrderId: null };
         changed = true;
       }
     }
