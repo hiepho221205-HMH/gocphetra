@@ -125,7 +125,7 @@ export default function ManagementProfileView({ onBack }) {
         ]
       };
       await printReceipt57mm(mockTestOrder, settings, {
-        useNoAccents: settings?.printNoAccents !== false
+        useNoAccents: settings?.printNoAccents === true
       });
       showToast?.('Đã in thử nghiệm 57mm thành công!', 'success');
     } catch (err) {
@@ -760,7 +760,7 @@ export default function ManagementProfileView({ onBack }) {
           </div>
           <input
             type="checkbox"
-            checked={settings?.printNoAccents !== false}
+            checked={settings?.printNoAccents === true}
             onChange={(e) => updateSettings({ printNoAccents: e.target.checked })}
             className="w-4 h-4 rounded text-forest-800 focus:ring-forest-800 cursor-pointer accent-[#214E34]"
           />

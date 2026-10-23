@@ -116,36 +116,49 @@ export function formatReceiptKeyValue(key = '', val = '', totalWidth = 32) {
 }
 
 /**
- * Formats an order item row with clean multi-line wrapping:
- * 58mm: Item name (16) | Qty (4) | Total (12) = 32 cols
- * 80mm: Item name (26) | Qty (6) | Total (16) = 48 cols
+ * Formats an order item row with clean 2-line layout:
+ * - Line 1: Item title (with size if any), naturally wrapped across full paper width
+ * - Line 2: [Qty] x [Unit price] (left aligned) and [Line total] (right aligned)
  *
  * @param {string} name
  * @param {number|string} qty
- * @param {number|string} priceFormatted
- * @param {'58mm'|'80mm'} paperWidth
+ * @param {number|string} unitPriceFormatted
+ * @param {number|string|'58mm'|'80mm'} [lineTotalFormatted]
+ * @param {'58mm'|'80mm'} [paperWidth]
  * @returns {string[]} Array of lines for thermal print
  */
-export function formatReceiptItemRows(name, qty, priceFormatted, paperWidth = '58mm') {
-  const is80 = paperWidth === '80mm';
-  const nameWidth = is80 ? 26 : 16;
-  const qtyWidth = is80 ? 6 : 4;
-  const priceWidth = is80 ? 16 : 12;
+export function formatReceiptItemRows(name, qty, unitPriceFormatted, lineTotalFormatted = '58mm', paperWidth = '58mm') {
+  // Support legacy signature: formatReceiptItemRows(name, qty, priceFormatted, paperWidth)
+  let unitPrice = unitPriceFormatted;
+  let totalFormatted = lineTotalFormatted;
+  let targetWidth = paperWidth;
 
-  const nameLines = wrapText(name, nameWidth);
-  const qtyStr = String(qty).slice(0, qtyWidth).padStart(qtyWidth, ' ');
-  const priceStr = String(priceFormatted).slice(0, priceWidth).padStart(priceWidth, ' ');
+  if (lineTotalFormatted === '58mm' || lineTotalFormatted === '80mm') {
+    targetWidth = lineTotalFormatted;
+    totalFormatted = unitPriceFormatted;
+    unitPrice = '';
+  }
+
+  const is80 = targetWidth === '80mm';
+  const totalWidth = is80 ? 48 : 32;
 
   const result = [];
 
-  // First line contains first line of name, Qty, and Price
-  const firstCol = nameLines[0].padEnd(nameWidth, ' ');
-  result.push(`${firstCol}${qtyStr}${priceStr}`);
+  // Line 1: Item name wrapped across full paper width
+  const nameLines = wrapText(name, totalWidth);
+  for (const line of nameLines) {
+    result.push(line);
+  }
 
-  // Subsequent lines for wrapped name with blank Qty and Price
-  for (let i = 1; i < nameLines.length; i++) {
-    const wrappedCol = nameLines[i].padEnd(nameWidth, ' ');
-    result.push(`${wrappedCol}${' '.repeat(qtyWidth + priceWidth)}`);
+  // Line 2: Quantity x Unit Price (left) + Line Total (right)
+  const qtyStr = unitPrice ? `${qty} x ${unitPrice}` : `${qty}`;
+  const totalStr = String(totalFormatted || '');
+  const spaceNeeded = totalWidth - qtyStr.length - totalStr.length;
+
+  if (spaceNeeded <= 0) {
+    result.push(qtyStr + ' ' + totalStr);
+  } else {
+    result.push(qtyStr + ' '.repeat(spaceNeeded) + totalStr);
   }
 
   return result;
@@ -220,15 +233,24 @@ export function buildReceiptModel({
   }
 
   // Items extraction
-  const items = (order.items || []).map((it) => ({
-    name: it.name || 'Món',
-    size: it.size && it.size !== 'Std' && it.size !== 'Mặc định' ? it.size : '',
-    quantity: Number(it.quantity || 1),
-    price: Number(it.price || it.basePrice || it.unitPrice || 0),
-    lineTotal: Number(it.lineTotal || (Number(it.price || it.basePrice || 0) * Number(it.quantity || 1))),
-    toppings: it.toppings || [],
-    notes: it.notes || ''
-  }));
+  const items = (order.items || []).map((it) => {
+    const qty = Number(it.quantity || 1);
+    const lineTotal = Number(it.lineTotal || (Number(it.price || it.basePrice || it.unitPrice || 0) * qty));
+    const effectiveUnitPrice = qty > 0 ? Math.round(lineTotal / qty) : Number(it.price || 0);
+
+    return {
+      name: it.name || 'Món',
+      size: it.size && it.size !== 'Std' && it.size !== 'Mặc định' ? it.size : '',
+      quantity: qty,
+      price: Number(it.price || it.basePrice || it.unitPrice || 0),
+      effectiveUnitPrice,
+      unitPriceFormatted: formatVND(effectiveUnitPrice),
+      lineTotal,
+      lineTotalFormatted: formatVND(lineTotal),
+      toppings: it.toppings || [],
+      notes: it.notes || ''
+    };
+  });
 
   // Reprint tracking
   const reprintCount = receiptRecord?.reprint_count || 0;

@@ -121,6 +121,7 @@ export const INITIAL_SETTINGS = {
   vatPercent: 0,
   surchargePercent: 0,
   autoPrintReceipt: true,
+  printNoAccents: false,
   enableVietQR: true,
   receiptPaperWidth: '58mm',
   receiptSettings: {

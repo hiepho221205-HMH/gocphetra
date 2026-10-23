@@ -317,19 +317,23 @@ describe('GÓC POS — Store Configuration, Receipt Engine & Thermal Printing Su
       }
     });
 
-    test('3.4 - formatReceiptItemRows for 58mm and 80mm preserves alignment and does not truncate quantity or price', () => {
+    test('3.4 - formatReceiptItemRows for 58mm and 80mm preserves 2-line layout without truncating quantity or price', () => {
       const longName = 'Cà phê Đen Phin Buôn Ma Thuột';
-      const rows58 = formatReceiptItemRows(longName, 2, '50.000đ', '58mm');
+      const rows58 = formatReceiptItemRows(longName, 2, '25.000đ', '50.000đ', '58mm');
       assert.ok(rows58.length >= 2);
-      // First line ends with quantity and price
-      assert.ok(rows58[0].includes('2'));
-      assert.ok(rows58[0].includes('50.000đ'));
-      assert.equal(rows58[0].length, 32);
+      // Name line
+      assert.ok(rows58[0].includes('Cà phê Đen Phin'));
+      // Quantity x Price line
+      const lastLine58 = rows58[rows58.length - 1];
+      assert.ok(lastLine58.includes('2 x 25.000đ'));
+      assert.ok(lastLine58.includes('50.000đ'));
+      assert.equal(lastLine58.length, 32);
 
-      const rows80 = formatReceiptItemRows(longName, 3, '75.000đ', '80mm');
-      assert.ok(rows80[0].includes('3'));
-      assert.ok(rows80[0].includes('75.000đ'));
-      assert.equal(rows80[0].length, 48);
+      const rows80 = formatReceiptItemRows(longName, 3, '25.000đ', '75.000đ', '80mm');
+      const lastLine80 = rows80[rows80.length - 1];
+      assert.ok(lastLine80.includes('3 x 25.000đ'));
+      assert.ok(lastLine80.includes('75.000đ'));
+      assert.equal(lastLine80.length, 48);
     });
 
     test('3.5 - formatReceiptKeyValue aligns key and value to exact column count', () => {
@@ -488,27 +492,48 @@ describe('GÓC POS — Store Configuration, Receipt Engine & Thermal Printing Su
       assert.equal(row80.length, 48);
     });
 
-    test('5.3 - buildReceiptThermalBytes strictly omits cashier line on printed receipt', () => {
+    test('5.3 - buildReceiptThermalBytes strictly omits cashier line, eliminates duplicate wifi, and includes vietnamese diacritics', () => {
       const order = {
         id: 'ORD-NOCASHIER',
         tableName: 'Bàn 02',
         cashier: 'Trần Văn Nhân Viên',
-        items: [{ name: 'Trà đào', quantity: 1, lineTotal: 30000 }],
-        total: 30000
+        items: [{ name: 'Trà đào cam sả', quantity: 2, lineTotal: 60000 }],
+        total: 60000
       };
 
-      const model = buildReceiptModel({ order, overridePaperWidth: '58mm' });
+      const storeSettings = {
+        wifi_password: 'xincamon',
+        wifi_on_receipt: true,
+        receipt_footer: 'Cảm ơn quý khách và hẹn gặp lại!'
+      };
+
+      const model = buildReceiptModel({ order, storeSettings, overridePaperWidth: '58mm' });
       const bytes = buildReceiptThermalBytes(model);
-      const decodedText = new TextDecoder().decode(bytes);
+      const decodedText = new TextDecoder('utf-8').decode(bytes);
 
       // Verify "Thu ngan:" or cashier name is NOT in the thermal print output
       assert.equal(decodedText.includes('Thu ngan:'), false);
       assert.equal(decodedText.includes('Tran Van Nhan Vien'), false);
-      // But verify essential metadata remains
-      assert.equal(decodedText.includes('So HD:'), true);
-      assert.equal(decodedText.includes('Ban:'), true);
-      assert.equal(decodedText.includes('Gio goi mon:'), true);
-      assert.equal(decodedText.includes('Gio xuat HD:'), true);
+
+      // Verify essential metadata with Vietnamese diacritics
+      assert.equal(decodedText.includes('Số HĐ:'), true);
+      assert.equal(decodedText.includes('Bàn:'), true);
+      assert.equal(decodedText.includes('Giờ gọi món:'), true);
+      assert.equal(decodedText.includes('Giờ xuất HĐ:'), true);
+      assert.equal(decodedText.includes('Tiền hàng:'), true);
+      assert.equal(decodedText.includes('TỔNG CỘNG:'), true);
+      assert.equal(decodedText.includes('Hình thức:'), true);
+
+      // Verify 2-line item layout without redundant column headers
+      assert.equal(decodedText.includes('Ten mon'), false);
+      assert.equal(decodedText.includes('Tên món'), false);
+      assert.equal(decodedText.includes('Trà đào cam sả'), true);
+      assert.equal(decodedText.includes('2 x 30.000đ'), true);
+
+      // Verify single WiFi (appears exactly once)
+      const wifiMatches = decodedText.match(/Wifi:\s*xincamon/g) || [];
+      assert.equal(wifiMatches.length, 1, `Expected exactly 1 WiFi entry, got ${wifiMatches.length}`);
+      assert.equal(decodedText.includes('Pass wifi:'), false, 'Should not contain old Pass wifi: prefix');
     });
   });
 });

@@ -5,6 +5,7 @@
 
 import { formatVND } from './currency.js';
 import { formatVietnamDisplayDate } from './dateTime.js';
+import { wrapText } from './receiptEngine.js';
 
 // Target paper width: 57mm / 58mm (standard 32 characters per line in Font A)
 export const LINE_WIDTH_57MM = 32;
@@ -172,7 +173,7 @@ export const ESC_POS = {
 /**
  * Converts a string into Uint8Array bytes (ASCII or UTF-8)
  */
-export function textToBytes(str = '', useNoAccents = true) {
+export function textToBytes(str = '', useNoAccents = false) {
   const processed = useNoAccents ? removeVietnameseDiacritics(str) : str;
   const encoder = new TextEncoder();
   return encoder.encode(processed);
@@ -302,7 +303,7 @@ export async function sendRawToPrinter(byteArray) {
  * Builds ESC/POS Byte Buffer for a Customer Receipt (57mm format)
  */
 export function buildReceipt57mmBytes(order, settings = {}, options = {}) {
-  const useNoAccents = options.useNoAccents !== false;
+  const useNoAccents = options.useNoAccents === true;
   const bytes = [];
 
   const addBytes = (arr) => {
@@ -325,84 +326,89 @@ export function buildReceipt57mmBytes(order, settings = {}, options = {}) {
   addBytes(ESC_POS.ALIGN_CENTER);
   addBytes(ESC_POS.BOLD_ON);
   addBytes(ESC_POS.DOUBLE_WIDTH_HEIGHT);
-  addLine('GOC - PHE & TRA');
+  addLine('GÓC • PHÊ & TRÀ');
   addBytes(ESC_POS.NORMAL_SIZE);
   addBytes(ESC_POS.BOLD_OFF);
 
   if (settings.branchAddress) addLine(settings.branchAddress);
   if (settings.hotline) addLine(`Hotline: ${settings.hotline}`);
-  if (settings.wifiPassword) addLine(`Wifi: ${settings.wifiPassword}`);
 
   addLine(separator57mm('='));
   addBytes(ESC_POS.BOLD_ON);
-  addLine(order.isPrePrint ? '--- PHIEU TAM TINH ---' : '--- HOA DON THANH TOAN ---');
+  addLine(order.isPrePrint ? '--- PHIẾU TẠM TÍNH ---' : '--- HÓA ĐƠN THANH TOÁN ---');
   addBytes(ESC_POS.BOLD_OFF);
   addLine(separator57mm('='));
 
   // 3. Metadata (Left aligned)
   addBytes(ESC_POS.ALIGN_LEFT);
-  addLine(formatKeyValue57mm('So HD:', order.id || 'N/A'));
-  addLine(formatKeyValue57mm('Ban:', order.tableName || 'Mang ve'));
-  addLine(formatKeyValue57mm('Gio vao:', (order.createdAt || '').slice(11, 16) || '--:--'));
-  addLine(formatKeyValue57mm('Gio ra:', new Date().toTimeString().slice(0, 5)));
+  addLine(formatKeyValue57mm('Số HĐ:', order.id || 'N/A'));
+  addLine(formatKeyValue57mm('Bàn:', order.tableName || 'Mang về'));
+  addLine(formatKeyValue57mm('Giờ gọi món:', (order.createdAt || '').slice(11, 16) || '--:--'));
+  addLine(formatKeyValue57mm('Giờ xuất HĐ:', new Date().toTimeString().slice(0, 5)));
   addLine(separator57mm('-'));
 
-  // 4. Items Header (3 columns: 16 - 4 - 12)
-  addBytes(ESC_POS.BOLD_ON);
-  addLine(formatTableRow57mm('Ten mon', 'SL', 'T.Tien'));
-  addBytes(ESC_POS.BOLD_OFF);
-  addLine(separator57mm('-'));
-
-  // 5. Items List
+  // 4. Items List (Clean 2-line layout without table headers)
   const items = order.items || [];
   items.forEach((it) => {
-    const itemTitle = `${it.name || 'Mon'}${it.size ? ` (${it.size})` : ''}`;
-    const qtyStr = String(it.quantity || 1);
-    const priceStr = formatVND(it.lineTotal || (it.price || 0) * it.quantity);
+    const itemTitle = `${it.name || 'Món'}${it.size ? ` (${it.size})` : ''}`;
+    const qty = it.quantity || 1;
+    const lineTotal = Number(it.lineTotal || (Number(it.price || it.basePrice || 0) * qty));
+    const effectiveUnitPrice = qty > 0 ? Math.round(lineTotal / qty) : Number(it.price || 0);
 
-    addLine(formatTableRow57mm(itemTitle, qtyStr, priceStr));
+    // Line 1: Item title
+    const titleLines = wrapText(itemTitle, LINE_WIDTH_57MM);
+    titleLines.forEach((l) => addLine(l));
 
     // Toppings indent
     if (it.toppings && it.toppings.length > 0) {
       const topNames = it.toppings.map((tp) => tp.name).join(', ');
       addLine(`  + ${topNames}`.slice(0, LINE_WIDTH_57MM));
     }
+    // Notes indent
+    if (it.notes) {
+      addLine(`  * ${it.notes}`.slice(0, LINE_WIDTH_57MM));
+    }
+
+    // Line 2: Qty x Unit price and Line total
+    addLine(formatKeyValue57mm(`${qty} x ${formatVND(effectiveUnitPrice)}`, formatVND(lineTotal)));
   });
 
   addLine(separator57mm('-'));
 
-  // 6. Financial Summary
-  addLine(formatKeyValue57mm('Tong tien hang:', formatVND(order.subtotal || order.total || 0)));
+  // 5. Financial Summary
+  addLine(formatKeyValue57mm('Tiền hàng:', formatVND(order.subtotal || order.total || 0)));
 
   if (order.discountPercent > 0) {
     const discAmt = Math.round(((order.subtotal || 0) * order.discountPercent) / 100);
-    addLine(formatKeyValue57mm(`Giam gia (${order.discountPercent}%):`, `-${formatVND(discAmt)}`));
+    addLine(formatKeyValue57mm(`Giảm giá (${order.discountPercent}%):`, `-${formatVND(discAmt)}`));
   }
 
   if (order.surcharge > 0) {
-    addLine(formatKeyValue57mm('Phu phi:', `+${formatVND(order.surcharge)}`));
+    addLine(formatKeyValue57mm('Phụ phí:', `+${formatVND(order.surcharge)}`));
   }
 
   addLine(separator57mm('='));
   addBytes(ESC_POS.BOLD_ON);
   addBytes(ESC_POS.DOUBLE_HEIGHT);
-  addLine(formatKeyValue57mm('TONG CONG:', formatVND(order.total || 0)));
+  addLine(formatKeyValue57mm('TỔNG CỘNG:', formatVND(order.total || 0)));
   addBytes(ESC_POS.NORMAL_SIZE);
   addBytes(ESC_POS.BOLD_OFF);
   addLine(separator57mm('='));
 
-  // 7. Payment Info
-  const methodLabel = order.paymentMethod === 'vietqr' ? 'Chuyen khoan VietQR' : 'Tien mat';
-  addLine(formatKeyValue57mm('Hinh thuc:', methodLabel));
+  // 6. Payment Info
+  const methodLabel = order.paymentMethod === 'vietqr' ? 'Chuyển khoản VietQR' : 'Tiền mặt';
+  addLine(formatKeyValue57mm('Hình thức:', methodLabel));
+  addLine(separator57mm('-'));
 
-  // 8. Footer Note
+  // 7. Footer Note (Single WiFi above thank you message)
   addBytes(ESC_POS.ALIGN_CENTER);
-  addLine('');
-  addLine('Cam on quy khach & Hen gap lai!');
-  addLine('Pass wifi: ' + (settings.wifiPassword || 'GocCoffee2026'));
+  if (settings.wifiPassword && settings.wifiOnReceipt !== false) {
+    addLine(`Wifi: ${settings.wifiPassword}`);
+  }
+  addLine('Cảm ơn quý khách và hẹn gặp lại!');
 
-  // 9. Feed & Cut
-  addBytes(ESC_POS.FEED_5);
+  // 8. Feed & Cut
+  addBytes(ESC_POS.FEED_3);
   addBytes(ESC_POS.CUT);
 
   return new Uint8Array(bytes);
@@ -412,7 +418,7 @@ export function buildReceipt57mmBytes(order, settings = {}, options = {}) {
  * Builds ESC/POS Byte Buffer for Daily Revenue Close Slip (57mm format)
  */
 export function buildDailyClose57mmBytes(report, settings = {}, options = {}) {
-  const useNoAccents = options.useNoAccents !== false;
+  const useNoAccents = options.useNoAccents === true;
   const bytes = [];
 
   const addBytes = (arr) => {
@@ -431,38 +437,38 @@ export function buildDailyClose57mmBytes(report, settings = {}, options = {}) {
   addBytes(ESC_POS.INIT);
   addBytes(ESC_POS.ALIGN_CENTER);
   addBytes(ESC_POS.BOLD_ON);
-  addLine('GOC - PHE & TRA');
-  addLine('PHIEU CHOT DOANH THU NGAY');
+  addLine('GÓC • PHÊ & TRÀ');
+  addLine('PHIẾU CHỐT DOANH THU NGÀY');
   addBytes(ESC_POS.BOLD_OFF);
   addLine(separator57mm('='));
 
   addBytes(ESC_POS.ALIGN_LEFT);
-  addLine(formatKeyValue57mm('Ngay:', report.date || 'Hien tai'));
-  addLine(formatKeyValue57mm('Gio chot:', new Date().toLocaleTimeString('vi-VN')));
+  addLine(formatKeyValue57mm('Ngày:', report.date || 'Hiện tại'));
+  addLine(formatKeyValue57mm('Giờ chốt:', new Date().toLocaleTimeString('vi-VN')));
   addLine(separator57mm('-'));
 
   addBytes(ESC_POS.BOLD_ON);
-  addLine(formatKeyValue57mm('TONG DOANH THU:', formatVND(report.totalRevenue || 0)));
+  addLine(formatKeyValue57mm('TỔNG DOANH THU:', formatVND(report.totalRevenue || 0)));
   addBytes(ESC_POS.BOLD_OFF);
   addLine(separator57mm('-'));
 
-  addLine(formatKeyValue57mm('Tien mat:', formatVND(report.cashTotal || 0)));
+  addLine(formatKeyValue57mm('Tiền mặt:', formatVND(report.cashTotal || 0)));
   addLine(formatKeyValue57mm('VietQR:', formatVND(report.qrTotal || 0)));
-  addLine(formatKeyValue57mm('Tong so don:', `${report.totalOrders || 0} don`));
-  addLine(formatKeyValue57mm('Gia tri TB/don:', formatVND(report.averageOrderValue || 0)));
+  addLine(formatKeyValue57mm('Tổng số đơn:', `${report.totalOrders || 0} đơn`));
+  addLine(formatKeyValue57mm('Giá trị TB/đơn:', formatVND(report.averageOrderValue || 0)));
 
   if (report.totalDiscount > 0) {
-    addLine(formatKeyValue57mm('Tong giam gia:', `-${formatVND(report.totalDiscount)}`));
+    addLine(formatKeyValue57mm('Tổng giảm giá:', `-${formatVND(report.totalDiscount)}`));
   }
   if (report.totalSurcharge > 0) {
-    addLine(formatKeyValue57mm('Tong phu phi:', `+${formatVND(report.totalSurcharge)}`));
+    addLine(formatKeyValue57mm('Tổng phụ phí:', `+${formatVND(report.totalSurcharge)}`));
   }
 
   // Top Products
   if (report.topProducts && report.topProducts.length > 0) {
     addLine(separator57mm('-'));
     addBytes(ESC_POS.BOLD_ON);
-    addLine('TOP MON BAN CHAY:');
+    addLine('TOP MÓN BÁN CHẠY:');
     addBytes(ESC_POS.BOLD_OFF);
     report.topProducts.slice(0, 5).forEach((p, idx) => {
       addLine(`${idx + 1}. ${p.name}: ${p.quantity} ly (${formatVND(p.revenue)})`.slice(0, LINE_WIDTH_57MM));
@@ -471,10 +477,10 @@ export function buildDailyClose57mmBytes(report, settings = {}, options = {}) {
 
   addLine(separator57mm('='));
   addBytes(ESC_POS.ALIGN_CENTER);
-  addLine('Da kiem toan va dong so');
-  addLine('GOC POS Enterprise v4');
+  addLine('Đã kiểm toán và đóng sổ');
+  addLine('GÓC POS Enterprise');
 
-  addBytes(ESC_POS.FEED_5);
+  addBytes(ESC_POS.FEED_3);
   addBytes(ESC_POS.CUT);
 
   return new Uint8Array(bytes);
@@ -502,7 +508,7 @@ export async function printReceipt57mm(order, settings = {}, options = {}) {
 export function buildReceiptThermalBytes(model, options = {}) {
   const is80 = model.paperWidth === '80mm';
   const lineWidth = is80 ? LINE_WIDTH_80MM : LINE_WIDTH_57MM;
-  const useNoAccents = options.useNoAccents !== false;
+  const useNoAccents = options.useNoAccents === true;
   const bytes = [];
 
   const addBytes = (arr) => {
@@ -525,7 +531,6 @@ export function buildReceiptThermalBytes(model, options = {}) {
     const space = lineWidth - kStr.length - vStr.length;
     return space <= 0 ? kStr + ' ' + vStr : kStr + ' '.repeat(space) + vStr;
   };
-  const row = (c1, c2, c3) => is80 ? formatTableRow80mm(c1, c2, c3) : formatTableRow57mm(c1, c2, c3);
 
   // 1. Initialize
   addBytes(ESC_POS.INIT);
@@ -542,7 +547,7 @@ export function buildReceiptThermalBytes(model, options = {}) {
   if (model.settings?.showStoreName !== false) {
     addBytes(ESC_POS.BOLD_ON);
     addBytes(ESC_POS.DOUBLE_WIDTH_HEIGHT);
-    addLine(model.store?.storeName || 'GOC - PHE & TRA');
+    addLine(model.store?.storeName || 'GÓC • PHÊ & TRÀ');
     addBytes(ESC_POS.NORMAL_SIZE);
     addBytes(ESC_POS.BOLD_OFF);
   }
@@ -553,15 +558,13 @@ export function buildReceiptThermalBytes(model, options = {}) {
   if (model.settings?.showPhone !== false && model.store?.contactPhone) {
     addLine(`Hotline: ${model.store.contactPhone}`);
   }
-  if (model.settings?.showWifi !== false && model.store?.wifiPassword && model.store?.wifiOnReceipt !== false) {
-    addLine(`Wifi: ${model.store.wifiPassword}`);
-  }
+  // Single WiFi is placed exclusively in footer per design specification
 
   addLine(sep('='));
   addBytes(ESC_POS.BOLD_ON);
-  addLine(model.isPrePrint ? '--- PHIEU TAM TINH ---' : '--- HOA DON THANH TOAN ---');
+  addLine(model.isPrePrint ? '--- PHIẾU TẠM TÍNH ---' : '--- HÓA ĐƠN THANH TOÁN ---');
   if (model.isReprint) {
-    addLine(`[IN LAI LAN ${model.reprintCount}]`);
+    addLine(`[IN LẠI LẦN ${model.reprintCount}]`);
   }
   addBytes(ESC_POS.BOLD_OFF);
   addLine(sep('='));
@@ -569,91 +572,80 @@ export function buildReceiptThermalBytes(model, options = {}) {
   // 4. Metadata
   addBytes(ESC_POS.ALIGN_LEFT);
   if (model.settings?.showOrderId !== false) {
-    addLine(kv('So HD:', model.receiptNumber || model.orderId));
+    addLine(kv('Số HĐ:', model.receiptNumber || model.orderId));
   }
   if (model.settings?.showTable !== false) {
-    addLine(kv('Ban:', model.tableName || 'Mang ve'));
+    addLine(kv('Bàn:', model.tableName || 'Mang về'));
   }
   if (model.settings?.showOrderTime !== false) {
-    addLine(kv('Gio goi mon:', model.orderCreatedAtFormatted || '--:--'));
+    addLine(kv('Giờ gọi món:', model.orderCreatedAtFormatted || '--:--'));
   }
   if (model.settings?.showReceiptTime !== false) {
-    addLine(kv('Gio xuat HD:', model.receiptIssuedAtFormatted || '--:--'));
+    addLine(kv('Giờ xuất HĐ:', model.receiptIssuedAtFormatted || '--:--'));
   }
   addLine(sep('-'));
 
-  // 5. Items Header
-  addBytes(ESC_POS.BOLD_ON);
-  addLine(row('Ten mon', 'SL', 'T.Tien'));
-  addBytes(ESC_POS.BOLD_OFF);
-  addLine(sep('-'));
-
-  // 6. Items
+  // 5. Items List (Clean 2-line layout without table headers)
   const items = model.items || [];
-  const nameWidth = is80 ? 26 : 16;
-  const qtyWidth = is80 ? 6 : 4;
-  const priceWidth = is80 ? 16 : 12;
 
   items.forEach((it) => {
-    const itemTitle = `${it.name || 'Mon'}${it.size ? ` (${it.size})` : ''}`;
-    const qtyStr = String(it.quantity || 1);
-    const priceStr = formatVND(it.lineTotal);
+    const itemTitle = `${it.name || 'Món'}${it.size ? ` (${it.size})` : ''}`;
+    const qty = it.quantity || 1;
+    const unitPriceStr = it.unitPriceFormatted || formatVND(it.effectiveUnitPrice || it.price);
+    const lineTotalStr = it.lineTotalFormatted || formatVND(it.lineTotal);
 
-    if (itemTitle.length <= nameWidth) {
-      addLine(row(itemTitle, qtyStr, priceStr));
-    } else {
-      // Split into lines
-      addLine(row(itemTitle.slice(0, nameWidth), qtyStr, priceStr));
-      let remaining = itemTitle.slice(nameWidth);
-      while (remaining.length > 0) {
-        addLine(remaining.slice(0, nameWidth));
-        remaining = remaining.slice(nameWidth);
-      }
-    }
+    // Line 1: Item title (word-wrapped across full paper width)
+    const titleLines = wrapText(itemTitle, lineWidth);
+    titleLines.forEach((l) => addLine(l));
 
+    // Toppings indent
     if (it.toppings && it.toppings.length > 0) {
       const topNames = it.toppings.map((tp) => tp.name).join(', ');
       addLine(`  + ${topNames}`.slice(0, lineWidth));
     }
+    // Notes indent
     if (it.notes) {
       addLine(`  * ${it.notes}`.slice(0, lineWidth));
     }
+
+    // Line 2: Qty x Unit price and Line total
+    addLine(kv(`${qty} x ${unitPriceStr}`, lineTotalStr));
   });
 
   addLine(sep('-'));
 
-  // 7. Financial Summary
-  addLine(kv('Tien hang:', model.subtotalFormatted));
+  // 6. Financial Summary
+  addLine(kv('Tiền hàng:', model.subtotalFormatted));
   if (model.discountAmount > 0) {
-    addLine(kv(`Giam gia (${model.discountPercent}%):`, `-${model.discountAmountFormatted}`));
+    addLine(kv(`Giảm giá (${model.discountPercent}%):`, `-${model.discountAmountFormatted}`));
   }
   if (model.surcharge > 0) {
-    addLine(kv('Phu phi:', `+${model.surchargeFormatted}`));
+    addLine(kv('Phụ phí:', `+${model.surchargeFormatted}`));
   }
 
   addLine(sep('='));
   addBytes(ESC_POS.BOLD_ON);
   addBytes(ESC_POS.DOUBLE_HEIGHT);
-  addLine(kv('TONG CONG:', model.totalFormatted));
+  addLine(kv('TỔNG CỘNG:', model.totalFormatted));
   addBytes(ESC_POS.NORMAL_SIZE);
   addBytes(ESC_POS.BOLD_OFF);
   addLine(sep('='));
 
-  // 8. Payment Method
-  addLine(kv('Hinh thuc:', model.paymentMethodLabel));
+  // 7. Payment Method
+  addLine(kv('Hình thức:', model.paymentMethodLabel));
+  addLine(sep('-'));
 
-  // 9. Footer
+  // 8. Footer (Single WiFi above thank you message)
+  addBytes(ESC_POS.ALIGN_CENTER);
+  if (model.settings?.showWifi !== false && model.store?.wifiPassword && model.store?.wifiOnReceipt !== false) {
+    addLine('Wifi: ' + model.store.wifiPassword);
+  }
   if (model.settings?.showFooter !== false && model.footerText) {
-    addBytes(ESC_POS.ALIGN_CENTER);
-    addLine('');
     addLine(model.footerText);
-    if (model.settings?.showWifi !== false && model.store?.wifiPassword) {
-      addLine('Pass wifi: ' + model.store.wifiPassword);
-    }
   }
 
-  // 10. Feed & Cut
-  addBytes(ESC_POS.FEED_5);
+  // 9. Feed & Cut
+  addBytes(ESC_POS.FEED_3);
   addBytes(ESC_POS.CUT);
 
   return new Uint8Array(bytes);

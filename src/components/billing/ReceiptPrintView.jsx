@@ -110,7 +110,7 @@ export default function ReceiptPrintView({
 
       // Print order via universal thermal ESC/POS
       await printReceiptThermal(model, {
-        useNoAccents: settings?.printNoAccents !== false,
+        useNoAccents: settings?.printNoAccents === true,
         logoRasterBytes: logoRaster
       });
 
@@ -249,11 +249,10 @@ export default function ReceiptPrintView({
                   </h2>
               )}
 
-              {/* Unified Brand Metadata Block (Address, Hotline, Wifi) */}
+              {/* Unified Brand Metadata Block (Address, Hotline - Wifi moved exclusively to footer) */}
               {(Boolean(model.settings.showAddress && model.store.storeAddress) ||
-                Boolean(model.settings.showPhone && model.store.contactPhone) ||
-                Boolean(model.settings.showWifi && model.store.wifiPassword && model.store.wifiOnReceipt)) && (
-                <div className="receipt-brand-meta space-y-1 text-[9.5px] text-gray-700 font-sans leading-tight mt-1.5">
+                Boolean(model.settings.showPhone && model.store.contactPhone)) && (
+                <div className="receipt-brand-meta space-y-0.5 text-[9.5px] text-gray-700 font-sans leading-tight mt-1">
                   {/* Address */}
                   {model.settings.showAddress && model.store.storeAddress && (
                     <p className="m-0 p-0 leading-tight">
@@ -265,13 +264,6 @@ export default function ReceiptPrintView({
                   {model.settings.showPhone && model.store.contactPhone && (
                     <p className="m-0 p-0">
                       Hotline: {model.store.contactPhone}
-                    </p>
-                  )}
-
-                  {/* Wifi */}
-                  {model.settings.showWifi && model.store.wifiPassword && model.store.wifiOnReceipt && (
-                    <p className="m-0 p-0">
-                      Wifi: <span className="font-bold text-black">{model.store.wifiPassword}</span>
                     </p>
                   )}
                 </div>
@@ -291,7 +283,7 @@ export default function ReceiptPrintView({
             </div>
 
             {/* Metadata (Order info & exact timestamps) */}
-            <div className="py-2 border-b border-dashed border-gray-400 text-[10px] space-y-0.5">
+            <div className="py-1.5 border-b border-dashed border-gray-400 text-[10px] space-y-0.5">
               {model.settings.showOrderId && (
                 <div className="flex justify-between">
                   <span>Số HĐ:</span>
@@ -315,52 +307,52 @@ export default function ReceiptPrintView({
 
               {model.settings.showReceiptTime && (
                 <div className="flex justify-between">
-                  <span>Giờ xuất HD:</span>
+                  <span>Giờ xuất HĐ:</span>
                   <span>{model.receiptIssuedAtFormatted}</span>
                 </div>
               )}
             </div>
 
-            {/* Items Table */}
-            <div className="py-2 border-b border-dashed border-gray-400">
-              <div className="flex justify-between font-black text-[10px] pb-1 border-b border-gray-300 mb-1">
-                <span className={is80 ? 'w-[155px] text-left' : 'w-[110px] text-left'}>Tên món</span>
-                <span className={is80 ? 'w-[36px] text-center' : 'w-[28px] text-center'}>SL</span>
-                <span className="flex-1 text-right">T.Tiền</span>
-              </div>
-
-              <div className="space-y-1">
+            {/* Items List (2-Line Layout without redundant column headers) */}
+            <div className="py-1.5 border-b border-dashed border-gray-400">
+              <div className="space-y-1.5">
                 {model.items.map((it, idx) => (
-                  <div key={idx} className="text-[10px]">
-                    <div className="flex justify-between items-baseline">
-                      <span className={`${is80 ? 'w-[155px]' : 'w-[110px]'} font-bold text-gray-900 break-words`}>
-                        {it.name}{it.size ? ` (${it.size})` : ''}
-                      </span>
-                      <span className={`${is80 ? 'w-[36px]' : 'w-[28px]'} text-center font-bold`}>
-                        {it.quantity}
-                      </span>
-                      <span className="flex-1 text-right font-black font-mono">
-                        {formatVND(it.lineTotal)}
-                      </span>
+                  <div key={idx} className="text-[10px] space-y-0.5">
+                    {/* Line 1: Item name & Size */}
+                    <div className="font-bold text-gray-950 leading-snug break-words">
+                      {it.name}{it.size ? ` (${it.size})` : ''}
                     </div>
 
+                    {/* Toppings indent */}
                     {it.toppings && it.toppings.length > 0 && (
-                      <div className="text-[9px] text-gray-500 pl-1.5 leading-tight">
+                      <div className="text-[9px] text-gray-600 pl-2 leading-tight">
                         + {it.toppings.map((tp) => tp.name).join(', ')}
                       </div>
                     )}
+
+                    {/* Notes indent */}
                     {it.notes && (
-                      <div className="text-[9px] text-amber-700 pl-1.5 italic">
+                      <div className="text-[9px] text-amber-800 pl-2 italic leading-tight">
                         * {it.notes}
                       </div>
                     )}
+
+                    {/* Line 2: Qty x Unit price and Line total */}
+                    <div className="flex justify-between items-baseline text-gray-700">
+                      <span className="font-medium text-[9.5px]">
+                        {it.quantity} x {it.unitPriceFormatted || formatVND(it.effectiveUnitPrice || it.price)}
+                      </span>
+                      <span className="font-extrabold text-black font-mono">
+                        {it.lineTotalFormatted || formatVND(it.lineTotal)}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Financial Summary */}
-            <div className="py-2 border-b border-dashed border-gray-400 text-[10px] space-y-0.5">
+            <div className="py-1.5 border-b border-dashed border-gray-400 text-[10px] space-y-0.5">
               <div className="flex justify-between">
                 <span>Tiền hàng:</span>
                 <span className="font-mono">{model.subtotalFormatted}</span>
@@ -391,13 +383,22 @@ export default function ReceiptPrintView({
               </div>
             </div>
 
-            {/* Footer Section */}
-            {model.settings.showFooter && (
-              <div className="text-center pt-2.5 text-[9.5px] text-gray-500 font-sans space-y-0.5">
-                <p className="font-bold text-gray-800">{model.footerText}</p>
-                <p className="text-[8.5px] text-gray-400">
-                  GÓC POS Enterprise • Khổ {selectedWidth}
-                </p>
+            {/* Footer Section (Single WiFi displayed right above thank you message) */}
+            {(Boolean(model.settings.showWifi && model.store.wifiPassword && model.store.wifiOnReceipt) || Boolean(model.settings.showFooter)) && (
+              <div className="text-center pt-2 text-[9.5px] text-gray-500 font-sans space-y-0.5">
+                {model.settings.showWifi && model.store.wifiPassword && model.store.wifiOnReceipt && (
+                  <p className="font-bold text-gray-900 text-[10px] pb-0.5">
+                    Wifi: <span>{model.store.wifiPassword}</span>
+                  </p>
+                )}
+                {model.settings.showFooter && (
+                  <>
+                    <p className="font-bold text-gray-800">{model.footerText}</p>
+                    <p className="text-[8.5px] text-gray-400">
+                      GÓC POS Enterprise • Khổ {selectedWidth}
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -457,10 +458,12 @@ export default function ReceiptPrintView({
             width: ${is80 ? '78mm' : '56mm'} !important;
             max-width: ${is80 ? '78mm' : '56mm'} !important;
             margin: 0 !important;
-            padding: 1.5mm 2.5mm !important;
+            padding: 1mm 2mm !important;
             box-shadow: none !important;
             border: none !important;
             background: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           #printable-receipt .receipt-thermal-logo-img {
             width: ${is80 ? '48mm' : '40mm'} !important;

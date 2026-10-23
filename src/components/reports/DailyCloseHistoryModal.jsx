@@ -45,7 +45,7 @@ export default function DailyCloseHistoryModal({ isOpen, onClose }) {
       setIsPrinting(true);
       try {
         await printDailyClose57mm(report, settings, {
-          useNoAccents: settings.printNoAccents !== false
+          useNoAccents: settings.printNoAccents === true
         });
         showToast?.('Đã in phiếu chốt ngày qua Bluetooth (57mm)!', 'success');
       } catch (err) {
@@ -73,7 +73,7 @@ export default function DailyCloseHistoryModal({ isOpen, onClose }) {
       showToast?.('Vui lòng chọn máy in Bluetooth...', 'info');
       await connectBluetoothPrinter();
       await printDailyClose57mm(report, settings, {
-        useNoAccents: settings.printNoAccents !== false
+        useNoAccents: settings.printNoAccents === true
       });
       showToast?.('Đã in phiếu chốt ngày qua Bluetooth (57mm)!', 'success');
     } catch (err) {
