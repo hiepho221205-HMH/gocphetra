@@ -2220,7 +2220,7 @@ export function PosProvider({ children }) {
     showToast('Đã in tạm tính hóa đơn', 'info');
   };
 
-  const processPartialPayment = (tableId, paymentRecord) => {
+  const processPartialPayment = async (tableId, paymentRecord) => {
     const table = tables.find((t) => t.id === tableId);
     let order = table?.activeOrderId ? orders[table.activeOrderId] : null;
     if (!order) {
@@ -2258,7 +2258,7 @@ export function PosProvider({ children }) {
     };
 
     if (remainingAmount <= 0) {
-      finalizeOrder(tableId, updatedOrder);
+      await finalizeOrder(tableId, updatedOrder);
       showToast(`Đã thanh toán đủ ${order.tableName}! Bàn đã được giải phóng.`, 'success');
       return { success: true, isFullyPaid: true, remainingAmount: 0 };
     } else {
@@ -2282,7 +2282,7 @@ export function PosProvider({ children }) {
     }
   };
 
-  const finalizeOrder = (tableId, completedOrder) => {
+  const finalizeOrder = async (tableId, completedOrder) => {
     const finishedAt = new Date().toISOString();
     const today = getVietnamTodayString();
     const finalOrder = {
@@ -2303,7 +2303,7 @@ export function PosProvider({ children }) {
       console.warn('Receipt snapshot error on finalize:', e);
     }
 
-    setOrderHistory((prev) => [finalOrder, ...prev]);
+    setOrderHistory((prev) => [finalOrder, ...prev.filter((o) => o.id !== finalOrder.id)]);
 
     setOrders((prev) => {
       const copy = { ...prev };
@@ -2327,13 +2327,27 @@ export function PosProvider({ children }) {
       )
     );
 
+    // Ghi đồng bộ ngay lập tức vào LocalStorage & IndexedDB cho TABLES, ORDERS và ORDER_HISTORY
     try {
+      // 1. Cập nhật TABLES về trống
       const currentTables = loadStorage(STORAGE_KEYS.TABLES, tables);
       const nextTables = currentTables.map((t) => (t.id === tableId ? resetTable : t));
       localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(nextTables));
       dualWriteToIndexedDB('tables', nextTables);
+
+      // 2. Xóa đơn đã thanh toán khỏi ORDERS để ngăn hồi sinh khi F5
+      const currentOrders = loadStorage(STORAGE_KEYS.ORDERS, orders);
+      delete currentOrders[completedOrder.id];
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(currentOrders));
+      dualWriteToIndexedDB('orders', currentOrders);
+
+      // 3. Thêm đơn hoàn tất vào ORDER_HISTORY để ghi nhận doanh thu tức thì
+      const currentHistory = loadStorage(STORAGE_KEYS.ORDER_HISTORY, orderHistory);
+      const nextHistory = [finalOrder, ...(Array.isArray(currentHistory) ? currentHistory.filter((h) => h.id !== finalOrder.id) : [])];
+      localStorage.setItem(STORAGE_KEYS.ORDER_HISTORY, JSON.stringify(nextHistory));
+      dualWriteToIndexedDB('orderHistory', nextHistory);
     } catch (e) {
-      console.warn('Sync table storage error:', e);
+      console.warn('Sync storage error on finalize:', e);
     }
 
     const paymentId = 'PAY_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -2351,10 +2365,13 @@ export function PosProvider({ children }) {
       createdAt: finishedAt
     };
     setPayments((prev) => [payRecord, ...prev]);
-    cloudUpsertPayment(payRecord);
 
-    cloudUpsertOrder(finalOrder);
-    cloudUpsertTable(resetTable);
+    // Ghi đồng bộ chắc chắn lên Cloud Supabase và đợi hoàn tất trước khi kết thúc
+    await Promise.allSettled([
+      cloudUpsertOrder(finalOrder),
+      cloudUpsertTable(resetTable),
+      cloudUpsertPayment(payRecord)
+    ]);
 
     if (realtimeChannelRef.current) {
       realtimeChannelRef.current.send({
@@ -2378,9 +2395,10 @@ export function PosProvider({ children }) {
     }
 
     setSelectedTableId(null);
+    return { success: true, order: finalOrder, table: resetTable };
   };
 
-  const fullCheckout = (tableId, paymentMethod = 'cash') => {
+  const fullCheckout = async (tableId, paymentMethod = 'cash') => {
     const table = tables.find((t) => t.id === tableId);
     let order = table?.activeOrderId ? orders[table.activeOrderId] : null;
     if (!order) {
@@ -2413,7 +2431,7 @@ export function PosProvider({ children }) {
       ]
     };
 
-    finalizeOrder(tableId, finalOrder);
+    await finalizeOrder(tableId, finalOrder);
     showToast(`Thanh toán thành công ${order.tableName || table?.name}! Đã giải phóng bàn.`, 'success');
     return true;
   };

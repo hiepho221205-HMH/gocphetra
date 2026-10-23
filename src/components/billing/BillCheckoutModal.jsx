@@ -139,13 +139,13 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
     updateBillAdjustments(table.id, { discountPercent: currentDiscount, surcharge: num });
   };
 
-  const handleFullCashCheckout = () => {
+  const handleFullCashCheckout = async () => {
     if (isCheckingOut) return;
     triggerHaptic('medium');
     if (window.confirm(`Xác nhận thu tiền mặt ${formatVND(total)} cho ${table.name}?`)) {
       setIsCheckingOut(true);
       try {
-        const success = fullCheckout(table.id, 'cash');
+        const success = await fullCheckout(table.id, 'cash');
         if (success) {
           triggerHaptic('success');
           if (onPaymentSuccess) {
@@ -154,18 +154,20 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
             onClose();
           }
         }
+      } catch (err) {
+        console.error('Lỗi khi thanh toán tiền mặt:', err);
       } finally {
         setIsCheckingOut(false);
       }
     }
   };
 
-  const handleQRSuccess = () => {
+  const handleQRSuccess = async () => {
     if (isCheckingOut) return;
     setIsCheckingOut(true);
     setShowQRModal(false);
     try {
-      const success = fullCheckout(table.id, 'vietqr');
+      const success = await fullCheckout(table.id, 'vietqr');
       if (success) {
         triggerHaptic('success');
         if (onPaymentSuccess) {
@@ -174,6 +176,8 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
           onClose();
         }
       }
+    } catch (err) {
+      console.error('Lỗi khi thanh toán VietQR:', err);
     } finally {
       setIsCheckingOut(false);
     }

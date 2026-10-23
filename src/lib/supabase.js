@@ -645,33 +645,45 @@ export async function seedInitialDataToCloud(data) {
 // ============================================================================
 
 export async function cloudUpsertTable(table) {
-  if (!supabase) return;
+  if (!supabase || !table) return { success: false };
   try {
-    await supabase.from('tables').upsert(mapTableToDb(table), { onConflict: 'id' });
+    const { error } = await supabase.from('tables').upsert(mapTableToDb(table), { onConflict: 'id' });
+    if (error) {
+      console.warn('Lỗi cloudUpsertTable:', error);
+      return { success: false, error };
+    }
+    return { success: true };
   } catch (e) {
     console.warn('Lỗi cloudUpsertTable:', e);
+    return { success: false, error: e };
   }
 }
 
 export async function cloudDeleteTable(tableId) {
-  if (!supabase) return;
+  if (!supabase) return { success: false };
   try {
-    await supabase.from('tables').delete().eq('id', tableId);
+    const { error } = await supabase.from('tables').delete().eq('id', tableId);
+    if (error) throw error;
+    return { success: true };
   } catch (e) {
     console.warn('Lỗi cloudDeleteTable:', e);
+    return { success: false, error: e };
   }
 }
 
 export async function cloudUpsertOrder(order) {
-  if (!supabase) return;
+  if (!supabase || !order) return { success: false };
   try {
     const basePayload = mapOrderToBaseDb(order);
     const { error } = await supabase.from('orders').upsert(basePayload, { onConflict: 'id' });
     if (error) {
       console.warn('Lỗi cloudUpsertOrder:', error);
+      return { success: false, error };
     }
+    return { success: true };
   } catch (e) {
     console.warn('Lỗi cloudUpsertOrder:', e);
+    return { success: false, error: e };
   }
 }
 
@@ -1100,11 +1112,23 @@ export async function processHistoricalPaymentRpc({
  * Upsert a payment record to Supabase
  */
 export async function cloudUpsertPayment(payment) {
-  if (!supabase || !payment) return;
+  if (!supabase || !payment) return { success: false };
+  if (schemaCapabilities.payments === false) {
+    return { success: false, skipped: true };
+  }
   try {
-    await supabase.from('payments').upsert(mapPaymentToDb(payment));
+    const { error } = await supabase.from('payments').upsert(mapPaymentToDb(payment));
+    if (error) {
+      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+        schemaCapabilities.payments = false;
+      }
+      return { success: false, error };
+    }
+    schemaCapabilities.payments = true;
+    return { success: true };
   } catch (e) {
     console.warn('Lỗi cloudUpsertPayment:', e);
+    return { success: false, error: e };
   }
 }
 
