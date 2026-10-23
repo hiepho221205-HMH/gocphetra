@@ -71,10 +71,10 @@ function PosContent() {
   };
 
   return (
-    <div className={`h-[100dvh] max-h-[100dvh] w-full ambient-clay-bg flex flex-col items-center justify-center overflow-hidden transition-all ${deviceMode === 'mobile' ? 'p-0 sm:py-3 sm:px-4' : 'p-0'}`}>
+    <div className={`fixed inset-0 w-full h-full ambient-clay-bg flex flex-col items-center justify-center overflow-hidden transition-all ${deviceMode === 'mobile' ? 'p-0 sm:py-3 sm:px-4' : 'p-0'}`}>
       {/* Mobile Device Frame Container */}
       <div
-        className={`w-full bg-[#F4F7FB] flex flex-col relative transition-all duration-300 shadow-2xl overflow-hidden h-[100dvh] max-h-[100dvh] ${
+        className={`w-full bg-[#F4F7FB] flex flex-col relative transition-all duration-300 shadow-2xl overflow-hidden h-full max-h-full ${
           deviceMode === 'mobile'
             ? 'max-w-[400px] sm:h-[844px] sm:max-h-[92vh] sm:rounded-[40px] sm:border-[8px] sm:border-[#1E2E22]'
             : 'max-w-6xl rounded-none'

@@ -385,7 +385,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm tên hoặc mã món..."
-                className="w-full pl-8 pr-7 py-2 clay-input text-xs text-gray-800 placeholder:text-gray-400 font-bold"
+                className="w-full pl-8 pr-7 py-2 clay-input text-[16px] sm:text-xs text-gray-800 placeholder:text-gray-400 font-bold"
               />
               {searchQuery && (
                 <button

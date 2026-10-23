@@ -7,8 +7,12 @@
     -webkit-tap-highlight-color: transparent;
   }
   html, body, #root {
+    position: fixed;
+    inset: 0;
     height: 100%;
     width: 100%;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
     overscroll-behavior: none;
     background-color: #F5F7F4;
@@ -22,6 +26,11 @@
   input, textarea, select {
     user-select: text;
     -webkit-user-select: text;
+  }
+  @media (max-width: 639px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
   }
 }
 

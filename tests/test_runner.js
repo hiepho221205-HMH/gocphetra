@@ -27,7 +27,8 @@ const testFiles = [
   path.join(__dirname, 'auth_and_rbac_v1.test.js'),
   path.join(__dirname, 'six_critical_issues_verification.test.js'),
   path.join(__dirname, 'receipt_engine_and_store_config.test.js'),
-  path.join(__dirname, 'tdz_scope_guard.test.js')
+  path.join(__dirname, 'tdz_scope_guard.test.js'),
+  path.join(__dirname, 'ios_viewport_guard.test.js')
 ];
 
 console.log('\n============================================================');
