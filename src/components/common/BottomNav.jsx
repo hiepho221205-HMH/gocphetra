@@ -7,6 +7,16 @@ import { triggerHaptic } from '../../utils/haptics';
 export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
   const { activeTab, setActiveTab, orders, currentRole } = usePos();
   const { isKeyboardOpen: internalIsKeyboardOpen } = useIosKeyboardFix();
+
+  // Scroll visibility & auto-hide states
+  const AUTO_HIDE_TABS = ['tables', 'orders'];
+  const shouldAutoHide = AUTO_HIDE_TABS.includes(activeTab);
+
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  const ticking = useRef(false);
+
+  // Active keyboard state & effective visibility calculation
   const isKeyboardActive = propIsKeyboardOpen !== undefined ? propIsKeyboardOpen : internalIsKeyboardOpen;
   const isEffectiveVisible = isVisible && !isKeyboardActive;
 
@@ -28,13 +38,6 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
     : allNavItems;
 
   const activeIndex = navItems.findIndex((item) => item.id === activeTab);
-
-  const AUTO_HIDE_TABS = ['tables', 'orders'];
-  const shouldAutoHide = AUTO_HIDE_TABS.includes(activeTab);
-
-  const [isVisible, setIsVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const ticking = useRef(false);
 
   useEffect(() => {
     if (!shouldAutoHide) {
