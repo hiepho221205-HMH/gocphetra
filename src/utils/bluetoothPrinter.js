@@ -6,6 +6,10 @@
 import { formatVND } from './currency.js';
 import { formatVietnamDisplayDate } from './dateTime.js';
 import { wrapText } from './receiptEngine.js';
+import {
+  buildReceiptGraphicThermalBytes,
+  buildKitchenTicketGraphicThermalBytes
+} from './thermalCanvasRenderer.js';
 
 // Target paper width: 57mm / 58mm (standard 32 characters per line in Font A)
 export const LINE_WIDTH_57MM = 32;
@@ -34,11 +38,25 @@ export function isBluetoothSupported() {
 export function removeVietnameseDiacritics(str = '') {
   if (!str) return '';
   return str
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .replace(/₫/g, 'd')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/đ/g, 'd')
     .replace(/Đ/g, 'D')
     .replace(/[^ -~\n\r\t]/g, ''); // keep only printable ASCII + whitespace
+}
+
+/**
+ * Formats currency safely for thermal printers (ending in 'd' in no-accents mode to avoid '-æ')
+ */
+export function formatThermalCurrency(amount, useNoAccents = true) {
+  if (typeof amount !== 'number' || isNaN(amount)) {
+    return useNoAccents ? '0d' : '0đ';
+  }
+  const formattedNum = amount.toLocaleString('vi-VN');
+  return useNoAccents ? `${formattedNum}d` : `${formattedNum}đ`;
 }
 
 /**
@@ -370,27 +388,27 @@ export function buildReceipt57mmBytes(order, settings = {}, options = {}) {
     }
 
     // Line 2: Qty x Unit price and Line total
-    addLine(formatKeyValue57mm(`${qty} x ${formatVND(effectiveUnitPrice)}`, formatVND(lineTotal)));
+    addLine(formatKeyValue57mm(`${qty} x ${formatThermalCurrency(effectiveUnitPrice, useNoAccents)}`, formatThermalCurrency(lineTotal, useNoAccents)));
   });
 
   addLine(separator57mm('-'));
 
   // 5. Financial Summary
-  addLine(formatKeyValue57mm('Tiền hàng:', formatVND(order.subtotal || order.total || 0)));
+  addLine(formatKeyValue57mm('Tiền hàng:', formatThermalCurrency(order.subtotal || order.total || 0, useNoAccents)));
 
   if (order.discountPercent > 0) {
     const discAmt = Math.round(((order.subtotal || 0) * order.discountPercent) / 100);
-    addLine(formatKeyValue57mm(`Giảm giá (${order.discountPercent}%):`, `-${formatVND(discAmt)}`));
+    addLine(formatKeyValue57mm(`Giảm giá (${order.discountPercent}%):`, `-${formatThermalCurrency(discAmt, useNoAccents)}`));
   }
 
   if (order.surcharge > 0) {
-    addLine(formatKeyValue57mm('Phụ phí:', `+${formatVND(order.surcharge)}`));
+    addLine(formatKeyValue57mm('Phụ phí:', `+${formatThermalCurrency(order.surcharge, useNoAccents)}`));
   }
 
   addLine(separator57mm('='));
   addBytes(ESC_POS.BOLD_ON);
   addBytes(ESC_POS.DOUBLE_HEIGHT);
-  addLine(formatKeyValue57mm('TỔNG CỘNG:', formatVND(order.total || 0)));
+  addLine(formatKeyValue57mm('TỔNG CỘNG:', formatThermalCurrency(order.total || 0, useNoAccents)));
   addBytes(ESC_POS.NORMAL_SIZE);
   addBytes(ESC_POS.BOLD_OFF);
   addLine(separator57mm('='));
@@ -448,20 +466,20 @@ export function buildDailyClose57mmBytes(report, settings = {}, options = {}) {
   addLine(separator57mm('-'));
 
   addBytes(ESC_POS.BOLD_ON);
-  addLine(formatKeyValue57mm('TỔNG DOANH THU:', formatVND(report.totalRevenue || 0)));
+  addLine(formatKeyValue57mm('TỔNG DOANH THU:', formatThermalCurrency(report.totalRevenue || 0, useNoAccents)));
   addBytes(ESC_POS.BOLD_OFF);
   addLine(separator57mm('-'));
 
-  addLine(formatKeyValue57mm('Tiền mặt:', formatVND(report.cashTotal || 0)));
-  addLine(formatKeyValue57mm('VietQR:', formatVND(report.qrTotal || 0)));
+  addLine(formatKeyValue57mm('Tiền mặt:', formatThermalCurrency(report.cashTotal || 0, useNoAccents)));
+  addLine(formatKeyValue57mm('VietQR:', formatThermalCurrency(report.qrTotal || 0, useNoAccents)));
   addLine(formatKeyValue57mm('Tổng số đơn:', `${report.totalOrders || 0} đơn`));
-  addLine(formatKeyValue57mm('Giá trị TB/đơn:', formatVND(report.averageOrderValue || 0)));
+  addLine(formatKeyValue57mm('Giá trị TB/đơn:', formatThermalCurrency(report.averageOrderValue || 0, useNoAccents)));
 
   if (report.totalDiscount > 0) {
-    addLine(formatKeyValue57mm('Tổng giảm giá:', `-${formatVND(report.totalDiscount)}`));
+    addLine(formatKeyValue57mm('Tổng giảm giá:', `-${formatThermalCurrency(report.totalDiscount, useNoAccents)}`));
   }
   if (report.totalSurcharge > 0) {
-    addLine(formatKeyValue57mm('Tổng phụ phí:', `+${formatVND(report.totalSurcharge)}`));
+    addLine(formatKeyValue57mm('Tổng phụ phí:', `+${formatThermalCurrency(report.totalSurcharge, useNoAccents)}`));
   }
 
   // Top Products
@@ -471,7 +489,7 @@ export function buildDailyClose57mmBytes(report, settings = {}, options = {}) {
     addLine('TOP MÓN BÁN CHẠY:');
     addBytes(ESC_POS.BOLD_OFF);
     report.topProducts.slice(0, 5).forEach((p, idx) => {
-      addLine(`${idx + 1}. ${p.name}: ${p.quantity} ly (${formatVND(p.revenue)})`.slice(0, LINE_WIDTH_57MM));
+      addLine(`${idx + 1}. ${p.name}: ${p.quantity} ly (${formatThermalCurrency(p.revenue, useNoAccents)})`.slice(0, LINE_WIDTH_57MM));
     });
   }
 
@@ -591,8 +609,10 @@ export function buildReceiptThermalBytes(model, options = {}) {
   items.forEach((it) => {
     const itemTitle = `${it.name || 'Món'}${it.size ? ` (${it.size})` : ''}`;
     const qty = it.quantity || 1;
-    const unitPriceStr = it.unitPriceFormatted || formatVND(it.effectiveUnitPrice || it.price);
-    const lineTotalStr = it.lineTotalFormatted || formatVND(it.lineTotal);
+    const rawUnitPrice = it.unitPriceFormatted || `${(it.effectiveUnitPrice || it.price || 0).toLocaleString('vi-VN')}đ`;
+    const rawLineTotal = it.lineTotalFormatted || `${(it.lineTotal || 0).toLocaleString('vi-VN')}đ`;
+    const unitPriceStr = useNoAccents ? rawUnitPrice.replace(/đ/g, 'd') : rawUnitPrice;
+    const lineTotalStr = useNoAccents ? rawLineTotal.replace(/đ/g, 'd') : rawLineTotal;
 
     // Line 1: Item title (word-wrapped across full paper width)
     const titleLines = wrapText(itemTitle, lineWidth);
@@ -615,18 +635,20 @@ export function buildReceiptThermalBytes(model, options = {}) {
   addLine(sep('-'));
 
   // 6. Financial Summary
-  addLine(kv('Tiền hàng:', model.subtotalFormatted));
+  const fmt = (val) => (useNoAccents ? String(val || '').replace(/đ/g, 'd') : String(val || ''));
+
+  addLine(kv('Tiền hàng:', fmt(model.subtotalFormatted)));
   if (model.discountAmount > 0) {
-    addLine(kv(`Giảm giá (${model.discountPercent}%):`, `-${model.discountAmountFormatted}`));
+    addLine(kv(`Giảm giá (${model.discountPercent}%):`, `-${fmt(model.discountAmountFormatted)}`));
   }
   if (model.surcharge > 0) {
-    addLine(kv('Phụ phí:', `+${model.surchargeFormatted}`));
+    addLine(kv('Phụ phí:', `+${fmt(model.surchargeFormatted)}`));
   }
 
   addLine(sep('='));
   addBytes(ESC_POS.BOLD_ON);
   addBytes(ESC_POS.DOUBLE_HEIGHT);
-  addLine(kv('TỔNG CỘNG:', model.totalFormatted));
+  addLine(kv('TỔNG CỘNG:', fmt(model.totalFormatted)));
   addBytes(ESC_POS.NORMAL_SIZE);
   addBytes(ESC_POS.BOLD_OFF);
   addLine(sep('='));
@@ -781,22 +803,64 @@ export function buildKitchenTicketThermalBytes(ticketModel, options = {}) {
 
 /**
  * Universal Action: Print any Thermal Receipt model
+ * Automatically honors settings.thermalPrintMode ('text_no_accents' | 'graphic_accents')
  * @param {object} receiptModel
  * @param {object} [options]
  */
 export async function printReceiptThermal(receiptModel, options = {}) {
-  const bytes = buildReceiptThermalBytes(receiptModel, options);
+  const thermalPrintMode =
+    options.thermalPrintMode ||
+    options.settings?.thermalPrintMode ||
+    receiptModel.settings?.thermalPrintMode ||
+    'text_no_accents';
+
+  if (thermalPrintMode === 'graphic_accents' && typeof document !== 'undefined') {
+    try {
+      const graphicBytes = await buildReceiptGraphicThermalBytes(receiptModel, options);
+      await sendRawToPrinter(graphicBytes);
+      return true;
+    } catch (err) {
+      console.warn('Graphic receipt print failed, falling back to clean text mode:', err);
+    }
+  }
+
+  // Text Mode (Hardware font ASCII without diacritics - fast & clean)
+  const bytes = buildReceiptThermalBytes(receiptModel, {
+    ...options,
+    useNoAccents: true
+  });
   await sendRawToPrinter(bytes);
   return true;
 }
 
 /**
  * Universal Action: Print Kitchen / Bar Preparation Ticket directly to Thermal Printer
+ * Automatically honors settings.thermalPrintMode ('text_no_accents' | 'graphic_accents')
  * @param {object} ticketModel - Output of buildKitchenTicketModel()
  * @param {object} [options]
  */
 export async function printKitchenTicketThermal(ticketModel, options = {}) {
-  const bytes = buildKitchenTicketThermalBytes(ticketModel, options);
+  const thermalPrintMode =
+    options.thermalPrintMode ||
+    options.settings?.thermalPrintMode ||
+    ticketModel.settings?.thermalPrintMode ||
+    'text_no_accents';
+
+  if (thermalPrintMode === 'graphic_accents' && typeof document !== 'undefined') {
+    try {
+      const graphicBytes = await buildKitchenTicketGraphicThermalBytes(ticketModel, options);
+      await sendRawToPrinter(graphicBytes);
+      return true;
+    } catch (err) {
+      console.warn('Graphic kitchen ticket print failed, falling back to clean text mode:', err);
+    }
+  }
+
+  // Text Mode (Hardware font ASCII without diacritics - fast & clean)
+  const bytes = buildKitchenTicketThermalBytes(ticketModel, {
+    ...options,
+    useNoAccents: true
+  });
   await sendRawToPrinter(bytes);
   return true;
 }
@@ -859,7 +923,8 @@ export async function executeKitchenTicketPrint({
   // 4. Print via Bluetooth thermal printer
   try {
     await printKitchenTicketThermal(ticketModel, {
-      useNoAccents: settings?.printNoAccents === true
+      settings,
+      thermalPrintMode: settings?.thermalPrintMode
     });
     showToast?.('Đã in phiếu chế biến qua Bluetooth thành công!', 'success');
     return { success: true };

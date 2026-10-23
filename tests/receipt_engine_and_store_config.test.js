@@ -25,6 +25,8 @@ import {
   buildReceiptThermalBytes,
   formatTableRow57mm,
   formatTableRow80mm,
+  formatThermalCurrency,
+  removeVietnameseDiacritics,
   ESC_POS
 } from '../src/utils/bluetoothPrinter.js';
 
@@ -534,6 +536,43 @@ describe('GÓC POS — Store Configuration, Receipt Engine & Thermal Printing Su
       const wifiMatches = decodedText.match(/Wifi:\s*xincamon/g) || [];
       assert.equal(wifiMatches.length, 1, `Expected exactly 1 WiFi entry, got ${wifiMatches.length}`);
       assert.equal(decodedText.includes('Pass wifi:'), false, 'Should not contain old Pass wifi: prefix');
+    });
+
+    test('5.4 - formatThermalCurrency & useNoAccents eliminate "-æ" and convert Vietnamese to clean 7-bit ASCII', () => {
+      assert.equal(formatThermalCurrency(90000, true), '90.000d');
+      assert.equal(formatThermalCurrency(90000, false), '90.000đ');
+      assert.equal(removeVietnameseDiacritics('Espresso sữa nóng'), 'Espresso sua nong');
+      assert.equal(removeVietnameseDiacritics('Trà gừng mật ong'), 'Tra gung mat ong');
+      assert.equal(removeVietnameseDiacritics('HÓA ĐƠN THANH TOÁN'), 'HOA DON THANH TOAN');
+      assert.equal(removeVietnameseDiacritics('Tiền hàng: 90.000đ'), 'Tien hang: 90.000d');
+      assert.equal(removeVietnameseDiacritics('TỔNG CỘNG'), 'TONG CONG');
+
+      const order = {
+        id: 'ORD-999',
+        tableName: 'Bàn 02',
+        items: [{ name: 'Espresso sữa nóng', quantity: 2, lineTotal: 34000 }],
+        total: 34000
+      };
+      const model = buildReceiptModel({ order, storeSettings: {}, overridePaperWidth: '58mm' });
+      const bytes = buildReceiptThermalBytes(model, { useNoAccents: true });
+      const decodedText = new TextDecoder('utf-8').decode(bytes);
+
+      // Verify no Vietnamese accents remain
+      assert.equal(decodedText.includes('Espresso sua nong'), true);
+      assert.equal(decodedText.includes('sữa nóng'), false);
+      assert.equal(decodedText.includes('HOA DON THANH TOAN'), true);
+      assert.equal(decodedText.includes('TONG CONG:'), true);
+      assert.equal(decodedText.includes('Ban:'), true);
+      assert.equal(decodedText.includes('34.000d'), true);
+      assert.equal(decodedText.includes('-æ'), false);
+
+      // Strict validation: every single byte in the text payload must be printable ASCII or ESC/POS control
+      for (let i = 0; i < bytes.length; i++) {
+        const b = bytes[i];
+        if (b >= 0x80) {
+          assert.fail(`Detected non-ASCII byte 0x${b.toString(16)} at index ${i} in no-accents thermal stream`);
+        }
+      }
     });
   });
 });

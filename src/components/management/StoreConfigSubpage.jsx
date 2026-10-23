@@ -62,6 +62,9 @@ export default function StoreConfigSubpage({ onBack }) {
 
   // 2. Receipt Configuration State
   const [paperWidth, setPaperWidth] = useState(settings?.receiptPaperWidth || '58mm');
+  const [thermalPrintMode, setThermalPrintMode] = useState(
+    settings?.thermalPrintMode || (settings?.printNoAccents === false ? 'graphic_accents' : 'text_no_accents')
+  );
   const [receiptFooter, setReceiptFooter] = useState(settings?.receiptFooter || 'Cảm ơn quý khách và hẹn gặp lại!');
   const [receiptSettings, setReceiptSettings] = useState(settings?.receiptSettings || {
     showLogo: true,
@@ -223,6 +226,8 @@ export default function StoreConfigSubpage({ onBack }) {
         logoOriginalUrl,
         logoThermalUrl,
         receiptPaperWidth: paperWidth,
+        thermalPrintMode,
+        printNoAccents: thermalPrintMode === 'text_no_accents',
         receiptSettings,
         receiptFooter,
         wifiPassword,
@@ -260,7 +265,10 @@ export default function StoreConfigSubpage({ onBack }) {
 
       const bt = getBluetoothPrinterStatus();
       if (bt.isConnected) {
-        await printKitchenTicketThermal(dummyTicketModel);
+        await printKitchenTicketThermal(dummyTicketModel, {
+          settings: { ...settings, thermalPrintMode },
+          thermalPrintMode
+        });
         showToast?.('Đã in thử phiếu chế biến qua Bluetooth!', 'success');
       } else {
         setTestKitchenTicketModel(dummyTicketModel);
@@ -545,6 +553,62 @@ export default function StoreConfigSubpage({ onBack }) {
                 </div>
                 <p className="text-[10px] text-gray-500">
                   Chuẩn hóa đơn nhà hàng / quán cà phê lớn, chữ to rõ ràng.
+                </p>
+              </button>
+            </div>
+          </div>
+
+          {/* Chế độ mã hóa & font chữ đầu ra máy in nhiệt */}
+          <div className="pt-2 border-t border-gray-100">
+            <label className="block text-gray-700 font-bold mb-1.5 flex items-center justify-between">
+              <span>Chế độ mã hóa & font chữ đầu ra máy in (57mm / 80mm)</span>
+              <span className="text-[10px] font-normal text-gray-400">Khắc phục lỗi font máy in</span>
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setThermalPrintMode('text_no_accents');
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  thermalPrintMode === 'text_no_accents'
+                    ? 'bg-forest-50/80 border-forest-800 text-forest-950 ring-1 ring-forest-800'
+                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100/70'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="font-extrabold text-xs">In Chữ Không Dấu (Khuyến nghị)</span>
+                  <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                    Siêu tốc & Nét
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-500 leading-tight">
+                  Chuyển tiếng Việt không dấu chuẩn ASCII (Espresso sua nong, 90.000d). In tức thì, không bao giờ bị lỗi font rác (ß, |, æ).
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setThermalPrintMode('graphic_accents');
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                  thermalPrintMode === 'graphic_accents'
+                    ? 'bg-forest-50/80 border-forest-800 text-forest-950 ring-1 ring-forest-800'
+                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100/70'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="font-extrabold text-xs">In Đồ Họa Có Dấu</span>
+                  <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-bold">
+                    100% Đầy đủ dấu
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-500 leading-tight">
+                  Render toàn bộ hóa đơn dạng đồ họa 1-bit ESC/POS (như in Logo). Đầy đủ dấu tiếng Việt sắc nét, in mất ~2-3 giây.
                 </p>
               </button>
             </div>

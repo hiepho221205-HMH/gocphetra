@@ -110,7 +110,8 @@ export default function ReceiptPrintView({
 
       // Print order via universal thermal ESC/POS
       await printReceiptThermal(model, {
-        useNoAccents: settings?.printNoAccents === true,
+        settings,
+        thermalPrintMode: settings?.thermalPrintMode,
         logoRasterBytes: logoRaster
       });
 
