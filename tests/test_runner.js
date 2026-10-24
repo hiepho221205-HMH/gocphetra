@@ -31,6 +31,7 @@ const testFiles = [
   path.join(__dirname, 'batch_past_orders_and_staff_guards.test.js'),
   path.join(__dirname, 'order_payment_7days_integrity.test.js'),
   path.join(__dirname, 'table_grid_streamline_and_delete_order.test.js'),
+  path.join(__dirname, 'order_history_descending_sort.test.js'),
   path.join(__dirname, 'tdz_scope_guard.test.js')
 ];
 

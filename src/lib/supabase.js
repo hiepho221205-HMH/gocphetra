@@ -452,7 +452,7 @@ export async function fetchAllCloudData() {
       supabase.from('menu_items').select('*'),
       supabase.from('toppings').select('*'),
       supabase.from('product_toppings').select('*'),
-      supabase.from('orders').select('*'),
+      supabase.from('orders').select('*').order('created_at', { ascending: false }),
       supabase.from('settings').select('*')
     ];
 

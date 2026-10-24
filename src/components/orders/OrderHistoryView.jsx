@@ -136,7 +136,8 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
     return [...list].sort((a, b) => {
       const timeA = new Date(a.createdAt || a.created_at || 0).getTime();
       const timeB = new Date(b.createdAt || b.created_at || 0).getTime();
-      return timeA - timeB;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || '').localeCompare(a.id || '');
     });
   }, [orders, isToday, selectedDate]);
 
@@ -153,7 +154,8 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
     return [...list].sort((a, b) => {
       const timeA = new Date(a.createdAt || a.created_at || 0).getTime();
       const timeB = new Date(b.createdAt || b.created_at || 0).getTime();
-      return timeA - timeB;
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || '').localeCompare(a.id || '');
     });
   }, [orderHistory, isPast, selectedDate]);
 
@@ -169,9 +171,10 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
     });
 
     return [...list].sort((a, b) => {
-      const timeA = new Date(a.paid_at || a.paidAt || a.completed_at || a.completedAt || a.finishedAt || a.createdAt || 0).getTime();
-      const timeB = new Date(b.paid_at || b.paidAt || b.completed_at || b.completedAt || b.finishedAt || b.createdAt || 0).getTime();
-      return timeA - timeB;
+      const timeA = new Date(a.paid_at || a.paidAt || a.finishedAt || a.finished_at || a.completed_at || a.completedAt || a.createdAt || a.created_at || 0).getTime();
+      const timeB = new Date(b.paid_at || b.paidAt || b.finishedAt || b.finished_at || b.completed_at || b.completedAt || b.createdAt || b.created_at || 0).getTime();
+      if (timeB !== timeA) return timeB - timeA;
+      return (b.id || '').localeCompare(a.id || '');
     });
   }, [orderHistory, isFuture, isToday, selectedDate]);
 
