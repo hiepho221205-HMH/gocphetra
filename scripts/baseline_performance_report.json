@@ -1,150 +1,186 @@
 {
   "mode": "baseline",
-  "timestamp": "2026-10-23T17:26:20.717Z",
+  "timestamp": "2026-10-24T12:09:17.031Z",
   "bundle": {
-    "totalJsKB": 1044.36,
-    "totalCssKB": 81.9,
-    "totalBundleKB": 1126.26,
-    "chunkCount": 21,
+    "totalJsKB": 1037.77,
+    "totalCssKB": 86.65,
+    "totalBundleKB": 1124.42,
+    "chunkCount": 30,
     "chunks": [
       {
         "name": "vendor-supabase-DYxuN0_g.js",
         "sizeKB": 218.52
       },
       {
-        "name": "SettingsView-pYVz9DiZ.js",
-        "sizeKB": 164.27
+        "name": "vendor-react-BREE6-R6.js",
+        "sizeKB": 161.28
       },
       {
-        "name": "vendor-react-DzWs8T71.js",
-        "sizeKB": 160.87
+        "name": "index-ChKd7Upj.js",
+        "sizeKB": 147.46
       },
       {
-        "name": "index-D4opa49e.js",
-        "sizeKB": 147.91
-      },
-      {
-        "name": "vendor-dexie-CmVaJeG3.js",
+        "name": "vendor-dexie-C7Z9c9zL.js",
         "sizeKB": 94.14
       },
       {
-        "name": "index-DTmnKpsS.css",
-        "sizeKB": 81.9
+        "name": "index-Rzua0lOu.css",
+        "sizeKB": 86.65
       },
       {
-        "name": "MenuManagementView-C-z7nQIe.js",
-        "sizeKB": 37.41
+        "name": "SettingsView-D2Dih6Hv.js",
+        "sizeKB": 55.69
       },
       {
-        "name": "OrderHistoryView-CmHO5ErD.js",
-        "sizeKB": 35.17
+        "name": "MenuManagementView-xIvJlzho.js",
+        "sizeKB": 37.37
       },
       {
-        "name": "BillCheckoutModal-0X4eTqxc.js",
-        "sizeKB": 26.98
+        "name": "OrderHistoryView-CMpkCdJA.js",
+        "sizeKB": 35.31
       },
       {
-        "name": "vendor-query-fYT5jQZ4.js",
-        "sizeKB": 24.12
+        "name": "StoreConfigSubpage-_cpIm_Uw.js",
+        "sizeKB": 30.32
       },
       {
-        "name": "bluetoothPrinter-VtLIOOhI.js",
-        "sizeKB": 24.05
+        "name": "BillCheckoutModal-DqNwiY8K.js",
+        "sizeKB": 26.94
       },
       {
-        "name": "OrderView-CTbWT0k9.js",
-        "sizeKB": 22.5
+        "name": "bluetoothPrinter-CP46zOUD.js",
+        "sizeKB": 23.78
       },
       {
-        "name": "ReportsView-Kd_Uorjc.js",
-        "sizeKB": 20.64
+        "name": "OrderView-CkJfllmB.js",
+        "sizeKB": 22.42
       },
       {
-        "name": "OrderDetailsModal-DauwqLyN.js",
-        "sizeKB": 15.53
+        "name": "ReportsView-DPfZScSS.js",
+        "sizeKB": 20.34
       },
       {
-        "name": "ReceiptPrintView-B74TqZKs.js",
-        "sizeKB": 12.22
+        "name": "OrderDetailsModal-BVADb4bj.js",
+        "sizeKB": 15.49
       },
       {
-        "name": "TableActionModal-vWc_J-Aa.js",
-        "sizeKB": 10.16
+        "name": "StaffListPage-BlFht8dq.js",
+        "sizeKB": 15.15
       },
       {
-        "name": "LoginPage-18wEk3kf.js",
-        "sizeKB": 9.64
+        "name": "TableGrid-HJJTogs2.js",
+        "sizeKB": 14.97
       },
       {
-        "name": "TableGrid-jcNkTd1Z.js",
-        "sizeKB": 9.04
+        "name": "StaffCreatePage-8L_gyD6Y.js",
+        "sizeKB": 14.71
       },
       {
-        "name": "kitchenTicketEngine-BtvZLT2H.js",
+        "name": "ReceiptPrintView-BChR0-Pw.js",
+        "sizeKB": 11.92
+      },
+      {
+        "name": "StaffDetailSubpage-7YX85D1N.js",
+        "sizeKB": 11.83
+      },
+      {
+        "name": "RbacMainPage-DdRMzHTB.js",
+        "sizeKB": 11.04
+      },
+      {
+        "name": "LoginPage-BMhtG2Nm.js",
+        "sizeKB": 10.21
+      },
+      {
+        "name": "TableActionModal-BoXrHcQ-.js",
+        "sizeKB": 10.13
+      },
+      {
+        "name": "RoleChangeSubpage-DLSmlUQb.js",
+        "sizeKB": 8.59
+      },
+      {
+        "name": "ProfileEditSubpage-cx3CVPff.js",
+        "sizeKB": 8.4
+      },
+      {
+        "name": "LoginSuccessView-Bp5NIA0n.js",
+        "sizeKB": 8.19
+      },
+      {
+        "name": "EmergencyOrderManagerModal-DWByE1Ye.js",
+        "sizeKB": 7.24
+      },
+      {
+        "name": "kitchenTicketEngine-CDrP8T1j.js",
         "sizeKB": 6.58
       },
       {
-        "name": "AddEditTableModal-C719bRHW.js",
-        "sizeKB": 3.4
+        "name": "RoleAuditLogSection-zt10HLpP.js",
+        "sizeKB": 5.18
       },
       {
-        "name": "ViewOrderIconButton-B22etvxa.js",
+        "name": "AddEditTableModal-DRXz09He.js",
+        "sizeKB": 3.37
+      },
+      {
+        "name": "ViewOrderIconButton-BVBxoNmS.js",
         "sizeKB": 1.21
       }
     ]
   },
   "viewMetrics": {
     "Login": {
-      "loadDurationMs": 1193,
-      "fcpMs": 140,
-      "jsHeapUsedMB": 3.69
+      "loadDurationMs": 1153,
+      "fcpMs": 108,
+      "jsHeapUsedMB": 3.6
     },
     "Tables": {
-      "jsHeapUsedMB": 5.02
+      "jsHeapUsedMB": 4.17
     },
     "OrderView": {
-      "transitionMs": 19,
-      "jsHeapUsedMB": 5.03
+      "transitionMs": 5258,
+      "jsHeapUsedMB": 5.87
     },
     "OrderHistory": {
-      "transitionMs": 529,
-      "jsHeapUsedMB": 5.78
+      "transitionMs": 512,
+      "jsHeapUsedMB": 6.36
     },
     "MenuManagement": {
-      "transitionMs": 522,
-      "jsHeapUsedMB": 6.77
+      "transitionMs": 507,
+      "jsHeapUsedMB": 6.36
     },
     "Reports": {
-      "transitionMs": 525,
-      "jsHeapUsedMB": 6.24
+      "transitionMs": 519,
+      "jsHeapUsedMB": 6.36
     },
     "Settings": {
-      "transitionMs": 623,
-      "jsHeapUsedMB": 6.61
+      "transitionMs": 612,
+      "jsHeapUsedMB": 6.36
     },
     "StoreConfig": {
-      "transitionMs": 602,
-      "jsHeapUsedMB": 6.62
+      "transitionMs": 603,
+      "jsHeapUsedMB": 6.37
     }
   },
   "transitionTimes": {
-    "Login -> Tables": 755,
-    "Tables -> OrderView": 19,
-    "Open OrderDetailsModal": 404,
-    "Open BillCheckoutModal": 606,
-    "Tables -> OrderHistory": 529,
-    "History -> MenuManagement": 522,
-    "Menu -> Reports": 525,
-    "Reports -> Settings": 623,
-    "Settings -> StoreConfig": 602
+    "Login -> Tables": 623,
+    "Tables -> OrderView": 5258,
+    "Open OrderDetailsModal": 417,
+    "Open BillCheckoutModal": 608,
+    "Tables -> OrderHistory": 512,
+    "History -> MenuManagement": 507,
+    "Menu -> Reports": 519,
+    "Reports -> Settings": 612,
+    "Settings -> StoreConfig": 603
   },
   "summary": {
-    "totalBundleKB": 1126.26,
-    "totalJsKB": 1044.36,
-    "totalCssKB": 81.9,
-    "initialColdLoadMs": 1193,
-    "fcpMs": 140,
-    "maxHeapMB": 6.62,
-    "avgRouteTransitionMs": 509
+    "totalBundleKB": 1124.42,
+    "totalJsKB": 1037.77,
+    "totalCssKB": 86.65,
+    "initialColdLoadMs": 1153,
+    "fcpMs": 108,
+    "maxHeapMB": 6.37,
+    "avgRouteTransitionMs": 1073
   }
 }

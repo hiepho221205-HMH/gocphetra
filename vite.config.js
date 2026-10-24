@@ -16,7 +16,8 @@ export default defineConfig({
       injectRegister: null, // Defer SW registration in main.jsx to prevent render-blocking
       manifest: false, // Using public/manifest.webmanifest
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,svg,json,woff2,webp}'],
+        globIgnores: ['**/images/**/*.png'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,

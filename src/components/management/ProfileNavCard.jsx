@@ -29,12 +29,23 @@ export default function ProfileNavCard({
     onClick?.();
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  };
+
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={title}
+      onKeyDown={handleKeyDown}
       data-testid={testId}
       onClick={handleClick}
       style={{ backgroundColor: bgColor }}
-      className="clay-card clay-card-interactive w-full h-[76px] p-3.5 flex items-center justify-between cursor-pointer max-w-full overflow-hidden select-none"
+      className="clay-card clay-card-interactive w-full h-[76px] p-3.5 flex items-center justify-between cursor-pointer max-w-full overflow-hidden select-none outline-none focus-visible:ring-2 focus-visible:ring-[#214E34]/50"
     >
       <div className="flex items-center gap-3.5 min-w-0 flex-1 pr-2">
         <div

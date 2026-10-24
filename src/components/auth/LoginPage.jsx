@@ -134,6 +134,7 @@ export default function LoginPage() {
               draggable={false}
               width={160}
               height={160}
+              fetchPriority="high"
             />
           </picture>
         </div>

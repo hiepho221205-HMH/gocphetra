@@ -504,6 +504,7 @@ export async function fetchAllCloudData() {
 
     let settings = null;
     let fallbackStaff = [];
+    let dailyClosures = [];
     if (settingsRes.data && settingsRes.data.length > 0) {
       const configItem = settingsRes.data.find((s) => s.key === 'pos_config');
       if (configItem && configItem.value) {
@@ -512,6 +513,10 @@ export async function fetchAllCloudData() {
       const staffItem = settingsRes.data.find((s) => s.key === 'pos_staff_profiles');
       if (staffItem && Array.isArray(staffItem.value)) {
         fallbackStaff = staffItem.value;
+      }
+      const closuresItem = settingsRes.data.find((s) => s.key === 'pos_daily_closures');
+      if (closuresItem && Array.isArray(closuresItem.value)) {
+        dailyClosures = closuresItem.value;
       }
     }
 
@@ -1676,6 +1681,44 @@ export async function upsertDailyClosureToCloud(closureData) {
 
     schemaCapabilities.daily_closures = true; persistCapability('daily_closures', true);
     return { success: true, data: data ? mapDailyClosureFromDb(data) : closureData };
+  } catch (err) {
+    return { success: false, error: err };
+  }
+}
+
+
+export async function batchUpsertDailyClosuresToCloud(closuresList) {
+  if (!supabase || !Array.isArray(closuresList) || closuresList.length === 0) return { success: true };
+  if (schemaCapabilities.daily_closures === false) {
+    try {
+      const { data: currentSettings } = await supabase.from('settings').select('*').eq('key', 'pos_daily_closures').maybeSingle();
+      let existingList = currentSettings?.value && Array.isArray(currentSettings.value) ? currentSettings.value : [];
+      for (const closureData of closuresList) {
+        existingList = [closureData, ...existingList.filter(c => c.date !== closureData.date)];
+      }
+      await supabase.from('settings').upsert([{ key: 'pos_daily_closures', value: existingList, updated_at: new Date().toISOString() }], { onConflict: 'key' });
+      return { success: true };
+    } catch {
+      return { success: true };
+    }
+  }
+
+  try {
+    const payloads = closuresList.map(mapDailyClosureToDb);
+    const { error } = await supabase
+      .from('daily_closures')
+      .upsert(payloads, { onConflict: 'date' });
+
+    if (error) {
+      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+        schemaCapabilities.daily_closures = false; persistCapability('daily_closures', false);
+        return batchUpsertDailyClosuresToCloud(closuresList);
+      }
+      return { success: false, error };
+    }
+
+    schemaCapabilities.daily_closures = true; persistCapability('daily_closures', true);
+    return { success: true };
   } catch (err) {
     return { success: false, error: err };
   }

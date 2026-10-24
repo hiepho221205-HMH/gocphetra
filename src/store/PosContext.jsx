@@ -75,6 +75,7 @@ import {
   fetchUserProfileAndRole,
   updateUserProfile,
   upsertDailyClosureToCloud,
+  batchUpsertDailyClosuresToCloud,
   fetchDailyClosuresFromCloud,
   saveReceiptSnapshotToCloud,
   fetchReceiptByOrderId,
@@ -282,8 +283,10 @@ export function PosProvider({ children }) {
 
   // Phase 3: Daily Closures State & Auto-Settlement
   const [dailyClosures, setDailyClosures] = useState({});
+  const dailyClosuresRef = useRef(dailyClosures);
+  useEffect(() => { dailyClosuresRef.current = dailyClosures; }, [dailyClosures]);
 
-  const autoCloseDailyRevenue = async (historyData = orderHistory) => {
+  const autoCloseDailyRevenue = async (historyData = orderHistory, baseClosures = null) => {
     try {
       const today = getVietnamTodayString();
       const pastDates = new Set();
@@ -300,28 +303,32 @@ export function PosProvider({ children }) {
 
       if (pastDates.size === 0) return;
 
-      const updatedClosures = { ...dailyClosures };
+      const currentClosures = baseClosures || dailyClosuresRef.current || dailyClosures;
+      const updatedClosures = { ...currentClosures };
+      const pendingCloudUploads = [];
       let hasChanges = false;
 
       for (const pDate of pastDates) {
-        const existingClosure = dailyClosures[pDate];
+        const existingClosure = currentClosures[pDate];
         const summary = calculateDailySummary(pDate, historyData);
         if (summary) {
-          // If already closed and data matches, skip redundant upload
+          // If already closed and data matches, skip redundant computation & upload
           if (existingClosure && existingClosure.totalRevenue === summary.totalRevenue && existingClosure.totalOrders === summary.totalOrders) {
             continue;
           }
           updatedClosures[pDate] = summary;
           hasChanges = true;
           await saveDailyClosure(summary);
-          if (isOnline) {
-            upsertDailyClosureToCloud(summary).catch(() => {});
-          }
+          pendingCloudUploads.push(summary);
         }
       }
 
       if (hasChanges) {
         setDailyClosures(updatedClosures);
+        dailyClosuresRef.current = updatedClosures;
+        if (isOnline && session?.user && pendingCloudUploads.length > 0) {
+          batchUpsertDailyClosuresToCloud(pendingCloudUploads).catch(() => {});
+        }
       }
     } catch (err) {
       console.warn('Lỗi autoCloseDailyRevenue:', err);
@@ -367,7 +374,8 @@ export function PosProvider({ children }) {
         }
 
         setDailyClosures(closuresMap);
-        autoCloseDailyRevenue(orderHistory);
+        dailyClosuresRef.current = closuresMap;
+        autoCloseDailyRevenue(orderHistory, closuresMap);
       } catch (e) {
         console.warn('Lỗi initClosures:', e);
       }
@@ -718,6 +726,17 @@ export function PosProvider({ children }) {
 
           if (cloudData.payments && cloudData.payments.length > 0) {
             setPayments(cloudData.payments);
+          }
+          if (cloudData.dailyClosures && Array.isArray(cloudData.dailyClosures) && cloudData.dailyClosures.length > 0) {
+            const mergedClosures = { ...dailyClosuresRef.current };
+            cloudData.dailyClosures.forEach((c) => {
+              if (!mergedClosures[c.date] || new Date(c.closedAt) >= new Date(mergedClosures[c.date].closedAt)) {
+                mergedClosures[c.date] = c;
+                saveDailyClosure(c).catch(() => {});
+              }
+            });
+            setDailyClosures(mergedClosures);
+            dailyClosuresRef.current = mergedClosures;
           } else if (cloudData.orderHistory && cloudData.orderHistory.length > 0) {
             const derivedPayments = cloudData.orderHistory
               .filter((o) => o.status === 'completed' && Number(o.total) > 0)

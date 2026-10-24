@@ -150,13 +150,27 @@ async function runBenchmark(mode = 'baseline') {
   const loginSubmitStart = performance.now();
   await page.evaluate(() => {
     const submitBtn = document.querySelector('[data-testid="login-submit-button"]') ||
-      Array.from(document.querySelectorAll('button')).find((b) => b.textContent.includes('Vào ca'));
+      Array.from(document.querySelectorAll('button')).find((b) => b.textContent.includes('Vào ca') || b.textContent.includes('Đăng nhập'));
     if (submitBtn) submitBtn.click();
   });
 
+  // Wait for login success view or floorplan
   await page.waitForFunction(() => {
-    return document.body.textContent.includes('Trần Mai') || document.body.textContent.includes('Khu vực bàn');
+    return Boolean(document.querySelector('[data-testid="login-success-continue-btn"]')) ||
+      Boolean(document.querySelector('[data-table-id]'));
   }, { timeout: 15000 });
+
+  // Dismiss login success view immediately to enter Tables
+  await page.evaluate(() => {
+    const continueBtn = document.querySelector('[data-testid="login-success-continue-btn"]');
+    if (continueBtn) continueBtn.click();
+  });
+
+  // Wait for floorplan / TableGrid to be interactive
+  await page.waitForFunction(() => {
+    return Boolean(document.querySelector('[data-table-id]'));
+  }, { timeout: 10000 });
+
   const loginToTablesDuration = performance.now() - loginSubmitStart;
   transitionTimes['Login -> Tables'] = Math.round(loginToTablesDuration);
   console.log(`  ✔ Login -> Tables Transition: ${transitionTimes['Login -> Tables']}ms`);
@@ -174,12 +188,22 @@ async function runBenchmark(mode = 'baseline') {
   console.log(`\n[View 3/10] Auditing Order / Gọi món View...`);
   const orderStart = performance.now();
   await page.evaluate(() => {
-    const tableCards = Array.from(document.querySelectorAll('div, button'));
-    const t1 = tableCards.find((el) => el.textContent && el.textContent.includes('Bàn 01'));
-    if (t1) t1.click();
+    // Click on empty table Bàn 01 or its CTA button
+    const card = document.querySelector('[data-table-id="B01"]') ||
+      Array.from(document.querySelectorAll('div')).find((el) => el.getAttribute && el.getAttribute('data-table-id') === 'B01');
+    if (card) {
+      const btn = card.querySelector('button') || card;
+      btn.click();
+    } else {
+      const t1 = Array.from(document.querySelectorAll('div, button')).find((el) => el.textContent && el.textContent.includes('Bàn 01'));
+      if (t1) t1.click();
+    }
   });
+
   await page.waitForFunction(() => {
-    return document.body.textContent.includes('Thực đơn') || document.body.textContent.includes('Món') || document.body.textContent.includes('Giỏ hàng');
+    return Boolean(document.querySelector('[data-testid="order-view"]')) ||
+      document.body.textContent.includes('Gọi món') ||
+      document.body.textContent.toLowerCase().includes('gọi món');
   }, { timeout: 8000 });
   const orderTransition = performance.now() - orderStart;
   transitionTimes['Tables -> OrderView'] = Math.round(orderTransition);

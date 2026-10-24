@@ -1,0 +1,139 @@
+{
+  "timestamp": "2026-10-24T12:35:22.344Z",
+  "mobile": {
+    "Login": {
+      "performance": 92,
+      "accessibility": 96,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 1964,
+      "lcpMs": 3165,
+      "cls": 0.001,
+      "tbtMs": 60,
+      "speedIndex": 1964
+    },
+    "Tables": {
+      "performance": 74,
+      "accessibility": 97,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 2114,
+      "lcpMs": 4664,
+      "cls": 0,
+      "tbtMs": 333,
+      "speedIndex": 2114
+    },
+    "Menu": {
+      "performance": 63,
+      "accessibility": 96,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 2135,
+      "lcpMs": 5543,
+      "cls": 0,
+      "tbtMs": 580,
+      "speedIndex": 2135
+    },
+    "Orders": {
+      "performance": 67,
+      "accessibility": 96,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 2110,
+      "lcpMs": 5612,
+      "cls": 0,
+      "tbtMs": 415,
+      "speedIndex": 2110
+    },
+    "Reports": {
+      "performance": 87,
+      "accessibility": 94,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 2105,
+      "lcpMs": 3155,
+      "cls": 0,
+      "tbtMs": 252,
+      "speedIndex": 2105
+    },
+    "Settings": {
+      "performance": 67,
+      "accessibility": 96,
+      "bestPractices": 96,
+      "seo": 100,
+      "fcpMs": 2115,
+      "lcpMs": 5320,
+      "cls": 0,
+      "tbtMs": 450,
+      "speedIndex": 2115
+    }
+  },
+  "desktop": {
+    "Login": {
+      "performance": 59,
+      "accessibility": 96,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 2196,
+      "lcpMs": 4742,
+      "cls": 0,
+      "tbtMs": 201,
+      "speedIndex": 2196
+    },
+    "Tables": {
+      "performance": 51,
+      "accessibility": 97,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 2108,
+      "lcpMs": 3908,
+      "cls": 0,
+      "tbtMs": 384,
+      "speedIndex": 2108
+    },
+    "Menu": {
+      "performance": 54,
+      "accessibility": 96,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 2012,
+      "lcpMs": 3168,
+      "cls": 0,
+      "tbtMs": 392,
+      "speedIndex": 2012
+    },
+    "Orders": {
+      "performance": 44,
+      "accessibility": 96,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 1964,
+      "lcpMs": 5319,
+      "cls": 0,
+      "tbtMs": 533,
+      "speedIndex": 1964
+    },
+    "Reports": {
+      "performance": 53,
+      "accessibility": 94,
+      "bestPractices": 100,
+      "seo": 100,
+      "fcpMs": 1961,
+      "lcpMs": 3912,
+      "cls": 0.002,
+      "tbtMs": 374,
+      "speedIndex": 1961
+    },
+    "Settings": {
+      "performance": 45,
+      "accessibility": 96,
+      "bestPractices": 96,
+      "seo": 100,
+      "fcpMs": 2113,
+      "lcpMs": 5315,
+      "cls": 0,
+      "tbtMs": 445,
+      "speedIndex": 2113
+    }
+  }
+}

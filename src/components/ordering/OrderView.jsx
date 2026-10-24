@@ -56,6 +56,15 @@ const CATEGORY_ICON_MAP = {
   Layers
 };
 
+
+function fastCloneCartItems(items) {
+  if (!Array.isArray(items)) return [];
+  return items.map((it) => ({
+    ...it,
+    toppings: Array.isArray(it.toppings) ? it.toppings.map((tp) => ({ ...tp })) : []
+  }));
+}
+
 export default function OrderView({ table, onBack, onGoToBill }) {
   const {
     menu,
@@ -107,7 +116,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       const existingItems = activeOrder.items || [];
       // If table switched or not dirty, load from order
       if (isNewTable || !isDirty) {
-        setCartItems(JSON.parse(JSON.stringify(existingItems)));
+        setCartItems(fastCloneCartItems(existingItems));
         loadedOrderVersionRef.current = activeOrder.version || 1;
         setIsDirty(false);
       }
@@ -261,7 +270,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       } else if (result && result.conflict) {
         triggerHaptic('error');
         if (result.currentOrder && result.currentOrder.items) {
-          setCartItems(JSON.parse(JSON.stringify(result.currentOrder.items)));
+          setCartItems(fastCloneCartItems(result.currentOrder.items));
           loadedOrderVersionRef.current = result.currentOrder.version || 1;
           setIsDirty(false);
         }
@@ -296,6 +305,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
       await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems);
     }
 
+    const { executeKitchenTicketPrint } = await import('../../utils/bluetoothPrinter');
     const printResult = await executeKitchenTicketPrint({
       ticketModel,
       settings,
@@ -331,7 +341,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
   };
 
   return (
-    <div className="flex flex-col h-full ambient-clay-bg overflow-hidden select-none relative">
+    <div data-testid="order-view" className="flex flex-col h-full ambient-clay-bg overflow-hidden select-none relative">
       {/* ================= 1. HEADER TRANG GỌI MÓN ================= */}
       <header className="px-3.5 py-3 bg-white/95 backdrop-blur-md border-b border-gray-100 flex items-center justify-between shrink-0 z-20 shadow-xs">
         <div className="flex items-center gap-2.5">
