@@ -35,7 +35,8 @@ const testFiles = [
   path.join(__dirname, 'global_success_toast_cleanup.test.js'),
   path.join(__dirname, 'redesign_login_page.test.js'),
   path.join(__dirname, 'role_login_success.test.js'),
-  path.join(__dirname, 'tdz_scope_guard.test.js')
+  path.join(__dirname, 'tdz_scope_guard.test.js'),
+  path.join(__dirname, 'ast_undeclared_variables.test.js')
 ];
 
 console.log('\n============================================================');

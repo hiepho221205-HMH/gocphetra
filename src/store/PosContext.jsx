@@ -30,6 +30,7 @@ import {
 import {
   supabase,
   isSupabaseConfigured,
+  schemaCapabilities,
   checkSupabaseHealth,
   fetchAllCloudData,
   seedInitialDataToCloud,
@@ -86,6 +87,7 @@ import {
   upsertStoreSettingsToCloud
 } from '../lib/supabase';
 import { createReceiptSnapshotRecord } from '../utils/receiptEngine';
+import { formatVND } from '../utils/currency';
 import {
   getVietnamTodayString,
   getVietnamDateString,

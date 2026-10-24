@@ -80,7 +80,7 @@ export default function ManagementProfileView({ onBack }) {
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
-  const [btStatus, setBtStatus] = useState(() => getInitialBtStatus());
+  const [btStatus, setBtStatus] = useState(() => getBluetoothPrinterStatus());
   const [isConnectingBt, setIsConnectingBt] = useState(false);
   const [isTestingBt, setIsTestingBt] = useState(false);
 
