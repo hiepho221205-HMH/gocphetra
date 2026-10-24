@@ -393,28 +393,7 @@ function PosAppRoot() {
 
   React.useEffect(() => {
     if (!isAuthLoading) {
-      if (loginSuccessRole) {
-    return (
-      <ErrorBoundary>
-        <Suspense fallback={
-          <div className="h-[100dvh] w-full bg-[#F8FAF7] flex items-center justify-center font-sans">
-            <div className="w-12 h-12 rounded-full border-3 border-[#214E34] border-t-transparent animate-spin" />
-          </div>
-        }>
-          <LoginSuccessView
-            role={loginSuccessRole}
-            user={currentUser}
-            onContinue={() => {
-              setLoginSuccessRole(null);
-              navigate('/tables');
-            }}
-          />
-        </Suspense>
-      </ErrorBoundary>
-    );
-  }
-
-  if (!isAuthenticated) {
+      if (!isAuthenticated) {
         if (currentRoute !== '/login') {
           navigate('/login');
         }
@@ -436,6 +415,30 @@ function PosAppRoot() {
           <p className="text-xs font-bold text-[#214E34] tracking-wide">Đang kiểm tra phiên làm việc...</p>
         </div>
       </div>
+    );
+  }
+
+  if (loginSuccessRole) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={
+          <div className="h-[100dvh] w-full bg-[#F8FAF7] flex items-center justify-center font-sans">
+            <div className="w-12 h-12 rounded-full border-3 border-[#214E34] border-t-transparent animate-spin" />
+          </div>
+        }>
+          <LoginSuccessView
+            role={loginSuccessRole}
+            user={currentUser}
+            onContinue={() => {
+              try {
+                sessionStorage.removeItem('goc_pos_welcome_role');
+              } catch (_) {}
+              setLoginSuccessRole(null);
+              navigate('/tables');
+            }}
+          />
+        </Suspense>
+      </ErrorBoundary>
     );
   }
 

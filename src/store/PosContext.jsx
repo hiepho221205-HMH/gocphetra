@@ -536,7 +536,13 @@ export function PosProvider({ children }) {
     supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
       if (!isMounted) return;
       if (currentSession?.user) {
-        await hydrateUserAndRole(currentSession.user, currentSession);
+        const hydrated = await hydrateUserAndRole(currentSession.user, currentSession);
+        try {
+          const pendingRole = sessionStorage.getItem('goc_pos_welcome_role');
+          if (pendingRole && hydrated?.role) {
+            setLoginSuccessRole(hydrated.role);
+          }
+        } catch (_) {}
       } else {
         setSession(null);
         setAuthUser(null);
@@ -593,6 +599,9 @@ export function PosProvider({ children }) {
     }
 
     setLoginSuccessRole(hydrated.role);
+    try {
+      sessionStorage.setItem('goc_pos_welcome_role', hydrated.role);
+    } catch (_) {}
     setActiveTab('tables');
     try {
       syncFromCloud(false);
@@ -608,6 +617,10 @@ export function PosProvider({ children }) {
       } catch (_) {}
     }
     await signOutUser();
+    try {
+      sessionStorage.removeItem('goc_pos_welcome_role');
+    } catch (_) {}
+    setLoginSuccessRole(null);
     setSession(null);
     setAuthUser(null);
     setCurrentUser(null);
@@ -624,6 +637,9 @@ export function PosProvider({ children }) {
       } catch (_) {}
     }
   };
+  if (typeof window !== 'undefined') {
+    window.__gocLogout = logoutUser;
+  }
 
   // Auto-save effects
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(tables)); dualWriteToIndexedDB('tables', tables); }, [tables]);
