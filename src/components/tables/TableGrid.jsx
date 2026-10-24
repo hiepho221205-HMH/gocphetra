@@ -93,16 +93,26 @@ export default function TableGrid({
 
   return (
     <div className="px-3.5 pt-3 pb-28">
-      {/* 1. Dashboard 3 Thẻ Thống Kê 3D Clay Token (Reference Image 2) */}
-      <div className="grid grid-cols-3 gap-2.5 mb-3.5">
+      {/* 1. Dashboard 3 Thẻ Thống Kê kiêm Bộ Lọc Chính (Claymorphism 3D Token) */}
+      <div className="grid grid-cols-3 gap-2.5 mb-3.5" role="region" aria-label="Bộ lọc thống kê bàn">
         {/* Tổng bàn - Blue 3D Disc Badge */}
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Lọc tất cả bàn"
+          aria-pressed={selectedStatus === 'all'}
+          data-testid="filter-card-all"
           onClick={() => handleStatusChange('all')}
-          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-transform active:scale-95 ${
-            selectedStatus === 'all' ? 'ring-2 ring-blue-500/50' : ''
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleStatusChange('all')}
+          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-all duration-200 select-none ${
+            selectedStatus === 'all'
+              ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#F5F7F4] shadow-lg scale-[1.03] bg-blue-50/40 border-blue-200'
+              : 'opacity-85 hover:opacity-100 hover:shadow-md'
           }`}
         >
-          <span className="text-[11px] text-gray-500 font-extrabold uppercase tracking-wider block mb-1.5">
+          <span className={`text-[11px] font-extrabold uppercase tracking-wider block mb-1.5 ${
+            selectedStatus === 'all' ? 'text-blue-700 font-black' : 'text-gray-500'
+          }`}>
             Tổng bàn
           </span>
           <div className="w-12 h-12 clay-disc-base clay-disc-blue text-lg shadow-clay-disc">
@@ -112,12 +122,22 @@ export default function TableGrid({
 
         {/* Có khách - Green 3D Disc Badge with Sub-Badge Pill */}
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Lọc bàn có khách"
+          aria-pressed={selectedStatus === 'occupied'}
+          data-testid="filter-card-occupied"
           onClick={() => handleStatusChange('occupied')}
-          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-transform active:scale-95 ${
-            selectedStatus === 'occupied' ? 'ring-2 ring-emerald-500/50' : ''
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleStatusChange('occupied')}
+          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-all duration-200 select-none ${
+            selectedStatus === 'occupied'
+              ? 'ring-2 ring-emerald-600 ring-offset-2 ring-offset-[#F5F7F4] shadow-lg scale-[1.03] bg-emerald-50/40 border-emerald-300'
+              : 'opacity-85 hover:opacity-100 hover:shadow-md'
           }`}
         >
-          <span className="text-[11px] text-[#214E34] font-extrabold uppercase tracking-wider block mb-1.5">
+          <span className={`text-[11px] font-extrabold uppercase tracking-wider block mb-1.5 ${
+            selectedStatus === 'occupied' ? 'text-[#174D36] font-black' : 'text-[#214E34]'
+          }`}>
             Có khách
           </span>
           <div className="w-12 h-12 clay-disc-base clay-disc-green text-lg shadow-clay-disc">
@@ -132,12 +152,22 @@ export default function TableGrid({
 
         {/* Bàn trống - White Clay 3D Disc Badge */}
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Lọc bàn trống"
+          aria-pressed={selectedStatus === 'empty'}
+          data-testid="filter-card-empty"
           onClick={() => handleStatusChange('empty')}
-          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-transform active:scale-95 ${
-            selectedStatus === 'empty' ? 'ring-2 ring-gray-400/50' : ''
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleStatusChange('empty')}
+          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-all duration-200 select-none ${
+            selectedStatus === 'empty'
+              ? 'ring-2 ring-gray-700 ring-offset-2 ring-offset-[#F5F7F4] shadow-lg scale-[1.03] bg-white border-gray-400'
+              : 'opacity-85 hover:opacity-100 hover:shadow-md'
           }`}
         >
-          <span className="text-[11px] text-gray-500 font-extrabold uppercase tracking-wider block mb-1.5">
+          <span className={`text-[11px] font-extrabold uppercase tracking-wider block mb-1.5 ${
+            selectedStatus === 'empty' ? 'text-gray-900 font-black' : 'text-gray-500'
+          }`}>
             Bàn trống
           </span>
           <div className="w-12 h-12 clay-disc-base clay-disc-white text-lg border border-gray-100 shadow-clay-disc">
@@ -147,7 +177,7 @@ export default function TableGrid({
       </div>
 
       {/* 2. Thanh công cụ tìm kiếm & nút Thêm bàn */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3.5">
         {/* Ô tìm kiếm mềm 3D Inset */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -171,33 +201,6 @@ export default function TableGrid({
         </button>
       </div>
 
-      {/* 3. Segmented Control Filter Pills (Soft Inset Well) */}
-      <div role="tablist" aria-label="Lọc trạng thái bàn" className="clay-inset p-1 flex items-center justify-between gap-1 mb-3.5">
-        {[
-          { key: 'all', label: 'Tất cả' },
-          { key: 'occupied', label: `Có khách (${occupiedCount})` },
-          { key: 'empty', label: `Bàn trống (${emptyCount})` }
-        ].map((tab) => {
-          const isActive = selectedStatus === tab.key;
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => handleStatusChange(tab.key)}
-              className={`flex-1 py-1.5 px-2 rounded-[14px] text-xs font-extrabold transition-all duration-150 cursor-pointer touch-target ${
-                isActive
-                  ? 'bg-white text-[#214E34] shadow-[0_4px_12px_rgba(160,175,200,0.25),inset_0_1px_1px_rgba(255,255,255,1)]'
-                  : 'text-gray-700 hover:text-gray-900 font-bold'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
       {/* Hidden standard select element for backward compatibility with automated tests */}
       <select
         value={selectedStatus}
@@ -211,7 +214,7 @@ export default function TableGrid({
         <option value="occupied">Có khách</option>
       </select>
 
-      {/* 4. Grid hiển thị danh sách bàn: đúng 2 cột trên mobile 390px */}
+      {/* 3. Grid hiển thị danh sách bàn: đúng 2 cột trên mobile 390px */}
       {filteredTables.length > 0 ? (
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
           {filteredTables.map((table) => (

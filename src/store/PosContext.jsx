@@ -2319,6 +2319,124 @@ export function PosProvider({ children }) {
     return true;
   };
 
+  // Xóa vĩnh viễn đơn hàng hiện tại của bàn và giải phóng bàn về trống (không lưu lịch sử, không tạo doanh thu, đồng bộ realtime)
+  const deleteActiveOrderForTable = async (tableId, reason = 'Xóa đơn & giải phóng bàn') => {
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) {
+      showToast('Không tìm thấy thông tin bàn!', 'error');
+      return { success: false, message: 'Không tìm thấy bàn' };
+    }
+
+    // Kiểm tra an toàn: Chặn xóa nếu bàn đang bị thu ngân khác khóa để thanh toán
+    const activeLock = isTableBillingLocked ? isTableBillingLocked(table) : null;
+    const isLockedByOther = Boolean(activeLock && activeLock.lockedById !== (currentUser?.id || currentUser?.uid));
+    if (isLockedByOther) {
+      showToast(`Bàn đang được ${activeLock.staffName || 'thu ngân khác'} mở thanh toán, không thể xóa!`, 'warning');
+      return { success: false, message: 'Bàn đang bị khóa thanh toán' };
+    }
+
+    let order = table.activeOrderId ? orders[table.activeOrderId] : null;
+    if (!order) {
+      order = Object.values(orders).find(
+        (o) => o.tableId === tableId && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+      ) || Object.values(orders).find(
+        (o) => o.tableId === tableId && o.status !== 'completed' && o.status !== 'cancelled'
+      );
+    }
+
+    const orderId = order?.id || table.activeOrderId;
+    const resetTable = {
+      ...table,
+      status: 'empty',
+      activeOrderId: null,
+      seatedAt: null,
+      customerCount: 0,
+      billingLock: null
+    };
+
+    try {
+      // 1. Xóa đơn vĩnh viễn khỏi Cloud Supabase (nếu có orderId)
+      if (orderId) {
+        await cloudDeleteOrder(orderId);
+      }
+
+      // 2. Cập nhật Cloud Supabase cho Table về trống
+      await cloudUpsertTable(resetTable);
+
+      // 3. Cập nhật state nội bộ: Xóa order khỏi orders, reset table trong tables
+      if (orderId) {
+        setOrders((prev) => {
+          const next = { ...prev };
+          delete next[orderId];
+          return next;
+        });
+      }
+
+      setTables((prev) => prev.map((t) => (t.id === tableId ? resetTable : t)));
+
+      // 4. Đồng bộ LocalStorage & IndexedDB (chặn việc hồi sinh khi F5)
+      try {
+        if (orderId) {
+          const currentOrders = loadStorage(STORAGE_KEYS.ORDERS, {});
+          delete currentOrders[orderId];
+          localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(currentOrders));
+          dualWriteToIndexedDB('orders', currentOrders);
+        }
+
+        const currentTables = loadStorage(STORAGE_KEYS.TABLES, []);
+        const nextTables = currentTables.map((t) => (t.id === tableId ? resetTable : t));
+        localStorage.setItem(STORAGE_KEYS.TABLES, JSON.stringify(nextTables));
+        dualWriteToIndexedDB('tables', nextTables);
+      } catch (storageErr) {
+        console.warn('Storage sync error on deleteActiveOrderForTable:', storageErr);
+      }
+
+      // 5. Ghi nhận Audit Log nội bộ (không lưu đơn nhưng lưu vết hành động quản trị)
+      const performerName = currentUser?.name || currentUser?.displayName || 'Nhân viên';
+      const performerRole = currentRole || 'staff';
+      const auditRecord = {
+        id: `audit_del_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        action: 'delete_active_order',
+        resource: 'tables',
+        performedBy: performerName,
+        role: performerRole,
+        details: {
+          tableId,
+          tableName: table.name,
+          orderId: orderId || null,
+          total: order?.total || 0,
+          itemCount: order?.items?.length || 0,
+          reason,
+          timestamp: new Date().toISOString()
+        },
+        createdAt: new Date().toISOString()
+      };
+      cloudRecordAuditLog(auditRecord).catch(() => {});
+
+      // 6. Phát sóng Realtime tới tất cả thiết bị khác
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'order_sync',
+          payload: {
+            deletedOrderId: orderId || undefined,
+            table: resetTable,
+            senderId: currentUser?.id || currentUser?.uid || 'staff',
+            senderInstance: clientInstanceIdRef.current,
+            timestamp: Date.now()
+          }
+        }).catch((e) => console.warn('Broadcast delete active order error:', e));
+      }
+
+      showToast(`Đã xóa đơn và giải phóng ${table.name}!`, 'success');
+      return { success: true, table: resetTable };
+    } catch (err) {
+      console.error('Lỗi khi xóa đơn bàn đã order:', err);
+      showToast('Có lỗi xảy ra khi xóa đơn: ' + err.message, 'error');
+      return { success: false, error: err.message };
+    }
+  };
+
   // =================== BILLING & SETTLEMENT ===================
   const requestBillForTable = (tableId) => {
     showToast('Đã in tạm tính hóa đơn', 'info');
@@ -3780,6 +3898,7 @@ export function PosProvider({ children }) {
     processPartialPayment,
     fullCheckout,
     cancelOrderForTable,
+    deleteActiveOrderForTable,
     addCategory,
     updateCategory,
     deleteCategory,
