@@ -218,6 +218,7 @@ export function PosProvider({ children }) {
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(Boolean(isSupabaseConfigured && typeof window !== 'undefined'));
   const [authError, setAuthError] = useState(null);
+  const [loginSuccessRole, setLoginSuccessRole] = useState(null);
 
   // RBAC 3-Tier State: 'admin' | 'manager' | 'staff'
   const [currentRole, setCurrentRole] = useState(() => {
@@ -468,7 +469,8 @@ export function PosProvider({ children }) {
       // Requirement 12 & 26: If account is locked/paused/inactive, reject immediately
       const status = profile?.status || 'active';
       if (status !== 'active') {
-        await signOutUser();
+        setLoginSuccessRole(null);
+    await signOutUser();
         setSession(null);
         setAuthUser(null);
         setCurrentUser(null);
@@ -590,6 +592,7 @@ export function PosProvider({ children }) {
       return { success: false, message: authError || 'Tài khoản không đủ quyền truy cập hệ thống' };
     }
 
+    setLoginSuccessRole(hydrated.role);
     setActiveTab('tables');
     try {
       syncFromCloud(false);
@@ -3863,6 +3866,8 @@ export function PosProvider({ children }) {
     isAuthenticated: Boolean((session?.user && currentRole) || (!isSupabaseConfigured && currentUser)),
     isAuthLoading,
     authError,
+    loginSuccessRole,
+    setLoginSuccessRole,
     loginWithEmail,
     logoutUser,
     // RBAC Context values

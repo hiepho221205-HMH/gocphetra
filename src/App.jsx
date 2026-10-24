@@ -21,6 +21,7 @@ const OrderHistoryView = lazy(() => import('./components/orders/OrderHistoryView
 const ReportsView = lazy(() => import('./components/reports/ReportsView'));
 const SettingsView = lazy(() => import('./components/settings/SettingsView'));
 const LoginPage = lazy(() => import('./components/auth/LoginPage'));
+const LoginSuccessView = lazy(() => import('./components/auth/LoginSuccessView'));
 
 const ViewLoadingFallback = () => (
   <div className="flex-1 min-h-[240px] flex items-center justify-center p-6 text-[#214E34]">
@@ -380,21 +381,50 @@ function PosContent() {
 }
 
 function PosAppRoot() {
-  const { isAuthenticated, isAuthLoading, currentRoute, navigate } = usePos();
+  const {
+    isAuthenticated,
+    isAuthLoading,
+    currentRoute,
+    navigate,
+    loginSuccessRole,
+    setLoginSuccessRole,
+    currentUser
+  } = usePos();
 
   React.useEffect(() => {
     if (!isAuthLoading) {
-      if (!isAuthenticated) {
+      if (loginSuccessRole) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={
+          <div className="h-[100dvh] w-full bg-[#F8FAF7] flex items-center justify-center font-sans">
+            <div className="w-12 h-12 rounded-full border-3 border-[#214E34] border-t-transparent animate-spin" />
+          </div>
+        }>
+          <LoginSuccessView
+            role={loginSuccessRole}
+            user={currentUser}
+            onContinue={() => {
+              setLoginSuccessRole(null);
+              navigate('/tables');
+            }}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
+  if (!isAuthenticated) {
         if (currentRoute !== '/login') {
           navigate('/login');
         }
       } else {
-        if (currentRoute === '/login') {
+        if (currentRoute === '/login' && !loginSuccessRole) {
           navigate('/tables');
         }
       }
     }
-  }, [isAuthenticated, isAuthLoading, currentRoute, navigate]);
+  }, [isAuthenticated, isAuthLoading, currentRoute, navigate, loginSuccessRole]);
 
   if (isAuthLoading) {
     return (

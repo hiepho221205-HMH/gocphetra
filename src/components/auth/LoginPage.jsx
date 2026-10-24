@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usePos } from '../../store/PosContext';
-import { Coffee, Mail, Lock, Eye, EyeOff, AlertCircle, ShieldAlert, CheckCircle, HelpCircle, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, ShieldAlert, HelpCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
 
 export default function LoginPage() {
@@ -86,247 +86,265 @@ export default function LoginPage() {
   };
 
   return (
-    <main id="main-content" tabIndex="-1" className="h-[100dvh] max-h-[100dvh] w-full bg-[#EAEFEA] flex flex-col items-center justify-center p-0 sm:py-3 sm:px-4 font-sans select-none overflow-hidden">
-      {/* Mobile Device Frame Container (Fixed 390px default mockup with rounded frame & speaker notch) */}
-      <div className="w-full max-w-[400px] h-[100dvh] max-h-[100dvh] sm:h-[844px] sm:max-h-[92vh] sm:rounded-[40px] sm:border-[8px] sm:border-[#1E2E22] ambient-clay-bg flex flex-col relative shadow-2xl overflow-hidden transition-all">
+    <main
+      id="main-content"
+      tabIndex="-1"
+      className="relative min-h-[100dvh] w-full flex flex-col items-center justify-center p-3 sm:p-6 font-sans select-none overflow-x-hidden overflow-y-auto"
+    >
+      {/* 1. Background Atmosphere: 3D Coffee Shop with Soft Blur */}
+      <div className="fixed inset-0 z-0 pointer-events-none select-none">
+        <picture>
+          <source type="image/webp" srcSet="/images/login/coffee-shop-bg.webp" />
+          <img
+            src="/images/login/coffee-shop-bg.png"
+            alt=""
+            aria-hidden="true"
+            className="w-full h-full object-cover object-center filter blur-[1px] scale-[1.02]"
+          />
+        </picture>
+        {/* Soft Ambient Overlay for Optimal Contrast */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#FEFDFB]/30 via-transparent to-[#F2EFE9]/40" />
+      </div>
+
+      {/* 2. Main Login Stack Container */}
+      <div className="relative z-10 w-full max-w-[390px] sm:max-w-[410px] flex flex-col items-center my-auto py-3 sm:py-5">
         
-        {/* Mobile Mockup Speaker Notch */}
-        <div className="hidden sm:flex items-center justify-center pt-2.5 pb-1 bg-white/60 backdrop-blur-md shrink-0 border-b border-black/5">
-          <div className="w-20 h-4 bg-[#1E2E22] rounded-full flex items-center justify-end px-2 shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-forest-900 border border-white/20"></span>
-          </div>
+        {/* A. Top Branding Header */}
+        <div className="text-center mb-1 select-none">
+          <h1 className="text-3xl sm:text-[34px] font-black text-[#1C412C] tracking-tight leading-none drop-shadow-xs">
+            GÓC POS
+          </h1>
+          <p className="text-xs sm:text-[13px] font-semibold text-[#526658] mt-1.5 tracking-normal">
+            Hệ thống POS Vận hành & Bán hàng
+          </p>
         </div>
 
-        {/* Ambient Pastel Lighting Glows (Reference Image 1 & 2) */}
-        <div className="absolute top-0 -left-10 w-52 h-52 bg-rose-200/40 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-20 -right-10 w-60 h-60 bg-blue-200/40 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-10 left-10 w-64 h-64 bg-emerald-200/35 rounded-full blur-3xl pointer-events-none" />
+        {/* B. 3D Barista Character (Static Asset, Perfectly Positioned on Card Top Edge) */}
+        <div className="relative z-20 flex justify-center -mb-6 sm:-mb-7 pointer-events-none select-none">
+          <picture className="inline-block">
+            <source type="image/webp" srcSet="/images/login/barista-3d.webp" />
+            <img
+              src="/images/login/barista-3d.png"
+              alt="3D Coffee Barista"
+              className="w-56 sm:w-64 h-auto object-contain drop-shadow-md select-none"
+              draggable={false}
+              width={256}
+              height={256}
+            />
+          </picture>
+        </div>
 
-        {/* Scrollable Form Content */}
-        <div className="relative z-10 flex-1 flex flex-col justify-between px-5 pt-6 pb-6 overflow-y-auto no-scrollbar">
+        {/* C. Soft Clay 3D Login Card */}
+        <div className="relative z-10 w-full login-card-3d bg-white p-6 sm:p-7 pt-7 sm:pt-8 space-y-4">
           
-          {/* Header Brand */}
-          <div className="text-center pt-1">
-            {/* 3D Tactile Brand Icon Disc */}
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl clay-disc-forest shadow-float mb-3">
-              <Coffee className="w-10 h-10 text-white stroke-[2.3]" />
-            </div>
-            
-            <h1 className="text-2xl font-black text-forest-900 tracking-tight leading-tight">
-              GÓC <span className="font-semibold text-forest-600 text-lg">• Phê & Trà</span>
-            </h1>
-            <p className="text-gray-500 text-xs font-semibold mt-1">
-              Hệ thống POS Vận hành & Bán hàng
+          {/* Card Title & Subtitle */}
+          <div className="text-center space-y-1">
+            <h2 className="text-2xl sm:text-[26px] font-black text-[#1C412C] tracking-wide uppercase">
+              LOGIN
+            </h2>
+            <p className="text-xs sm:text-[12.5px] text-[#697A70] font-medium leading-relaxed">
+              Nhập tài khoản nhân viên được cấp để mở ca làm việc
             </p>
           </div>
 
-          {/* Login Card (Soft UI / Claymorphic #FFFFFF Card with deep soft shadow) */}
-          <div className="clay-card p-6 mt-3 space-y-4">
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-extrabold text-forest-900 tracking-tight">
-                  Đăng nhập ca
-                </h2>
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#E8F3EB] text-forest-800 border border-emerald-200 uppercase tracking-wider">
-                  Nội bộ
-                </span>
+          {/* Error Notification Alert */}
+          {(errorMessage || authError) && (
+            <div
+              role="alert"
+              className="bg-red-50/95 border border-red-200/90 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-red-700 animate-fadeIn shadow-xs"
+            >
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div className="flex-1 font-semibold leading-relaxed">
+                {errorMessage || authError}
               </div>
-              <p className="text-[11.5px] text-gray-500 mt-0.5">
-                Nhập tài khoản nhân viên được cấp để mở ca làm việc
-              </p>
             </div>
+          )}
 
-            {/* Error Notification Alert */}
-            {(errorMessage || authError) && (
-              <div
-                role="alert"
-                className="bg-red-50/90 border border-red-200 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-red-700 animate-fadeIn shadow-xs"
-              >
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1 font-semibold leading-relaxed">
-                  {errorMessage || authError}
-                </div>
-              </div>
-            )}
-
-            {/* Lockout Countdown Alert */}
-            {lockoutTimer > 0 && (
-              <div
-                role="alert"
-                className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center gap-2.5 text-xs text-amber-800 animate-pulse"
-              >
-                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                <span className="font-semibold">
-                  Tạm khóa bảo vệ: Vui lòng đợi {lockoutTimer}s
-                </span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-3.5">
-              {/* Email Input */}
-              <div className="space-y-1">
-                <label htmlFor="login-email" className="text-[11.5px] font-bold text-gray-700 block">
-                  Email nhân viên
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="email"
-                    id="login-email" data-testid="login-email-input"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin01@gocpos.vn"
-                    autoComplete="email"
-                    disabled={isSubmitting || lockoutTimer > 0}
-                    className="w-full pl-10 pr-3.5 py-3 clay-input text-gray-800 text-sm font-medium placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-
-              {/* Password Input */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="login-password" className="text-[11.5px] font-bold text-gray-700">
-                    Mật khẩu
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic('light');
-                      setShowForgotModal(true);
-                    }}
-                    className="text-[11px] text-forest-700 hover:text-forest-900 font-bold hover:underline cursor-pointer"
-                  >
-                    Quên mật khẩu?
-                  </button>
-                </div>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    id="login-password" data-testid="login-password-input"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••"
-                    autoComplete="current-password"
-                    disabled={isSubmitting || lockoutTimer > 0}
-                    className="w-full pl-10 pr-11 py-3 clay-input text-gray-800 text-sm font-medium placeholder:text-gray-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic('light');
-                      setShowPassword(!showPassword);
-                    }}
-                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Primary 3D Pill CTA */}
-              <button
-                type="submit"
-                data-testid="login-submit-button"
-                disabled={isSubmitting || lockoutTimer > 0 || !email || !password}
-                className="w-full mt-2 py-3.5 clay-btn-primary disabled:opacity-50 disabled:cursor-not-allowed font-extrabold text-sm flex items-center justify-center gap-2 cursor-pointer touch-target shadow-float"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Đang xác thực...</span>
-                  </>
-                ) : lockoutTimer > 0 ? (
-                  <span>Tạm khóa ({lockoutTimer}s)</span>
-                ) : (
-                  <>
-                    <span>Đăng nhập ca làm việc</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* Quick-fill Pills for testing/convenience */}
-            <div className="pt-2 border-t border-gray-100/80">
-              <span className="text-[10px] font-bold text-gray-600 block mb-1.5 uppercase tracking-wider text-center">
-                Tài khoản mẫu thử nghiệm
+          {/* Lockout Countdown Alert */}
+          {lockoutTimer > 0 && (
+            <div
+              role="alert"
+              className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center gap-2.5 text-xs text-amber-800 animate-pulse"
+            >
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="font-semibold">
+                Tạm khóa bảo vệ: Vui lòng đợi {lockoutTimer}s
               </span>
-              <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill('admin01@gocpos.vn', '123456')}
-                  className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-bold border border-blue-200/80 transition-colors cursor-pointer"
-                >
-                  Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill('manager01@gocpos.vn', '123456')}
-                  className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-[11px] font-bold border border-emerald-200/80 transition-colors cursor-pointer"
-                >
-                  Quản lý
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill('staff01@gocpos.vn', '123456')}
-                  className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 text-[11px] font-bold border border-amber-200/80 transition-colors cursor-pointer"
-                >
-                  Thu ngân
-                </button>
+            </div>
+          )}
+
+          {/* Credentials Form */}
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            {/* Email Input */}
+            <div className="space-y-1.5">
+              <label htmlFor="login-email" className="text-xs font-bold text-[#2A3B30] block">
+                Email nhân viên
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#8A9C92]">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <input
+                  type="email"
+                  id="login-email"
+                  data-testid="login-email-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin01@gocpos.vn"
+                  autoComplete="email"
+                  disabled={isSubmitting || lockoutTimer > 0}
+                  className="w-full pl-10 pr-3.5 py-3 login-input-3d text-[#1F2A24] text-sm font-medium placeholder:text-[#95A59C]"
+                />
               </div>
             </div>
-          </div>
 
-          {/* Footer Security Badge */}
-          <div className="text-center pt-3 pb-1">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full clay-pill text-forest-800 text-[11px] font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>Bảo mật Supabase Auth • Phân quyền RBAC</span>
-            </div>
-            <p className="text-[10px] text-gray-600 mt-1">
-              GÓC POS v1.0 • Chỉ dành cho nhân sự nội bộ quán
-            </p>
-          </div>
-        </div>
-
-        {/* Forgot Password / In-store Help Modal */}
-        {showForgotModal && (
-          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-            <div className="clay-card w-full max-w-sm p-6 space-y-4 text-center">
-              <div className="w-14 h-14 rounded-3xl clay-disc-green mx-auto flex items-center justify-center">
-                <HelpCircle className="w-7 h-7 text-white stroke-[2.3]" />
-              </div>
-              <div>
-                <h3 className="font-black text-forest-900 text-lg">
-                  Quên mật khẩu đăng nhập?
-                </h3>
-                <p className="text-gray-600 text-xs mt-2 leading-relaxed">
-                  GÓC POS là hệ thống bán hàng nội bộ khép kín. Để bảo đảm an toàn dữ liệu quán, nhân viên vui lòng liên hệ trực tiếp <strong>Cửa hàng trưởng (Manager)</strong> hoặc <strong>Quản trị viên (Admin)</strong> trực ca để được cấp lại mật khẩu mới.
-                </p>
-              </div>
-              <div className="pt-2">
+            {/* Password Input */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="login-password" className="text-xs font-bold text-[#2A3B30]">
+                  Mật khẩu
+                </label>
                 <button
                   type="button"
                   onClick={() => {
                     triggerHaptic('light');
-                    setShowForgotModal(false);
+                    setShowForgotModal(true);
                   }}
-                  className="w-full py-3 clay-btn-primary font-bold text-xs touch-target"
+                  className="text-xs text-[#255C3A] hover:text-[#193F27] font-bold hover:underline cursor-pointer transition-colors"
                 >
-                  Đã hiểu, quay lại đăng nhập
+                  Quên mật khẩu?
+                </button>
+              </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#8A9C92]">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="login-password"
+                  data-testid="login-password-input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••"
+                  autoComplete="current-password"
+                  disabled={isSubmitting || lockoutTimer > 0}
+                  className="w-full pl-10 pr-11 py-3 login-input-3d text-[#1F2A24] text-sm font-medium placeholder:text-[#95A59C]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setShowPassword(!showPassword);
+                  }}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#8A9C92] hover:text-[#4A5D52] transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
+
+            {/* Primary Login Pill CTA Button */}
+            <button
+              type="submit"
+              data-testid="login-submit-button"
+              disabled={isSubmitting || lockoutTimer > 0 || !email || !password}
+              className="w-full mt-2 py-3.5 rounded-full bg-gradient-to-r from-[#2B6641] to-[#1E4C30] hover:from-[#245737] hover:to-[#173B25] active:scale-[0.98] text-white font-extrabold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 touch-target"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Đang xác thực...</span>
+                </>
+              ) : lockoutTimer > 0 ? (
+                <span>Tạm khóa ({lockoutTimer}s)</span>
+              ) : (
+                <>
+                  <span>Đăng nhập ca làm việc</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Quick-fill Pills for testing / demo */}
+          <div className="pt-2">
+            <div className="relative flex items-center justify-center mb-3">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200/70" />
+              </div>
+              <span className="relative px-3 bg-white text-[10px] font-bold text-[#7E8F84] uppercase tracking-wider">
+                TÀI KHOẢN MẪU THỬ NGHIỆM
+              </span>
+            </div>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => handleQuickFill('admin01@gocpos.vn', '123456')}
+                className="px-3.5 py-1.5 rounded-full bg-[#E3EFFD] text-[#1E65CC] hover:bg-[#D5E7FC] text-xs font-bold border border-[#C9E0FC] transition-colors cursor-pointer active:scale-95 shadow-2xs"
+              >
+                Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('manager01@gocpos.vn', '123456')}
+                className="px-3.5 py-1.5 rounded-full bg-[#E2F6EA] text-[#1A7C49] hover:bg-[#D4F1E0] text-xs font-bold border border-[#C5EDD4] transition-colors cursor-pointer active:scale-95 shadow-2xs"
+              >
+                Quản lý
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('staff01@gocpos.vn', '123456')}
+                className="px-3.5 py-1.5 rounded-full bg-[#FEF1DF] text-[#BC670B] hover:bg-[#FDE7C9] text-xs font-bold border border-[#FDE0BC] transition-colors cursor-pointer active:scale-95 shadow-2xs"
+              >
+                Thu ngân
+              </button>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* D. Footer Security Badges */}
+        <div className="text-center pt-4 pb-2 space-y-1 select-none">
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-[#1C412C]">
+            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+            <span>Bảo mật Supabase Auth • Phân quyền RBAC</span>
+          </div>
+          <p className="text-[11px] text-[#55695D] font-medium">
+            GÓC POS v1.0 • Chỉ dành cho nhân sự nội bộ quán
+          </p>
+        </div>
       </div>
+
+      {/* 3. In-Store Help / Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="login-card-3d bg-white w-full max-w-sm p-6 space-y-4 text-center">
+            <div className="w-14 h-14 rounded-3xl bg-gradient-to-br from-[#2B6641] to-[#1E4C30] text-white mx-auto flex items-center justify-center shadow-md">
+              <HelpCircle className="w-7 h-7 stroke-[2.3]" />
+            </div>
+            <div>
+              <h3 className="font-black text-[#1C412C] text-lg">
+                Quên mật khẩu đăng nhập?
+              </h3>
+              <p className="text-gray-600 text-xs mt-2 leading-relaxed">
+                GÓC POS là hệ thống bán hàng nội bộ khép kín. Để bảo đảm an toàn dữ liệu quán, nhân viên vui lòng liên hệ trực tiếp <strong>Cửa hàng trưởng (Manager)</strong> hoặc <strong>Quản trị viên (Admin)</strong> trực ca để được cấp lại mật khẩu mới.
+              </p>
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light');
+                  setShowForgotModal(false);
+                }}
+                className="w-full py-3 rounded-full bg-gradient-to-r from-[#2B6641] to-[#1E4C30] hover:from-[#245737] hover:to-[#173B25] text-white font-bold text-xs touch-target shadow-md active:scale-95 transition-all"
+              >
+                Đã hiểu, quay lại đăng nhập
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
