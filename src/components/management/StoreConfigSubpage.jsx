@@ -1,40 +1,30 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { usePos } from '../../store/PosContext';
 import {
   ArrowLeft,
   Store,
-  CreditCard,
-  Wifi,
-  Database,
-  Check,
-  Copy,
-  CheckCircle2,
-  RefreshCw,
-  UploadCloud,
-  Printer,
-  Image as ImageIcon,
-  Trash2,
   FileText,
-  Sliders,
-  Eye,
-  AlertCircle,
-  HelpCircle,
-  Sparkles,
-  ChefHat
+  ChefHat,
+  Wifi,
+  CreditCard,
+  Database,
+  ShieldCheck,
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
-import { processThermalLogo, validateLogoFile } from '../../utils/thermalLogoProcessor';
-import ReceiptPrintView from '../billing/ReceiptPrintView';
-import PreparationTicketTemplate from '../printing/PreparationTicketTemplate';
-import {
-  buildKitchenTicketModel,
-  DEFAULT_KITCHEN_TICKET_SETTINGS
-} from '../../utils/kitchenTicketEngine';
-import {
-  getBluetoothPrinterStatus,
-  printKitchenTicketThermal
-} from '../../utils/bluetoothPrinter';
 import { triggerHaptic } from '../../utils/haptics';
+import SettingsHubCard from '../settings/hub/SettingsHubCard';
+import StoreInfoConfigSubpage from '../settings/hub/subpages/StoreInfoConfigSubpage';
+import ReceiptConfigSubpage from '../settings/hub/subpages/ReceiptConfigSubpage';
+import KitchenTicketConfigSubpage from '../settings/hub/subpages/KitchenTicketConfigSubpage';
+import WifiConfigSubpage from '../settings/hub/subpages/WifiConfigSubpage';
+import VietQrConfigSubpage from '../settings/hub/subpages/VietQrConfigSubpage';
+import CloudConfigSubpage from '../settings/hub/subpages/CloudConfigSubpage';
 
+/**
+ * StoreConfigSubpage - Settings Hub Coordinator
+ * Grid 2 cột trên mobile (390px), Soft 3D Neumorphism, 6 trang cấu hình độc lập.
+ */
 export default function StoreConfigSubpage({ onBack }) {
   const {
     settings,
@@ -47,990 +37,221 @@ export default function StoreConfigSubpage({ onBack }) {
     uploadStoreLogo
   } = usePos();
 
-  // 1. Store Info State
-  const [branchName, setBranchName] = useState(settings?.branchName || settings?.storeName || 'GÓC');
-  const [branchAddress, setBranchAddress] = useState(settings?.branchAddress || settings?.storeAddress || '18A Võ Văn Dũng, Phường An Nhơn, Bình Định');
-  const [hotline, setHotline] = useState(settings?.hotline || settings?.contactPhone || '1900 88 99 22');
-  const [cashier, setCashier] = useState(settings?.currentCashier || 'Thu ngân');
+  // Active subpage state: null | 'store-info' | 'receipt' | 'kitchen-ticket' | 'wifi' | 'vietqr' | 'cloud'
+  const [activeSubpage, setActiveSubpage] = useState(null);
 
-  // Logo State (Default to /default-logo.png)
-  const [logoOriginalUrl, setLogoOriginalUrl] = useState(settings?.logoOriginalUrl || '/default-logo.png');
-  const [logoThermalUrl, setLogoThermalUrl] = useState(settings?.logoThermalUrl || '/default-logo.png');
-  const [logoPreviewTab, setLogoPreviewTab] = useState('thermal'); // 'original' | 'thermal'
-  const [isProcessingLogo, setIsProcessingLogo] = useState(false);
-  const fileInputRef = useRef(null);
+  // Subpage 1: Thông tin quán
+  if (activeSubpage === 'store-info') {
+    return (
+      <StoreInfoConfigSubpage
+        settings={settings}
+        updateSettings={updateSettings}
+        showToast={showToast}
+        onBack={() => setActiveSubpage(null)}
+      />
+    );
+  }
 
-  // 2. Receipt Configuration State
-  const [paperWidth, setPaperWidth] = useState(settings?.receiptPaperWidth || '58mm');
-  const [thermalPrintMode, setThermalPrintMode] = useState(
-    settings?.thermalPrintMode || (settings?.printNoAccents === false ? 'graphic_accents' : 'text_no_accents')
-  );
-  const [receiptFooter, setReceiptFooter] = useState(settings?.receiptFooter || 'Cảm ơn quý khách và hẹn gặp lại!');
-  const [receiptSettings, setReceiptSettings] = useState(settings?.receiptSettings || {
-    showLogo: true,
-    showStoreName: true,
-    showAddress: true,
-    showPhone: true,
-    showOrderId: true,
-    showTable: true,
-    showOrderTime: true,
-    showReceiptTime: true,
-    showWifi: true,
-    showFooter: true
-  });
+  // Subpage 2: Hóa đơn & In ấn
+  if (activeSubpage === 'receipt') {
+    return (
+      <ReceiptConfigSubpage
+        settings={settings}
+        updateSettings={updateSettings}
+        uploadStoreLogo={uploadStoreLogo}
+        showToast={showToast}
+        onBack={() => setActiveSubpage(null)}
+      />
+    );
+  }
 
-  // 3. Wi-Fi State
-  const [wifiPassword, setWifiPassword] = useState(settings?.wifiPassword || 'xincamon');
-  const [wifiOnReceipt, setWifiOnReceipt] = useState(settings?.wifiOnReceipt !== false);
-  const [copiedWifi, setCopiedWifi] = useState(false);
+  // Subpage 3: Phiếu chế biến (Bếp / Bar)
+  if (activeSubpage === 'kitchen-ticket') {
+    return (
+      <KitchenTicketConfigSubpage
+        settings={settings}
+        updateSettings={updateSettings}
+        showToast={showToast}
+        onBack={() => setActiveSubpage(null)}
+      />
+    );
+  }
 
-  // 4. Payment & VietQR State
-  const [accountNo, setAccountNo] = useState(settings?.bankAccount?.accountNo || '0988776655');
-  const [accountHolder, setAccountHolder] = useState(settings?.bankAccount?.accountHolder || 'QUAN CA PHE GOC');
-  const [enableVietQR, setEnableVietQR] = useState(settings?.enableVietQR !== false);
+  // Subpage 4: Wi-Fi Khách hàng
+  if (activeSubpage === 'wifi') {
+    return (
+      <WifiConfigSubpage
+        settings={settings}
+        updateSettings={updateSettings}
+        showToast={showToast}
+        onBack={() => setActiveSubpage(null)}
+      />
+    );
+  }
 
-  // 5. Kitchen / Bar Preparation Ticket State
-  const [kitchenTicketSettings, setKitchenTicketSettings] = useState(
-    settings?.kitchenTicketSettings || {
-      enabled: true,
-      paperWidth: '58mm',
-      promptOnSave: true,
-      printMode: 'diff',
-      showTable: true,
-      showOrderId: true,
-      showTime: true,
-      showToppings: true,
-      showNotes: true,
-      showItemCount: true
-    }
-  );
-  const [isTestingKitchenPrint, setIsTestingKitchenPrint] = useState(false);
-  const [testKitchenTicketModel, setTestKitchenTicketModel] = useState(null);
+  // Subpage 5: Tài khoản & VietQR
+  if (activeSubpage === 'vietqr') {
+    return (
+      <VietQrConfigSubpage
+        settings={settings}
+        updateSettings={updateSettings}
+        showToast={showToast}
+        onBack={() => setActiveSubpage(null)}
+      />
+    );
+  }
 
-  // Modal / UI State
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showTestPrintModal, setShowTestPrintModal] = useState(false);
+  // Subpage 6: Cloud & Dữ liệu
+  if (activeSubpage === 'cloud') {
+    return (
+      <CloudConfigSubpage
+        cloudStatus={cloudStatus}
+        isSyncing={isSyncing}
+        syncFromCloud={syncFromCloud}
+        seedToCloud={seedToCloud}
+        showToast={showToast}
+        onBack={() => setActiveSubpage(null)}
+      />
+    );
+  }
 
-  // Mock order for test print preview
-  const testOrder = {
-    id: 'DEMO-88',
-    tableName: 'Bàn 01 (Mẫu in thử)',
-    cashier: cashier.split('(')[0].trim(),
-    createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    finishedAt: new Date().toISOString(),
-    items: [
-      { name: 'Cà phê Muối GÓC Đặc Biệt', quantity: 1, price: 35000, lineTotal: 35000, size: 'Lớn', toppings: [{ name: 'Kem Cheese béo mặn' }] },
-      { name: 'Trà Sen Vàng Hạt Sen Huế Ninh Đường Thơm Ngọt Tự Nhiên', quantity: 2, price: 42000, lineTotal: 84000, size: 'Vừa', toppings: [] },
-      { name: 'Bánh Croissant Bơ Pháp', quantity: 1, price: 32000, lineTotal: 32000, toppings: [] }
-    ],
-    subtotal: 151000,
-    discountPercent: 10,
-    surcharge: 0,
-    total: 135900,
-    paidAmount: 135900,
-    paymentMethod: 'cash'
-  };
-
-  const handleToggleReceiptSetting = (key) => {
-    triggerHaptic('light');
-    setReceiptSettings((prev) => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
-
-  const handleCopyWifi = () => {
-    triggerHaptic('light');
-    if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(wifiPassword);
-      setCopiedWifi(true);
-      showToast?.('Đã sao chép mật khẩu WiFi!', 'success');
-      setTimeout(() => setCopiedWifi(false), 2000);
-    }
-  };
-
-  // Handle Logo Upload and Automatic Thermal Processing
-  const handleLogoFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const validation = validateLogoFile(file);
-    if (!validation.valid) {
-      showToast?.(validation.error, 'error');
-      return;
-    }
-
-    setIsProcessingLogo(true);
-    triggerHaptic('medium');
-
-    try {
-      showToast?.('Đang phân tích & tối ưu logo cho máy in nhiệt...', 'info');
-
-      // 1. Client-side Canvas Image Dithering & Inversion
-      const processed = await processThermalLogo(file);
-
-      // Default to dataURL for instant display & offline support
-      setLogoOriginalUrl(processed.originalUrl);
-      setLogoThermalUrl(processed.dataUrl58mm);
-
-      // 2. Try upload to Supabase Storage if online
-      if (uploadStoreLogo) {
-        try {
-          const origUpload = await uploadStoreLogo(file, 'original');
-          if (origUpload?.publicUrl) {
-            setLogoOriginalUrl(origUpload.publicUrl);
-          }
-        } catch (_) {
-          // Keep dataURL fallback
-        }
-      }
-
-      showToast?.('Đã xử lý logo in nhiệt thành công!', 'success');
-    } catch (err) {
-      console.warn('Lỗi xử lý logo:', err);
-      showToast?.('Không thể xử lý logo: ' + (err.message || 'Lỗi định dạng'), 'error');
-    } finally {
-      setIsProcessingLogo(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleRemoveLogo = () => {
-    triggerHaptic('light');
-    setLogoOriginalUrl(null);
-    setLogoThermalUrl(null);
-  };
-
-  const handleResetToDefaultLogo = () => {
-    triggerHaptic('light');
-    setLogoOriginalUrl('/default-logo.png');
-    setLogoThermalUrl('/default-logo.png');
-  };
-
-  const handleSave = (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    triggerHaptic('medium');
-
-    setTimeout(() => {
-      updateSettings({
-        branchName,
-        storeName: branchName,
-        branchAddress,
-        storeAddress: branchAddress,
-        hotline,
-        contactPhone: hotline,
-        currentCashier: cashier,
-        logoOriginalUrl,
-        logoThermalUrl,
-        receiptPaperWidth: paperWidth,
-        thermalPrintMode,
-        printNoAccents: thermalPrintMode === 'text_no_accents',
-        receiptSettings,
-        receiptFooter,
-        wifiPassword,
-        wifiOnReceipt,
-        enableVietQR,
-        bankAccount: {
-          ...settings?.bankAccount,
-          accountNo,
-          accountHolder
-        },
-        kitchenTicketSettings
-      });
-      setIsSubmitting(false);
-    }, 250);
-  };
-
-  const handleTestKitchenPrint = async () => {
-    triggerHaptic('medium');
-    setIsTestingKitchenPrint(true);
-    try {
-      const dummyTicketModel = buildKitchenTicketModel({
-        order: { id: 'ORD-DEMO88', tableName: 'Bàn B02' },
-        table: { name: 'Bàn B02' },
-        diffItems: [
-          { id: 'it-1', name: 'Cà phê Muối GÓC Đặc Biệt', size: 'Lớn', quantity: 2, toppings: ['Kem Cheese béo mặn'], notes: 'Ít đường, nhiều đá' },
-          { id: 'it-2', name: 'Trà Sen Vàng Hạt Sen Huế', size: 'Vừa', quantity: 1, toppings: ['Hạt sen thêm'], notes: '' },
-          { id: 'it-3', name: 'Espresso sữa non', size: '', quantity: 1, isAdditional: true, notes: 'Món gọi thêm' }
-        ],
-        settings: { kitchenTicketSettings },
-        currentUser: { name: cashier.split('(')[0].trim() || 'Admin' },
-        ticketNumber: 'TEST-BAR-01',
-        printMode: kitchenTicketSettings.printMode || 'diff'
-      });
-
-      const bt = getBluetoothPrinterStatus();
-      if (bt.isConnected) {
-        await printKitchenTicketThermal(dummyTicketModel, {
-          settings: { ...settings, thermalPrintMode },
-          thermalPrintMode
-        });
-      } else {
-        setTestKitchenTicketModel(dummyTicketModel);
-        setTimeout(() => {
-          window.print();
-        }, 150);
-      }
-    } catch (err) {
-      console.warn('Lỗi khi in thử phiếu chế biến:', err);
-      showToast?.('Lỗi in thử: ' + (err.message || 'Không thể in'), 'error');
-    } finally {
-      setIsTestingKitchenPrint(false);
-    }
-  };
-
+  // Main Settings Hub View (Grid 2 Cột)
   return (
     <div
       data-testid="store-config-subpage"
-      className="space-y-4 animate-slideInRight text-xs pb-16 max-w-2xl mx-auto"
+      className="space-y-4 animate-slideInRight text-xs pb-20 max-w-2xl mx-auto"
     >
       {/* Top Header Navigation */}
       <div className="flex items-center gap-2.5 pb-2 border-b border-gray-100">
         <button
           type="button"
-          onClick={onBack}
-          className="touch-target p-2 rounded-xl bg-white border border-gray-200 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
+          onClick={() => {
+            triggerHaptic('light');
+            onBack?.();
+          }}
+          className="touch-target p-2 rounded-2xl bg-white border border-gray-200/80 hover:bg-forest-50 text-forest-900 transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
+          title="Quay lại Quản lý"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <div className="flex-1">
-          <h2 className="text-base font-black text-forest-900 tracking-tight leading-none">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-black text-forest-950 tracking-tight leading-none">
             Cấu hình Quán & Hóa đơn
           </h2>
-          <p className="text-[11px] text-gray-500 mt-0.5">
-            Thông tin thương hiệu, tối ưu logo nhiệt, mẫu in 58mm/80mm & VietQR
+          <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+            Settings Hub 6 danh mục cấu hình độc lập, lưu riêng từng phần
           </p>
         </div>
-
-        {/* Live Test Print Button */}
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic('light');
-            setShowTestPrintModal(true);
-          }}
-          className="px-3 py-1.5 bg-forest-50 hover:bg-forest-100 text-forest-800 border border-forest-200/80 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer text-[11px]"
-          title="In thử mẫu hóa đơn thực tế"
-        >
-          <Printer className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">In thử mẫu</span>
-        </button>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-3.5">
-        {/* ==================================================================== */}
-        {/* NHÓM 1: THÔNG TIN CỬA HÀNG & LOGO IN NHIỆT */}
-        {/* ==================================================================== */}
-        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-gray-50 pb-2">
-            <h3 className="font-extrabold text-xs text-forest-950 uppercase tracking-wider flex items-center gap-1.5">
-              <Store className="w-4 h-4 text-forest-800" />
-              <span>Thông tin Cửa hàng & Thương hiệu</span>
-            </h3>
-            <span className="text-[10px] font-bold text-gray-400">Bước 1/4</span>
-          </div>
-
-          <div className="space-y-2.5">
-            <div>
-              <label className="block text-gray-700 font-bold mb-1">Tên Quán (In đậm trên bill)</label>
-              <input
-                type="text"
-                required
-                value={branchName}
-                onChange={(e) => setBranchName(e.target.value)}
-                placeholder="VD: GÓC - PHÊ & TRÀ"
-                className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 font-bold text-forest-950 text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-bold mb-1">Địa chỉ quán</label>
-              <input
-                type="text"
-                required
-                value={branchAddress}
-                onChange={(e) => setBranchAddress(e.target.value)}
-                placeholder="Số nhà, đường, phường, quận/huyện, tỉnh/thành"
-                className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 text-[11px]"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-gray-700 font-bold mb-1">Số điện thoại Hotline</label>
-                <input
-                  type="text"
-                  required
-                  value={hotline}
-                  onChange={(e) => setHotline(e.target.value)}
-                  placeholder="VD: 1900 88 99 22"
-                  className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 font-mono font-bold text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-700 font-bold mb-1">Thu ngân mặc định</label>
-                <input
-                  type="text"
-                  value={cashier}
-                  onChange={(e) => setCashier(e.target.value)}
-                  placeholder="Tên thu ngân ca hiện tại"
-                  className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 font-medium text-xs"
-                />
-              </div>
-            </div>
-
-            {/* LOGO SECTION WITH THERMAL MONOCHROME CONVERSION */}
-            <div className="pt-2 border-t border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-gray-700 font-bold flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-forest-800" />
-                  <span>Logo quán in nhiệt</span>
-                </label>
-                {logoThermalUrl && (
-                  <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => setLogoPreviewTab('thermal')}
-                      className={`px-2 py-0.5 rounded-md font-bold transition-all ${
-                        logoPreviewTab === 'thermal' ? 'bg-white text-forest-900 shadow-2xs' : 'text-gray-500'
-                      }`}
-                    >
-                      Bản in nhiệt 1-bit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLogoPreviewTab('original')}
-                      className={`px-2 py-0.5 rounded-md font-bold transition-all ${
-                        logoPreviewTab === 'original' ? 'bg-white text-forest-900 shadow-2xs' : 'text-gray-500'
-                      }`}
-                    >
-                      Ảnh gốc
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Hidden File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
-                className="hidden"
-                onChange={handleLogoFileChange}
-              />
-
-              {logoThermalUrl || logoOriginalUrl ? (
-                <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 flex flex-col sm:flex-row items-center gap-3">
-                  {/* Square Preview Container (50x50mm representation) */}
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-xl border border-gray-200 flex items-center justify-center p-1.5 shrink-0 shadow-inner overflow-hidden relative">
-                    <img
-                      src={logoPreviewTab === 'thermal' ? (logoThermalUrl || logoOriginalUrl) : (logoOriginalUrl || logoThermalUrl)}
-                      alt="Logo Quán"
-                      className="max-h-full max-w-full object-contain"
-                    />
-                    <span className="absolute bottom-1 right-1 text-[8px] font-mono bg-black/80 text-white px-1 py-0.5 rounded">
-                      Chuẩn 80%
-                    </span>
-                  </div>
-
-                  <div className="flex-1 space-y-1.5 text-center sm:text-left">
-                    <div className="flex items-center justify-center sm:justify-start gap-1.5 text-emerald-700 font-bold text-[11px]">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Logo chuẩn in nhiệt: Tỷ lệ 80% cân đối (40mm)</span>
-                    </div>
-                    <p className="text-[10px] text-gray-400 leading-tight">
-                      Cân đối hoàn hảo trên cuộn giấy nhiệt 57mm/58mm, chừa lề 2 bên hài hòa, giữ trọn vẹn biểu tượng ly nước và chữ GÓC PHÊ & TRÀ sắc nét.
-                    </p>
-                    <div className="flex items-center justify-center sm:justify-start gap-1.5 pt-0.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isProcessingLogo}
-                        className="px-2.5 py-1 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg text-forest-900 font-bold text-[10.5px] transition-colors cursor-pointer"
-                      >
-                        {isProcessingLogo ? 'Đang xử lý...' : 'Tải ảnh khác'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleResetToDefaultLogo}
-                        className="px-2.5 py-1 bg-forest-50 hover:bg-forest-100 text-forest-800 border border-forest-200 rounded-lg font-bold text-[10.5px] transition-colors cursor-pointer"
-                      >
-                        Dùng mẫu chuẩn 80%
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleRemoveLogo}
-                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold text-[10.5px] transition-colors cursor-pointer flex items-center gap-1"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                        <span>Gỡ logo</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-200 hover:border-forest-600 bg-gray-50/70 hover:bg-forest-50/30 p-4 rounded-2xl text-center cursor-pointer transition-all space-y-1.5 group"
-                >
-                  <div className="w-8 h-8 rounded-full bg-white shadow-2xs border border-gray-200 mx-auto flex items-center justify-center text-gray-500 group-hover:text-forest-800 transition-colors">
-                    <ImageIcon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="font-bold text-forest-900 text-xs">Bấm để tải Logo cửa hàng</span>
-                    <p className="text-[10px] text-gray-400 mt-0.5">
-                      Hỗ trợ PNG, JPG, SVG (Khuyến nghị 512×512px trở lên, chữ xanh nền đen sẽ tự chuyển sang in nhiệt đơn sắc sắc nét)
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ==================================================================== */}
-        {/* NHÓM 2: CẤU HÌNH HÓA ĐƠN & KHỔ GIẤY IN */}
-        {/* ==================================================================== */}
-        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-gray-50 pb-2">
-            <h3 className="font-extrabold text-xs text-forest-950 uppercase tracking-wider flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-forest-800" />
-              <span>Cấu hình Hóa đơn & Khổ giấy in</span>
-            </h3>
-            <span className="text-[10px] font-bold text-gray-400">Bước 2/4</span>
-          </div>
-
-          {/* Paper Width Selection */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-1.5">Khổ giấy in nhiệt mặc định</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setPaperWidth('58mm');
-                }}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                  paperWidth === '58mm'
-                    ? 'bg-forest-50/80 border-forest-800 text-forest-950 ring-1 ring-forest-800'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100/70'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-extrabold text-xs">Khổ K58 (58mm)</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-gray-200 font-bold">
-                    32 cột
-                  </span>
-                </div>
-                <p className="text-[10px] text-gray-500">
-                  Phổ biến cho máy in bill mini Bluetooth & POS cầm tay.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setPaperWidth('80mm');
-                }}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                  paperWidth === '80mm'
-                    ? 'bg-forest-50/80 border-forest-800 text-forest-950 ring-1 ring-forest-800'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100/70'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-extrabold text-xs">Khổ K80 (80mm)</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-gray-200 font-bold">
-                    48 cột
-                  </span>
-                </div>
-                <p className="text-[10px] text-gray-500">
-                  Chuẩn hóa đơn nhà hàng / quán cà phê lớn, chữ to rõ ràng.
-                </p>
-              </button>
-            </div>
-          </div>
-
-          {/* Chế độ mã hóa & font chữ đầu ra máy in nhiệt */}
-          <div className="pt-2 border-t border-gray-100">
-            <label className="block text-gray-700 font-bold mb-1.5 flex items-center justify-between">
-              <span>Chế độ mã hóa & font chữ đầu ra máy in (57mm / 80mm)</span>
-              <span className="text-[10px] font-normal text-gray-400">Khắc phục lỗi font máy in</span>
-            </label>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setThermalPrintMode('text_no_accents');
-                }}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                  thermalPrintMode === 'text_no_accents'
-                    ? 'bg-forest-50/80 border-forest-800 text-forest-950 ring-1 ring-forest-800'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100/70'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-extrabold text-xs">In Chữ Không Dấu (Khuyến nghị)</span>
-                  <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
-                    Siêu tốc & Nét
-                  </span>
-                </div>
-                <p className="text-[10px] text-gray-500 leading-tight">
-                  Chuyển tiếng Việt không dấu chuẩn ASCII (Espresso sua nong, 90.000d). In tức thì, không bao giờ bị lỗi font rác (ß, |, æ).
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setThermalPrintMode('graphic_accents');
-                }}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                  thermalPrintMode === 'graphic_accents'
-                    ? 'bg-forest-50/80 border-forest-800 text-forest-950 ring-1 ring-forest-800'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100/70'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-extrabold text-xs">In Đồ Họa Có Dấu</span>
-                  <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-bold">
-                    100% Đầy đủ dấu
-                  </span>
-                </div>
-                <p className="text-[10px] text-gray-500 leading-tight">
-                  Render toàn bộ hóa đơn dạng đồ họa 1-bit ESC/POS (như in Logo). Đầy đủ dấu tiếng Việt sắc nét, in mất ~2-3 giây.
-                </p>
-              </button>
-            </div>
-          </div>
-
-          {/* Line Display Toggles Grid */}
-          <div className="pt-2 border-t border-gray-100">
-            <label className="block text-gray-700 font-bold mb-2 flex items-center justify-between">
-              <span>Các dòng thông tin xuất hiện trên Hóa đơn</span>
-              <span className="text-[10px] font-normal text-gray-400">Bật / Tắt theo nhu cầu</span>
-            </label>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-              {[
-                { key: 'showLogo', label: 'Logo cửa hàng' },
-                { key: 'showStoreName', label: 'Tên quán' },
-                { key: 'showAddress', label: 'Địa chỉ quán' },
-                { key: 'showPhone', label: 'Hotline liên hệ' },
-                { key: 'showOrderId', label: 'Mã số hóa đơn (#ORD)' },
-                { key: 'showTable', label: 'Số bàn phục vụ' },
-                { key: 'showOrderTime', label: 'Thời gian gọi món (order.created_at)' },
-                { key: 'showReceiptTime', label: 'Thời gian xuất hóa đơn (receipt.issued_at)' },
-                { key: 'showWifi', label: 'Mật khẩu Wi-Fi khách hàng' },
-                { key: 'showFooter', label: 'Lời cảm ơn cuối hóa đơn' }
-              ].map(({ key, label }) => (
-                <label
-                  key={key}
-                  className="flex items-center justify-between p-2.5 bg-gray-50 border border-gray-200/80 rounded-xl cursor-pointer hover:bg-forest-50/40 transition-colors"
-                >
-                  <span className="font-semibold text-gray-800 pr-2">{label}</span>
-                  <input
-                    type="checkbox"
-                    checked={receiptSettings[key] !== false}
-                    onChange={() => handleToggleReceiptSetting(key)}
-                    className="w-4 h-4 rounded text-forest-800 accent-forest-800 cursor-pointer shrink-0"
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Footer Message */}
-          <div className="pt-2 border-t border-gray-100">
-            <label className="block text-gray-700 font-bold mb-1">Lời cảm ơn ở chân hóa đơn</label>
-            <input
-              type="text"
-              value={receiptFooter}
-              onChange={(e) => setReceiptFooter(e.target.value)}
-              placeholder="VD: Cảm ơn quý khách và hẹn gặp lại!"
-              className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 font-medium"
-            />
-          </div>
-        </div>
-
-        {/* ==================================================================== */}
-        {/* NHÓM 3: WI-FI KHÁCH HÀNG */}
-        {/* ==================================================================== */}
-        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-gray-50 pb-2">
-            <h3 className="font-extrabold text-xs text-forest-950 uppercase tracking-wider flex items-center gap-1.5">
-              <Wifi className="w-4 h-4 text-forest-800" />
-              <span>Wi-Fi Khách hàng</span>
-            </h3>
-            <span className="text-[10px] font-bold text-gray-400">Bước 3/4</span>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-gray-700 font-bold">Mật khẩu Wi-Fi quán</label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-[10.5px] font-bold text-forest-900">
-                <input
-                  type="checkbox"
-                  checked={wifiOnReceipt}
-                  onChange={(e) => setWifiOnReceipt(e.target.checked)}
-                  className="w-3.5 h-3.5 accent-forest-800 rounded cursor-pointer"
-                />
-                <span>In trên hóa đơn</span>
-              </label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={wifiPassword}
-                onChange={(e) => setWifiPassword(e.target.value)}
-                placeholder="Mật khẩu WiFi quán"
-                className="flex-1 h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 font-mono font-bold text-forest-950 text-sm"
-              />
-              <button
-                type="button"
-                onClick={handleCopyWifi}
-                className="h-10 px-3 bg-forest-50 hover:bg-forest-100 text-forest-800 border border-forest-200/70 rounded-xl font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-              >
-                {copiedWifi ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Đã chép</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Sao chép</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <p className="text-[10px] text-gray-400 mt-1">
-              Mật khẩu này sẽ tự động xuất hiện ở phần chân phiếu gửi khách hàng khi bật tùy chọn.
-            </p>
-          </div>
-        </div>
-
-        {/* ==================================================================== */}
-        {/* NHÓM 3: CẤU HÌNH PHIẾU CHẾ BIẾN (BẾP / BAR) */}
-        {/* ==================================================================== */}
-        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-xs space-y-3.5">
-          <div className="flex items-center justify-between border-b border-gray-50 pb-2">
-            <h3 className="font-extrabold text-xs text-forest-950 uppercase tracking-wider flex items-center gap-1.5">
-              <ChefHat className="w-4 h-4 text-forest-800" />
-              <span>Cấu hình Phiếu chế biến (Bếp / Bar)</span>
-            </h3>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <span className="text-[10px] font-bold text-gray-500">
-                {kitchenTicketSettings.enabled !== false ? 'Đang bật' : 'Đã tắt'}
-              </span>
-              <input
-                type="checkbox"
-                checked={kitchenTicketSettings.enabled !== false}
-                onChange={(e) =>
-                  setKitchenTicketSettings((prev) => ({ ...prev, enabled: e.target.checked }))
-                }
-                className="w-4 h-4 accent-forest-800 rounded cursor-pointer"
-              />
-            </label>
-          </div>
-
-          <p className="text-[11px] text-gray-500 leading-relaxed">
-            Phiếu in riêng độc lập cho quầy pha chế và bếp khi nhấn Lưu đơn. Tuyệt đối không hiển thị giá tiền, doanh thu hay VietQR để đảm bảo tốc độ pha chế tối đa.
-          </p>
-
-          {kitchenTicketSettings.enabled !== false && (
-            <div className="space-y-3 pt-1">
-              {/* Khổ giấy phiếu chế biến */}
-              <div>
-                <label className="block text-gray-700 font-bold mb-1.5">
-                  Khổ giấy in phiếu chế biến
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {['58mm', '80mm'].map((w) => (
-                    <button
-                      key={w}
-                      type="button"
-                      onClick={() =>
-                        setKitchenTicketSettings((prev) => ({ ...prev, paperWidth: w }))
-                      }
-                      className={`h-9 rounded-xl font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                        (kitchenTicketSettings.paperWidth || '58mm') === w
-                          ? 'bg-forest-900 text-white border-forest-900 shadow-xs'
-                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>{w === '58mm' ? 'Khổ nhỏ 58mm' : 'Khổ chuẩn 80mm'}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tùy chọn hỏi khi lưu đơn */}
-              <div className="p-3 bg-forest-50/70 rounded-2xl border border-forest-100 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-forest-950 text-xs">
-                    Hỏi in phiếu sau khi lưu đơn
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={kitchenTicketSettings.promptOnSave !== false}
-                    onChange={(e) =>
-                      setKitchenTicketSettings((prev) => ({ ...prev, promptOnSave: e.target.checked }))
-                    }
-                    className="w-4 h-4 accent-forest-800 rounded cursor-pointer"
-                  />
-                </div>
-                <p className="text-[10.5px] text-forest-800/80 leading-tight">
-                  Tự động hiển thị popup <em>"Đơn đã được lưu. Bạn có muốn in danh sách món cần làm không?"</em> sau khi lưu đơn thành công.
-                </p>
-              </div>
-
-              {/* Chế độ in món */}
-              <div>
-                <label className="block text-gray-700 font-bold mb-1.5">
-                  Chế độ in danh sách món
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setKitchenTicketSettings((prev) => ({ ...prev, printMode: 'diff' }))
-                    }
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      (kitchenTicketSettings.printMode || 'diff') === 'diff'
-                        ? 'bg-amber-50/80 border-amber-300 text-amber-950 shadow-2xs'
-                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="font-extrabold text-[11px] flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>Chỉ in món mới thêm</span>
-                    </div>
-                    <div className="text-[9.5px] text-gray-500 mt-0.5 leading-tight">
-                      Tiết kiệm giấy, chỉ in món hoặc số lượng tăng thêm
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setKitchenTicketSettings((prev) => ({ ...prev, printMode: 'all' }))
-                    }
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      kitchenTicketSettings.printMode === 'all'
-                        ? 'bg-amber-50/80 border-amber-300 text-amber-950 shadow-2xs'
-                        : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="font-extrabold text-[11px] flex items-center gap-1">
-                      <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>In toàn bộ món trong đơn</span>
-                    </div>
-                    <div className="text-[9.5px] text-gray-500 mt-0.5 leading-tight">
-                      In toàn bộ danh sách món mỗi lần gửi phiếu
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Tùy chọn hiển thị chi tiết */}
-              <div className="space-y-1.5 pt-1">
-                <label className="block text-gray-700 font-bold">
-                  Chi tiết hiển thị trên phiếu chế biến
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {[
-                    { key: 'showTable', label: 'Tên / Số bàn to' },
-                    { key: 'showOrderId', label: 'Mã đơn hàng' },
-                    { key: 'showTime', label: 'Thời gian gửi' },
-                    { key: 'showToppings', label: 'Topping món' },
-                    { key: 'showNotes', label: 'Ghi chú món' },
-                    { key: 'showItemCount', label: 'Tổng số lượng món' }
-                  ].map((f) => (
-                    <label
-                      key={f.key}
-                      className="p-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200/70 flex items-center justify-between cursor-pointer transition-colors"
-                    >
-                      <span className="font-semibold text-gray-700 text-[11px]">{f.label}</span>
-                      <input
-                        type="checkbox"
-                        checked={kitchenTicketSettings[f.key] !== false}
-                        onChange={(e) =>
-                          setKitchenTicketSettings((prev) => ({ ...prev, [f.key]: e.target.checked }))
-                        }
-                        className="w-3.5 h-3.5 accent-forest-800 rounded cursor-pointer"
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Nút in thử phiếu chế biến */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  disabled={isTestingKitchenPrint}
-                  onClick={handleTestKitchenPrint}
-                  className="w-full h-10 px-3 rounded-xl bg-forest-50 hover:bg-forest-100 text-forest-900 border border-forest-200/80 font-bold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99] disabled:opacity-50"
-                >
-                  <Printer className="w-4 h-4 text-forest-800" />
-                  <span>
-                    {isTestingKitchenPrint ? 'Đang gửi lệnh in thử...' : 'In thử Phiếu chế biến mẫu'}
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ==================================================================== */}
-        {/* NHÓM 4: THANH TOÁN & VIETQR */}
-        {/* ==================================================================== */}
-        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-xs space-y-3">
-          <div className="flex items-center justify-between border-b border-gray-50 pb-2">
-            <h3 className="font-extrabold text-xs text-forest-950 uppercase tracking-wider flex items-center gap-1.5">
-              <CreditCard className="w-4 h-4 text-forest-800" />
-              <span>Tài khoản nhận tiền VietQR</span>
-            </h3>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-              MBBank Đã liên kết
-            </span>
-          </div>
-
-          <div className="space-y-2.5">
-            <div>
-              <label className="block text-gray-700 font-bold mb-1">Số tài khoản MBBank</label>
-              <input
-                type="text"
-                required
-                value={accountNo}
-                onChange={(e) => setAccountNo(e.target.value)}
-                className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 font-mono font-extrabold text-forest-900 text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-bold mb-1">Tên chủ tài khoản</label>
-              <input
-                type="text"
-                required
-                value={accountHolder}
-                onChange={(e) => setAccountHolder(e.target.value.toUpperCase())}
-                className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 font-bold uppercase"
-              />
-            </div>
-
-            <div className="p-3 bg-emerald-50/70 rounded-2xl border border-emerald-200/80 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-emerald-900 text-xs">Nhận chuyển khoản VietQR trong POS</span>
-                <input
-                  type="checkbox"
-                  checked={enableVietQR}
-                  onChange={(e) => setEnableVietQR(e.target.checked)}
-                  className="w-4 h-4 accent-forest-800 rounded cursor-pointer"
-                />
-              </div>
-              <p className="text-[10.5px] text-emerald-700 leading-tight">
-                Mã VietQR động tự sinh theo số tiền từng đơn hàng trên màn hình thanh toán. Hóa đơn bill in ra sẽ ghi rõ phương thức thanh toán và không in QR để tránh khách chuyển trùng.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* ==================================================================== */}
-        {/* SUPABASE CLOUD BACKEND CARD */}
-        {/* ==================================================================== */}
-        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                  cloudStatus?.connected && cloudStatus?.tablesExist
-                    ? 'bg-emerald-50 text-emerald-600'
-                    : 'bg-amber-50 text-amber-600'
-                }`}
-              >
-                <Database className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="font-bold text-gray-900 text-xs">Supabase Cloud Backend</h4>
-                <p className="text-[10px] text-gray-400">
-                  Project: <span className="font-mono text-gray-600">nbuulvdfxnmfdicbisxq</span>
-                </p>
-              </div>
-            </div>
-
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Online {cloudStatus?.latency ? `(${cloudStatus.latency}ms)` : ''}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-50">
-            <button
-              type="button"
-              onClick={() => syncFromCloud?.(true)}
-              disabled={isSyncing}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-50 hover:bg-forest-50 text-forest-900 border border-gray-200 rounded-xl font-bold text-[11px] transition-all disabled:opacity-50 cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-forest-600' : ''}`} />
-              <span>Đồng bộ từ Cloud</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => seedToCloud?.()}
-              disabled={isSyncing}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-forest-800 hover:bg-forest-900 text-white rounded-xl font-bold text-[11px] transition-all shadow-xs cursor-pointer"
-            >
-              <UploadCloud className="w-3.5 h-3.5" />
-              <span>Đẩy lên Cloud</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Sticky Submit Button */}
-        <div className="pt-2 sticky bottom-4 z-20">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="touch-target btn-press w-full py-3.5 bg-forest-800 hover:bg-forest-900 text-white rounded-2xl font-bold flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50 text-sm cursor-pointer"
-          >
-            {isSubmitting ? (
-              <span>Đang lưu cấu hình...</span>
-            ) : (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Lưu toàn bộ Cấu hình Quán & Hóa đơn</span>
-              </>
-            )}
-          </button>
-        </div>
-      </form>
-
-      {/* Test Print Preview Modal */}
-      {showTestPrintModal && (
-        <ReceiptPrintView
-          isOpen={showTestPrintModal}
-          onClose={() => setShowTestPrintModal(false)}
-          order={testOrder}
-          isPrePrint={false}
-          overridePaperWidth={paperWidth}
+      {/* 2-Column Settings Hub Grid */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        {/* Card 1: Thông tin quán */}
+        <SettingsHubCard
+          title="Thông tin Quán"
+          subtitle="Tên quán, địa chỉ, hotline & ca thu ngân"
+          icon={Store}
+          iconColor="#059669"
+          iconBgColor="rgba(5, 150, 105, 0.12)"
+          badge="Cơ bản"
+          badgeColor="#059669"
+          badgeBgColor="rgba(5, 150, 105, 0.1)"
+          onClick={() => setActiveSubpage('store-info')}
+          testId="hub-card-store-info"
         />
-      )}
 
-      {/* Hidden Printable Preparation Ticket for Test Printing */}
-      {testKitchenTicketModel && (
-        <div className="hidden">
-          <PreparationTicketTemplate ticketModel={testKitchenTicketModel} />
+        {/* Card 2: Hóa đơn & In ấn */}
+        <SettingsHubCard
+          title="Hóa đơn & In ấn"
+          subtitle="Khổ K58/K80, logo nhiệt, chế độ in bill"
+          icon={FileText}
+          iconColor="#2563EB"
+          iconBgColor="rgba(37, 99, 235, 0.12)"
+          badge={settings?.receiptPaperWidth || '58mm'}
+          badgeColor="#2563EB"
+          badgeBgColor="rgba(37, 99, 235, 0.1)"
+          onClick={() => setActiveSubpage('receipt')}
+          testId="hub-card-receipt"
+        />
+
+        {/* Card 3: Phiếu chế biến */}
+        <SettingsHubCard
+          title="Phiếu Chế biến"
+          subtitle="Bếp & Bar, in món mới/toàn đơn"
+          icon={ChefHat}
+          iconColor="#D97706"
+          iconBgColor="rgba(217, 119, 6, 0.12)"
+          badge={settings?.kitchenTicketSettings?.enabled !== false ? 'Bật' : 'Tắt'}
+          badgeColor={settings?.kitchenTicketSettings?.enabled !== false ? '#D97706' : '#6B7280'}
+          badgeBgColor={settings?.kitchenTicketSettings?.enabled !== false ? 'rgba(217, 119, 6, 0.1)' : 'rgba(107, 114, 128, 0.1)'}
+          onClick={() => setActiveSubpage('kitchen-ticket')}
+          testId="hub-card-kitchen-ticket"
+        />
+
+        {/* Card 4: Wi-Fi khách */}
+        <SettingsHubCard
+          title="Wi-Fi Khách"
+          subtitle="Mật khẩu Wi-Fi & in lên chân bill"
+          icon={Wifi}
+          iconColor="#7C3AED"
+          iconBgColor="rgba(124, 58, 237, 0.12)"
+          badge={settings?.wifiPassword ? 'Đã cài' : 'Chưa có'}
+          badgeColor="#7C3AED"
+          badgeBgColor="rgba(124, 58, 237, 0.1)"
+          onClick={() => setActiveSubpage('wifi')}
+          testId="hub-card-wifi"
+        />
+
+        {/* Card 5: VietQR */}
+        <SettingsHubCard
+          title="Tài khoản & VietQR"
+          subtitle="Ngân hàng nhận tiền, mã QR động"
+          icon={CreditCard}
+          iconColor="#0D9488"
+          iconBgColor="rgba(13, 148, 136, 0.12)"
+          badge={settings?.bankAccount?.bankCode || 'MB'}
+          badgeColor="#0D9488"
+          badgeBgColor="rgba(13, 148, 136, 0.1)"
+          onClick={() => setActiveSubpage('vietqr')}
+          testId="hub-card-vietqr"
+        />
+
+        {/* Card 6: Cloud & Dữ liệu */}
+        <SettingsHubCard
+          title="Cloud & Dữ liệu"
+          subtitle="Supabase Postgres, trạng thái & sync"
+          icon={Database}
+          iconColor="#E11D48"
+          iconBgColor="rgba(225, 29, 72, 0.12)"
+          badge={cloudStatus?.connected ? 'Online' : 'Offline'}
+          badgeColor={cloudStatus?.connected ? '#059669' : '#D97706'}
+          badgeBgColor={cloudStatus?.connected ? 'rgba(5, 150, 105, 0.1)' : 'rgba(217, 119, 6, 0.1)'}
+          onClick={() => setActiveSubpage('cloud')}
+          testId="hub-card-cloud"
+        />
+      </div>
+
+      {/* Overview Soft Banner */}
+      <div className="clay-card p-4 rounded-[22px] bg-white border border-white/95 shadow-xs flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-forest-50 text-forest-800 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
+          </div>
+          <div className="min-w-0">
+            <span className="font-extrabold text-forest-950 text-xs block truncate">
+              {settings?.storeName || settings?.branchName || 'GÓC - PHÊ & TRÀ'}
+            </span>
+            <span className="text-[10px] text-gray-500 block truncate">
+              {settings?.branchAddress || 'Chi nhánh hoạt động chuẩn PWA'}
+            </span>
+          </div>
         </div>
-      )}
+
+        <div className="flex items-center gap-1.5 shrink-0 text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80 font-bold text-[10px]">
+          <CheckCircle2 className="w-3 h-3" />
+          <span>Sẵn sàng</span>
+        </div>
+      </div>
     </div>
   );
 }
