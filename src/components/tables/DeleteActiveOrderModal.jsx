@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, X, Utensils } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
 import { triggerHaptic } from '../../utils/haptics';
 
+/**
+ * DeleteActiveOrderModal
+ * Modal xác nhận xóa đơn và giải phóng bàn.
+ * Render qua React Portal trực tiếp ra document.body với z-index cao (z-[9999]),
+ * căn giữa màn hình (Centered Dialog) và độc lập hoàn toàn khỏi vùng cuộn hoặc BottomNav.
+ */
 export default function DeleteActiveOrderModal({
   isOpen,
   onClose,
@@ -11,6 +18,20 @@ export default function DeleteActiveOrderModal({
   onConfirm
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !isDeleting) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isDeleting, onClose]);
 
   if (!isOpen || !table) return null;
 
@@ -37,10 +58,10 @@ export default function DeleteActiveOrderModal({
     onClose();
   };
 
-  return (
+  const modalContent = (
     <div
       data-testid="delete-active-order-modal-backdrop"
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6 animate-fadeIn overflow-y-auto select-none"
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
@@ -48,13 +69,13 @@ export default function DeleteActiveOrderModal({
     >
       <div
         data-testid="delete-active-order-modal-container"
-        className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-5 space-y-4 border border-rose-100 animate-scaleUp"
+        className="w-full max-w-sm bg-white rounded-[28px] shadow-2xl p-5 sm:p-6 space-y-4 border border-rose-100/90 animate-scaleUp my-auto max-h-[calc(100vh-32px)] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Header Icon & Title */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 shadow-2xs shrink-0">
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 shadow-2xs shrink-0">
               <Trash2 className="w-5 h-5 text-rose-600 stroke-[2.2]" />
             </div>
             <div>
@@ -82,7 +103,7 @@ export default function DeleteActiveOrderModal({
         </div>
 
         {/* 2. Table & Order Target Information Card */}
-        <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100 space-y-2">
+        <div className="p-3.5 bg-gray-50/90 rounded-2xl border border-gray-100 space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="font-black text-sm text-[#214E34]">
@@ -111,7 +132,7 @@ export default function DeleteActiveOrderModal({
 
           {/* Quick list of items preview if available */}
           {Array.isArray(order?.items) && order.items.length > 0 && (
-            <div className="max-h-24 overflow-y-auto space-y-1 pt-1 pr-1 text-[11px] text-gray-600">
+            <div className="max-h-24 overflow-y-auto space-y-1 pt-1 pr-1 text-[11px] text-gray-600 no-scrollbar">
               {order.items.map((it, idx) => (
                 <div key={it.id || idx} className="flex justify-between items-center text-[10.5px]">
                   <span className="truncate max-w-[190px]">
@@ -144,7 +165,7 @@ export default function DeleteActiveOrderModal({
             onClick={handleClose}
             disabled={isDeleting}
             data-testid="cancel-delete-order-btn"
-            className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors text-xs disabled:opacity-50 cursor-pointer"
+            className="touch-target flex-1 py-2.5 h-11 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl transition-all text-xs disabled:opacity-50 cursor-pointer active:scale-[0.98]"
           >
             Hủy
           </button>
@@ -153,7 +174,7 @@ export default function DeleteActiveOrderModal({
             onClick={handleConfirm}
             disabled={isDeleting}
             data-testid="confirm-delete-order-btn"
-            className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 text-xs disabled:opacity-50 cursor-pointer"
+            className="touch-target flex-1 py-2.5 h-11 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-1.5 text-xs disabled:opacity-50 cursor-pointer active:scale-[0.98]"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>{isDeleting ? 'Đang xóa...' : 'Xóa bàn'}</span>
@@ -162,4 +183,8 @@ export default function DeleteActiveOrderModal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 }
