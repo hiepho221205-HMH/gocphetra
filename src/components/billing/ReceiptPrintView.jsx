@@ -75,17 +75,14 @@ export default function ReceiptPrintView({
 
     try {
       if (!isBluetoothSupported()) {
-        showToast?.('Trình duyệt không hỗ trợ Web Bluetooth. Đang chuyển sang in trình duyệt!', 'info');
         window.print();
         return;
       }
 
       // If not connected, initiate connection dialog first
       if (!btStatus.isConnected) {
-        showToast?.('Vui lòng chọn máy in Bluetooth từ danh sách thiết bị...', 'info');
         const res = await connectBluetoothPrinter();
         setBtStatus(getBluetoothPrinterStatus());
-        showToast?.(`Đã kết nối máy in: ${res.deviceName}`, 'success');
       }
 
       // Track reprint if applicable
@@ -115,7 +112,6 @@ export default function ReceiptPrintView({
         logoRasterBytes: logoRaster
       });
 
-      showToast?.(`Đã in hóa đơn ${selectedWidth} qua Bluetooth thành công!`, 'success');
     } catch (err) {
       console.warn('Bluetooth print failed:', err);
       showToast?.(err.message || 'Không thể in qua Bluetooth. Thử in qua trình duyệt!', 'error');

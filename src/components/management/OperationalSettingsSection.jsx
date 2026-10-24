@@ -209,7 +209,6 @@ export default function OperationalSettingsSection() {
         }
       });
       setIsSubmitting(false);
-      showToast('Đã lưu cấu hình vận hành POS thành công!', 'success');
     }, 300);
   };
 

@@ -47,8 +47,7 @@ export default function DailyCloseHistoryModal({ isOpen, onClose }) {
         await printDailyClose57mm(report, settings, {
           useNoAccents: settings.printNoAccents === true
         });
-        showToast?.('Đã in phiếu chốt ngày qua Bluetooth (57mm)!', 'success');
-      } catch (err) {
+        } catch (err) {
         showToast?.('Lỗi in Bluetooth. Đang chuyển sang in trình duyệt!', 'error');
         window.print();
       } finally {
@@ -63,19 +62,16 @@ export default function DailyCloseHistoryModal({ isOpen, onClose }) {
   const handleBluetoothConnectAndPrint = async () => {
     triggerHaptic('medium');
     if (!isBluetoothSupported()) {
-      showToast?.('Trình duyệt không hỗ trợ Web Bluetooth. Đang mở in trình duyệt!', 'info');
       window.print();
       return;
     }
 
     setIsPrinting(true);
     try {
-      showToast?.('Vui lòng chọn máy in Bluetooth...', 'info');
       await connectBluetoothPrinter();
       await printDailyClose57mm(report, settings, {
         useNoAccents: settings.printNoAccents === true
       });
-      showToast?.('Đã in phiếu chốt ngày qua Bluetooth (57mm)!', 'success');
     } catch (err) {
       console.warn('Lỗi kết nối in Bluetooth:', err);
       showToast?.(err.message || 'Không thể in Bluetooth', 'error');

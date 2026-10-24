@@ -97,7 +97,6 @@ export default function ManagementProfileView({ onBack }) {
       }
       const res = await connectBluetoothPrinter();
       setBtStatus(getBluetoothPrinterStatus());
-      showToast?.(`Đã kết nối máy in Bluetooth: ${res.deviceName}`, 'success');
     } catch (err) {
       if (err.name !== 'NotFoundError') {
         showToast?.(err.message || 'Lỗi kết nối máy in Bluetooth', 'error');
@@ -110,7 +109,6 @@ export default function ManagementProfileView({ onBack }) {
   const handleDisconnectBt = () => {
     disconnectBluetoothPrinter();
     setBtStatus(getBluetoothPrinterStatus());
-    showToast?.('Đã ngắt kết nối máy in Bluetooth', 'info');
   };
 
   const handleTestPrintBt = async () => {
@@ -137,14 +135,12 @@ export default function ManagementProfileView({ onBack }) {
       await printReceipt57mm(mockTestOrder, settings, {
         useNoAccents: settings?.printNoAccents === true
       });
-      showToast?.('Đã in thử nghiệm 57mm thành công!', 'success');
     } catch (err) {
       showToast?.('Lỗi in thử nghiệm: ' + err.message, 'error');
     } finally {
       setIsTestingBt(false);
     }
   };
-
 
   // Subpage Navigation: 'main' | 'profile' | 'staff' | 'store-config' | 'data-cleanup' | 'rbac'
   const [currentView, setCurrentView] = useState('main');

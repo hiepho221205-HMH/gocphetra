@@ -143,7 +143,6 @@ export default function OrderDetailsModal({
       }
       return updated;
     });
-    showToast('Đã xóa món khỏi đơn', 'info');
   };
 
   // 1. ACTION: THÊM MÓN

@@ -905,14 +905,11 @@ export async function executeKitchenTicketPrint({
   const btStatus = getBluetoothPrinterStatus();
   if (!btStatus.isConnected) {
     try {
-      showToast?.('Vui lòng chọn máy in Bluetooth từ danh sách thiết bị...', 'info');
       const res = await connectBluetoothPrinter();
-      showToast?.(`Đã kết nối máy in: ${res.deviceName}`, 'success');
     } catch (err) {
       console.warn('Bluetooth pairing failed or cancelled:', err);
       // User dismissed or cancelled the device chooser dialog
       if (err.name === 'NotFoundError' || err.message?.toLowerCase().includes('cancel')) {
-        showToast?.('Đã hủy chọn thiết bị Bluetooth', 'info');
         return { success: false, cancelled: true };
       }
       showToast?.(err.message || 'Không thể kết nối máy in Bluetooth. Thử in qua trình duyệt!', 'error');
@@ -926,7 +923,6 @@ export async function executeKitchenTicketPrint({
       settings,
       thermalPrintMode: settings?.thermalPrintMode
     });
-    showToast?.('Đã in phiếu chế biến qua Bluetooth thành công!', 'success');
     return { success: true };
   } catch (printErr) {
     console.warn('Bluetooth thermal kitchen ticket print failed:', printErr);

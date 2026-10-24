@@ -58,8 +58,7 @@ export default function ProfileEditSubpage({ onBack }) {
       if (base64) {
         setImageError(false);
         setAvatarUrl(base64);
-        showToast?.('Đã chọn ảnh đại diện mới. Hãy nhấn "Lưu thay đổi" để áp dụng.', 'info');
-      }
+        }
     };
     reader.onerror = () => {
       showToast?.('Không thể đọc file ảnh. Vui lòng thử lại.', 'error');
@@ -70,7 +69,6 @@ export default function ProfileEditSubpage({ onBack }) {
   const handleRemovePhoto = () => {
     setAvatarUrl(null);
     setImageError(false);
-    showToast?.('Đã xóa ảnh đại diện.', 'info');
   };
 
   const handleSubmit = (e) => {

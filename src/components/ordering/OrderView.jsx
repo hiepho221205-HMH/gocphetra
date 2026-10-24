@@ -207,7 +207,6 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     }
 
     setIsDirty(true);
-    showToast(`Đã thêm ${itemConfig.name} vào đơn`, 'success');
   };
 
   // ================= COMMIT ORDER HANDLER (LƯU NHANH) =================

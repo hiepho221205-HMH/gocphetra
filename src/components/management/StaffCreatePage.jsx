@@ -154,8 +154,7 @@ export default function StaffCreatePage() {
       const base64 = event.target?.result;
       if (base64) {
         setFormAvatarUrl(base64);
-        showToast?.('Đã chọn ảnh đại diện.', 'info');
-      }
+        }
     };
     reader.readAsDataURL(file);
   };

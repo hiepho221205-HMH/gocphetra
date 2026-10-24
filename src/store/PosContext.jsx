@@ -173,7 +173,6 @@ export function mergeStaffProfiles(localList = [], cloudList = []) {
 import { reconcileTablesAndOrders, rolloverPastUnpaidOrders } from '../utils/reconciler';
 export { reconcileTablesAndOrders, rolloverPastUnpaidOrders };
 
-
 export { calculateDailySummary };
 
 export function PosProvider({ children }) {
@@ -280,7 +279,6 @@ export function PosProvider({ children }) {
   const [pendingOutboxCount, setPendingOutboxCount] = useState(0);
   const [isSyncingOutbox, setIsSyncingOutbox] = useState(false);
 
-  
   // Phase 3: Daily Closures State & Auto-Settlement
   const [dailyClosures, setDailyClosures] = useState({});
 
@@ -593,7 +591,6 @@ export function PosProvider({ children }) {
     }
 
     setActiveTab('tables');
-    showToast?.(`Chào mừng ${hydrated.name} (${hydrated.role.toUpperCase()}) đăng nhập GÓC POS`, 'success');
     try {
       syncFromCloud(false);
     } catch (_) {}
@@ -623,7 +620,6 @@ export function PosProvider({ children }) {
         window.history.replaceState(null, '', '#/login');
       } catch (_) {}
     }
-    showToast?.('Đã đăng xuất phiên làm việc an toàn', 'info');
   };
 
   // Auto-save effects
@@ -640,7 +636,6 @@ export function PosProvider({ children }) {
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ROLE, JSON.stringify(currentRole)); }, [currentRole]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs)); }, [auditLogs]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.USER_PROFILES, JSON.stringify(userProfiles)); }, [userProfiles]);
-
 
   // =================== CLOUD SYNC & REALTIME ===================
   const refreshCloudHealth = async () => {
@@ -736,7 +731,6 @@ export function PosProvider({ children }) {
           setOrderHistory(rolled.orderHistory);
 
           setCloudStatus((prev) => ({ ...prev, connected: true, tablesExist: true, lastSyncTime: new Date() }));
-          if (showNotification) showToast('Đã đồng bộ dữ liệu mới nhất từ Cloud!', 'success');
           return true;
         } else {
           if (showNotification) showToast('Chưa thể kết nối tới cơ sở dữ liệu Cloud', 'error');
@@ -758,7 +752,6 @@ export function PosProvider({ children }) {
 
   const seedToCloud = async () => {
     setIsSyncing(true);
-    showToast('Đang tải dữ liệu lên Cloud...', 'info');
     const res = await seedInitialDataToCloud({
       tables,
       categories,
@@ -777,7 +770,6 @@ export function PosProvider({ children }) {
     }
     setIsSyncing(false);
     if (res.success) {
-      showToast(res.message, 'success');
       refreshCloudHealth();
     } else {
       showToast('Lỗi tải dữ liệu lên Cloud: ' + res.message, 'error');
@@ -1166,7 +1158,6 @@ export function PosProvider({ children }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-
   // Role-based order history filter:
   // Staff: Only completed orders of TODAY (Vietnam timezone).
   // Manager & Admin: All completed orders.
@@ -1194,8 +1185,6 @@ export function PosProvider({ children }) {
       remainingAmount
     };
   };
-
-
 
   // =================== PHASE 2: OUTBOX QUEUE & CONFLICT RESOLUTION ===================
   const replayOutboxQueue = async () => {
@@ -1247,7 +1236,6 @@ export function PosProvider({ children }) {
       }
 
       if (syncedCount > 0) {
-        showToast(`Đã đồng bộ thành công ${syncedCount} đơn hàng ngoại tuyến lên Cloud!`, 'success');
       }
       refreshPendingOutboxCount();
       return { success: true, syncedCount };
@@ -1277,7 +1265,6 @@ export function PosProvider({ children }) {
         setTables((prev) => prev.map((t) => (t.id === newTableId ? updTable : t)));
         await cloudUpsertTable(updTable);
         await updateOutboxStatus(outboxId, 'completed');
-        showToast(`Đã chuyển đơn sang bàn ${updatedPayload.tableName} và đồng bộ thành công!`, 'success');
       } else if (action === 'merge') {
         const sourceTableId = target.payload.tableId;
         const currentActiveOrder = orders[tables.find((t) => t.id === sourceTableId)?.activeOrderId];
@@ -1290,8 +1277,7 @@ export function PosProvider({ children }) {
           setOrders((prev) => ({ ...prev, [updatedOrder.id]: updatedOrder }));
           await cloudUpsertOrder(updatedOrder);
           await updateOutboxStatus(outboxId, 'completed');
-          showToast(`Đã gộp món ngoại tuyến vào bàn ${target.payload.tableName} thành công!`, 'success');
-        }
+          }
       }
       refreshPendingOutboxCount();
       return true;
@@ -1352,7 +1338,6 @@ export function PosProvider({ children }) {
       }
     }
 
-    showToast('Đã cập nhật hồ sơ cá nhân thành công!', 'success');
     return { success: true, profile: updatedProfile };
   };
 
@@ -1388,7 +1373,6 @@ export function PosProvider({ children }) {
         navigate('/tables');
       }
     }
-    showToast(`Đã chuyển vai trò: ${newRole === 'admin' ? 'Quản lý (Admin)' : newRole === 'manager' ? 'Cửa hàng trưởng (Manager)' : 'Thu ngân (Staff)'}`, 'info');
   };
 
   const changeUserRole = async (targetStaffId, newRole, note = '') => {
@@ -1464,7 +1448,6 @@ export function PosProvider({ children }) {
       upsertStaffProfile({ ...target, role: newRole, updatedAt: new Date().toISOString() });
     }
 
-    showToast(`Đã cập nhật quyền của ${target.name} thành ${newRole === 'admin' ? 'Admin' : newRole === 'manager' ? 'Manager' : 'Staff'}`, 'success');
     return { success: true, targetId: targetStaffId, oldRole, newRole };
   };
 
@@ -1502,7 +1485,6 @@ export function PosProvider({ children }) {
 
     setTables((prev) => [...prev, newTable]);
     cloudUpsertTable(newTable);
-    showToast(`Đã thêm thành công ${newTable.name}`, 'success');
     return { success: true, table: newTable };
   };
 
@@ -1522,7 +1504,6 @@ export function PosProvider({ children }) {
       }
       return next;
     });
-    showToast('Đã cập nhật thông tin bàn', 'success');
   };
 
   const deleteTable = (id) => {
@@ -1536,7 +1517,6 @@ export function PosProvider({ children }) {
 
     setTables((prev) => prev.filter((t) => t.id !== id));
     cloudDeleteTable(id);
-    showToast(`Đã xóa ${table.name} khỏi danh sách`, 'success');
     return true;
   };
 
@@ -1610,7 +1590,6 @@ export function PosProvider({ children }) {
       }).catch(() => {});
     }
 
-    showToast(`Đã chuyển từ ${fromTable.name} sang ${toTable.name}`, 'success');
     return true;
   };
 
@@ -1740,7 +1719,6 @@ export function PosProvider({ children }) {
       }).catch(() => {});
     }
 
-    showToast(`Đã gộp đơn ${sourceTable.name} vào ${targetTable.name} thành công!`, 'success');
     return { success: true, updatedOrder: updatedTargetOrder };
   };
 
@@ -1877,7 +1855,6 @@ export function PosProvider({ children }) {
     setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
     cloudUpsertOrder(updatedOrder);
     cloudUpsertTable({ ...table, customerCount: updatedOrder.customerCount });
-    showToast(`Đã thêm ${itemConfig.name}`, 'success');
   };
 
   const updateItemQuantity = (tableId, cartItemId, delta) => {
@@ -1926,7 +1903,6 @@ export function PosProvider({ children }) {
     setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
     cloudUpsertOrder(updatedOrder);
     cloudUpsertTable({ ...table, customerCount: updatedOrder.customerCount });
-    showToast('Đã xóa món', 'info');
   };
 
   const updateBillAdjustments = (tableId, { discountPercent = 0, surcharge = 0 }) => {
@@ -1943,7 +1919,6 @@ export function PosProvider({ children }) {
 
     setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
     cloudUpsertOrder(updatedOrder);
-    showToast('Đã cập nhật chiết khấu & phụ thu', 'success');
   };
 
   // Lấy đơn hàng hiện tại của bàn
@@ -1959,7 +1934,6 @@ export function PosProvider({ children }) {
     );
     return found || null;
   };
-
 
   // =================== BILLING LOCK (PHASE 1 - IN-MEMORY & BROADCAST ONLY) ===================
   const isTableBillingLocked = useCallback((table) => {
@@ -2035,8 +2009,7 @@ export function PosProvider({ children }) {
       }
 
       if (force) {
-        showToast(`Đã mở khóa bàn ${table.name}!`, 'info');
-      }
+          }
 
       return prev.map((t) => (t.id === tableId ? { ...t, billingLock: null } : t));
     });
@@ -2201,7 +2174,6 @@ export function PosProvider({ children }) {
         }).then(() => refreshPendingOutboxCount());
       }
 
-      showToast(`Đã lưu đơn thành công cho ${table.name}!`, 'success');
       return { success: true, order: updatedOrder, table: updatedTable };
     } finally {
       saveOrderMutexRef.current.delete(tableId);
@@ -2315,7 +2287,6 @@ export function PosProvider({ children }) {
       }).catch((e) => console.warn('Broadcast cancel order error:', e));
     }
 
-    showToast(`Đã hủy đơn ${resetTable.name} và giải phóng bàn!`, 'info');
     return true;
   };
 
@@ -2428,7 +2399,6 @@ export function PosProvider({ children }) {
         }).catch((e) => console.warn('Broadcast delete active order error:', e));
       }
 
-      showToast(`Đã xóa đơn và giải phóng ${table.name}!`, 'success');
       return { success: true, table: resetTable };
     } catch (err) {
       console.error('Lỗi khi xóa đơn bàn đã order:', err);
@@ -2439,7 +2409,6 @@ export function PosProvider({ children }) {
 
   // =================== BILLING & SETTLEMENT ===================
   const requestBillForTable = (tableId) => {
-    showToast('Đã in tạm tính hóa đơn', 'info');
   };
 
   const processPartialPayment = async (tableId, paymentRecord) => {
@@ -2481,7 +2450,6 @@ export function PosProvider({ children }) {
 
     if (remainingAmount <= 0) {
       await finalizeOrder(tableId, updatedOrder);
-      showToast(`Đã thanh toán đủ ${order.tableName}! Bàn đã được giải phóng.`, 'success');
       return { success: true, isFullyPaid: true, remainingAmount: 0 };
     } else {
       setOrders((prev) => ({ ...prev, [order.id]: updatedOrder }));
@@ -2499,7 +2467,6 @@ export function PosProvider({ children }) {
         }).catch((e) => console.warn('Broadcast partial payment error:', e));
       }
 
-      showToast(`Đã thu ${payAmount.toLocaleString('vi-VN')}đ. Còn nợ: ${remainingAmount.toLocaleString('vi-VN')}đ`, 'info');
       return { success: true, isFullyPaid: false, remainingAmount };
     }
   };
@@ -2683,7 +2650,6 @@ export function PosProvider({ children }) {
 
       const result = await finalizeOrder(tableId, finalOrder);
       if (result && result.success) {
-        showToast(`Thanh toán thành công ${order.tableName || table?.name}! Đã giải phóng bàn.`, 'success');
         return true;
       } else {
         showToast(result?.message || 'Thanh toán không thành công. Vui lòng kiểm tra lại.', 'error');
@@ -2759,7 +2725,6 @@ export function PosProvider({ children }) {
         }).catch(() => {});
       }
 
-      showToast(`Đã xóa vĩnh viễn đơn #${orderId}!`, 'success');
       return { success: true };
     } catch (err) {
       console.error('Lỗi adminForceDeleteOrder:', err);
@@ -2813,7 +2778,6 @@ export function PosProvider({ children }) {
         }).catch(() => {});
       }
 
-      showToast(`Đã giải phóng cưỡng chế bàn ${resetTable.name}!`, 'info');
       return { success: true, table: resetTable };
     } catch (err) {
       console.error('Lỗi adminForceResetTable:', err);
@@ -2824,14 +2788,12 @@ export function PosProvider({ children }) {
 
   const adminPurgeStaleOrders = async () => {
     try {
-      showToast('Đang quét và dọn sạch đơn ma toàn hệ thống...', 'info');
-      const reconciled = reconcileTablesAndOrders(tables, orders, orderHistory);
+        const reconciled = reconcileTablesAndOrders(tables, orders, orderHistory);
       setTables(reconciled.reconciledTables);
       setOrders(reconciled.reconciledOrders);
       setOrderHistory(reconciled.reconciledHistory);
 
       reconciled.reconciledTables.forEach((t) => cloudUpsertTable(t).catch(() => {}));
-      showToast('Đã dọn sạch đơn ma và đồng bộ hoàn tất!', 'success');
       return { success: true };
     } catch (err) {
       console.error('Lỗi adminPurgeStaleOrders:', err);
@@ -2905,8 +2867,7 @@ export function PosProvider({ children }) {
     }
 
     if (targetOrder.status === 'completed') {
-      showToast(`Đơn hàng #${orderId} đã được thanh toán hoàn tất!`, 'info');
-      return { success: true, alreadyCompleted: true, order: targetOrder };
+        return { success: true, alreadyCompleted: true, order: targetOrder };
     }
 
     const currentBusinessDate = getVietnamTodayString();
@@ -3123,11 +3084,6 @@ export function PosProvider({ children }) {
     };
     cloudRecordAuditLog(auditRecord).catch(() => {});
 
-    showToast(
-      `Đã thanh toán ${updatedOrders.length} đơn quá khứ, tổng thu ${formatVND(totalCollected)}!`,
-      'success'
-    );
-
     return {
       success: true,
       processedCount: updatedOrders.length,
@@ -3152,7 +3108,6 @@ export function PosProvider({ children }) {
     };
     setCategories((prev) => [...prev, newCat]);
     cloudUpsertCategory(newCat);
-    showToast(`Đã thêm danh mục "${cleanName}"`, 'success');
     return true;
   };
 
@@ -3163,7 +3118,6 @@ export function PosProvider({ children }) {
       if (updated) cloudUpsertCategory(updated);
       return next;
     });
-    showToast('Đã lưu thay đổi danh mục', 'success');
   };
 
   const deleteCategory = (id) => {
@@ -3172,7 +3126,6 @@ export function PosProvider({ children }) {
     setMenu((prev) => prev.map((item) => (item.categoryId === id ? { ...item, categoryId: fallbackCat } : item)));
     setCategories((prev) => prev.filter((c) => c.id !== id));
     cloudDeleteCategory(id);
-    showToast('Đã xóa danh mục thành công', 'success');
     return true;
   };
 
@@ -3191,7 +3144,6 @@ export function PosProvider({ children }) {
       setProductToppingLinks(newItem.id, itemData.toppingLinks);
     }
 
-    showToast(`Đã thêm món "${newItem.name}"`, 'success');
     return newItem;
   };
 
@@ -3208,7 +3160,6 @@ export function PosProvider({ children }) {
       setProductToppingLinks(id, updates.toppingLinks);
     }
 
-    showToast('Đã lưu thay đổi món', 'success');
   };
 
   const deleteMenuItem = (id) => {
@@ -3216,7 +3167,6 @@ export function PosProvider({ children }) {
     // Dọn dẹp liên kết topping
     setProductToppings((prev) => prev.filter((pt) => pt.productId !== id));
     cloudDeleteMenuItem(id);
-    showToast('Đã xóa món khỏi thực đơn', 'info');
   };
 
   const toggleProductStock = (id) => {
@@ -3226,7 +3176,6 @@ export function PosProvider({ children }) {
           const updated = !item.inStock;
           const updatedItem = { ...item, inStock: updated };
           cloudUpsertMenuItem(updatedItem);
-          showToast(`Đã ${updated ? 'bật còn hàng' : 'tắt (hết hàng)'} món "${item.name}"`, updated ? 'success' : 'info');
           return updatedItem;
         }
         return item;
@@ -3301,7 +3250,6 @@ export function PosProvider({ children }) {
       links.forEach((l) => cloudUpsertProductTopping(l));
     }
 
-    showToast(`Đã thêm topping "${newTopping.name}"`, 'success');
     return newTopping;
   };
 
@@ -3339,7 +3287,6 @@ export function PosProvider({ children }) {
       });
     }
 
-    showToast('Đã lưu thay đổi topping', 'success');
   };
 
   const deleteToppingItem = (id) => {
@@ -3348,7 +3295,6 @@ export function PosProvider({ children }) {
     // Dọn dẹp bảng liên kết
     setProductToppings((prev) => prev.filter((pt) => pt.toppingId !== id));
     cloudDeleteTopping(id);
-    showToast(`Đã xóa topping "${target?.name || ''}"`, 'info');
   };
 
   const toggleToppingStock = (id) => {
@@ -3358,7 +3304,6 @@ export function PosProvider({ children }) {
           const updated = !t.inStock;
           const updatedTopping = { ...t, inStock: updated };
           cloudUpsertTopping(updatedTopping);
-          showToast(`Đã ${updated ? 'bật còn hàng' : 'tắt (hết hàng)'} topping "${t.name}"`, updated ? 'success' : 'info');
           return updatedTopping;
         }
         return t;
@@ -3382,7 +3327,6 @@ export function PosProvider({ children }) {
       updatedAt: new Date().toISOString()
     };
     setStaffList((prev) => [...prev, newStaff]);
-    showToast(`Đã thêm nhân viên "${cleanName}"`, 'success');
 
     // Milestone 4: Asynchronous non-blocking cloud push
     if (isSupabaseConfigured && supabase && typeof upsertStaffProfile === 'function') {
@@ -3412,7 +3356,6 @@ export function PosProvider({ children }) {
         s.id === id ? updatedStaff : s
       );
     });
-    showToast(`Đã cập nhật tên nhân viên thành "${cleanName}"`, 'success');
 
     // Milestone 4: Asynchronous non-blocking cloud push
     if (isSupabaseConfigured && supabase && updatedStaff && typeof upsertStaffProfile === 'function') {
@@ -3584,7 +3527,6 @@ export function PosProvider({ children }) {
         }));
       }
 
-      showToast(`Đã cập nhật thông tin nhân viên "${cleanName}"`, 'success');
     } else {
       // CREATE NEW STAFF
       const newId = `staff-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -3618,7 +3560,6 @@ export function PosProvider({ children }) {
         }
       }));
 
-      showToast(`Đã thêm nhân viên mới "${cleanName}"`, 'success');
     }
 
     if (isSupabaseConfigured && supabase && typeof upsertStaffProfile === 'function') {
@@ -3722,7 +3663,6 @@ export function PosProvider({ children }) {
       cloudRecordAuditLog(newAuditLog).catch((e) => console.warn('Lỗi ghi cloudRecordAuditLog:', e));
     }
 
-    showToast(`Đã xóa vĩnh viễn nhân viên "${targetName}" khỏi hệ thống`, 'success');
     return { success: true, deletedStaffId: staffId, deletedStaffName: targetName };
   };
 
@@ -3822,7 +3762,6 @@ export function PosProvider({ children }) {
       console.warn('Lỗi đồng bộ payments LocalStorage:', payErr);
     }
 
-    showToast(`Đã xóa vĩnh viễn ${idsToDelete.length} hóa đơn khỏi hệ thống và Supabase`, 'success');
     return { success: true, count: idsToDelete.length };
   };
 
@@ -3836,7 +3775,6 @@ export function PosProvider({ children }) {
     setOrderHistory([]);
     setSettings(INITIAL_SETTINGS);
     setStaffList(INITIAL_STAFF);
-    showToast('Đã khôi phục dữ liệu mẫu chuẩn', 'info');
   };
 
   const value = {

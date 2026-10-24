@@ -199,14 +199,12 @@ export default function StoreConfigSubpage({ onBack }) {
     triggerHaptic('light');
     setLogoOriginalUrl(null);
     setLogoThermalUrl(null);
-    showToast?.('Đã gỡ logo cửa hàng. Hóa đơn sẽ in chữ tên quán.', 'info');
   };
 
   const handleResetToDefaultLogo = () => {
     triggerHaptic('light');
     setLogoOriginalUrl('/default-logo.png');
     setLogoThermalUrl('/default-logo.png');
-    showToast?.('Đã khôi phục Logo GÓC mặc định (khổ 50×50mm)', 'info');
   };
 
   const handleSave = (e) => {
@@ -241,7 +239,6 @@ export default function StoreConfigSubpage({ onBack }) {
         kitchenTicketSettings
       });
       setIsSubmitting(false);
-      showToast?.('Đã lưu cấu hình quán & hóa đơn thành công!', 'success');
     }, 250);
   };
 
@@ -269,13 +266,11 @@ export default function StoreConfigSubpage({ onBack }) {
           settings: { ...settings, thermalPrintMode },
           thermalPrintMode
         });
-        showToast?.('Đã in thử phiếu chế biến qua Bluetooth!', 'success');
       } else {
         setTestKitchenTicketModel(dummyTicketModel);
         setTimeout(() => {
           window.print();
         }, 150);
-        showToast?.('Đã mở lệnh in thử phiếu chế biến!', 'info');
       }
     } catch (err) {
       console.warn('Lỗi khi in thử phiếu chế biến:', err);

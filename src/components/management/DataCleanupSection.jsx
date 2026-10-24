@@ -157,7 +157,6 @@ export default function DataCleanupSection() {
         setBackupDownloaded(true);
         const fileName = result.filename || result.fileName;
         setDownloadedFileName(fileName);
-        showToast?.(`Đã tải xuống file sao lưu: ${fileName}`, 'success');
       } else {
         throw new Error('Không thể tạo file sao lưu');
       }
