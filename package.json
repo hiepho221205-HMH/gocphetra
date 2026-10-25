@@ -10,7 +10,6 @@
     "test": "node tests/test_runner.js"
   },
   "dependencies": {
-    "@animate-ui/react": "^2.2.1",
     "@supabase/supabase-js": "^2.118.0",
     "dexie": "^4.4.6",
     "lucide-react": "^0.475.0",
