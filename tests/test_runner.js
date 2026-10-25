@@ -38,7 +38,8 @@ const testFiles = [
   path.join(__dirname, 'settings_hub_test.js'),
   path.join(__dirname, 'tdz_scope_guard.test.js'),
   path.join(__dirname, 'ast_undeclared_variables.test.js'),
-  path.join(__dirname, 'menu_modal_layering.test.js')
+  path.join(__dirname, 'menu_modal_layering.test.js'),
+  path.join(__dirname, 'online_bill_export.test.js')
 ];
 
 console.log('\n============================================================');

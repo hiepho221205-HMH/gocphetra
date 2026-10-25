@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { usePos } from '../../store/PosContext';
 import ReceiptPrintView from '../billing/ReceiptPrintView';
+import OnlineBillModal from '../billing/OnlineBillModal';
 import HistoricalPaymentModal from '../billing/HistoricalPaymentModal';
 import OrderDetailsModal from './OrderDetailsModal';
 import DatePickerModal from './DatePickerModal';
@@ -13,6 +14,7 @@ import {
   RotateCcw,
   Clock,
   Printer,
+  Share2,
   CheckCircle2,
   Search,
   Receipt,
@@ -69,6 +71,7 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
   const [printOrder, setPrintOrder] = useState(null); // For completed read-only receipt
   const [printReceiptRecord, setPrintReceiptRecord] = useState(null); // For historical immutable snapshot
   const [payingOrder, setPayingOrder] = useState(null); // For historical order payment
+  const [onlineBillOrder, setOnlineBillOrder] = useState(null); // For online digital bill export
 
   // Strict Staff Guard: Staff is permanently locked to today
   useEffect(() => {
@@ -711,18 +714,34 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                               {formatVND(ord.total)}
                             </span>
 
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenReceipt(ord);
-                              }}
-                              className="touch-target px-3 py-1.5 clay-pill-btn text-[#214E34] font-black text-xs flex items-center gap-1 cursor-pointer"
-                              title="In lại hóa đơn"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                              <span>In bill</span>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  triggerHaptic('light');
+                                  setOnlineBillOrder(ord);
+                                }}
+                                className="touch-target px-2.5 py-1.5 clay-pill-btn text-[#214E34] font-black text-xs flex items-center gap-1 cursor-pointer"
+                                title="Xuất hóa đơn online"
+                              >
+                                <Share2 className="w-3.5 h-3.5 text-[#214E34]" />
+                                <span>Xuất ảnh</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenReceipt(ord);
+                                }}
+                                className="touch-target px-2.5 py-1.5 clay-pill-btn text-gray-600 font-bold text-xs flex items-center gap-1 cursor-pointer"
+                                title="In lại hóa đơn"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                                <span>In bill</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -793,6 +812,16 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
           order={printOrder}
           receiptRecord={printReceiptRecord}
           isPrePrint={false}
+        />
+      )}
+
+      {/* ================= MODAL: XUẤT HÓA ĐƠN ONLINE ================= */}
+      {onlineBillOrder && (
+        <OnlineBillModal
+          isOpen={Boolean(onlineBillOrder)}
+          onClose={() => setOnlineBillOrder(null)}
+          order={onlineBillOrder}
+          isPaidOverride={true}
         />
       )}
 

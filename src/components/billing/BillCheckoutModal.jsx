@@ -3,10 +3,12 @@ import { usePos } from '../../store/PosContext';
 import VietQRPaymentModal from './VietQRPaymentModal';
 import MergeTablesModal from './MergeTablesModal';
 import ReceiptPrintView from './ReceiptPrintView';
+import OnlineBillModal from './OnlineBillModal';
 import {
   X,
   Receipt,
   Printer,
+  Share2,
   GitMerge,
   Banknote,
   QrCode,
@@ -39,6 +41,7 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
   const [showQRModal, setShowQRModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showOnlineBillModal, setShowOnlineBillModal] = useState(false);
   const [isPrePrint, setIsPrePrint] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
@@ -229,14 +232,13 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
               type="button"
               onClick={() => {
                 triggerHaptic('light');
-                requestBillForTable(table.id);
-                setIsPrePrint(true);
-                setShowPrintModal(true);
+                setShowOnlineBillModal(true);
               }}
-              title="In tạm tính"
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+              title="Xuất hóa đơn online"
+              aria-label="Xuất hóa đơn online"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white transition-colors cursor-pointer"
             >
-              <Printer className="w-4 h-4" />
+              <Share2 className="w-4 h-4 text-emerald-300 stroke-[2.2]" />
             </button>
             <button
               type="button"
@@ -450,6 +452,14 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
         onClose={() => setShowPrintModal(false)}
         order={order}
         isPrePrint={isPrePrint}
+      />
+
+      {/* Online Bill Export & Share Modal */}
+      <OnlineBillModal
+        isOpen={showOnlineBillModal}
+        onClose={() => setShowOnlineBillModal(false)}
+        order={order}
+        isPaidOverride={false}
       />
     </div>
   );
