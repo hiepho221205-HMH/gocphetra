@@ -13,12 +13,14 @@ const billCheckoutModalPath = path.join(__dirname, '../src/components/billing/Bi
 const onlineBillModalPath = path.join(__dirname, '../src/components/billing/OnlineBillModal.jsx');
 const canvasRendererPath = path.join(__dirname, '../src/utils/onlineBillCanvasRenderer.js');
 const orderHistoryViewPath = path.join(__dirname, '../src/components/orders/OrderHistoryView.jsx');
+const receiptPrintViewPath = path.join(__dirname, '../src/components/billing/ReceiptPrintView.jsx');
 
 describe('GÓC POS — Online Bill Export & Share Test Suite', () => {
   const checkoutCode = fs.readFileSync(billCheckoutModalPath, 'utf8');
   const modalCode = fs.readFileSync(onlineBillModalPath, 'utf8');
   const rendererCode = fs.readFileSync(canvasRendererPath, 'utf8');
   const historyCode = fs.readFileSync(orderHistoryViewPath, 'utf8');
+  const printCode = fs.readFileSync(receiptPrintViewPath, 'utf8');
 
   // ================= A. CHECKOUT MODAL HEADER & ACTION BUTTONS =================
   it('A.1 - BillCheckoutModal replaces header print button with Share2 icon & Xuất hóa đơn online label', () => {
@@ -169,9 +171,61 @@ describe('GÓC POS — Online Bill Export & Share Test Suite', () => {
       historyCode.includes('OnlineBillModal') && historyCode.includes('onlineBillOrder'),
       'OrderHistoryView must register OnlineBillModal'
     );
+  });
+
+  it('E.2 - OrderHistoryView renders compact icon-only Share2 and Printer buttons for completed orders', () => {
     assert.ok(
-      historyCode.includes('Xuất ảnh'),
-      'OrderHistoryView must provide "Xuất ảnh" button for past completed orders'
+      historyCode.includes('title="Xuất ảnh hóa đơn"') && historyCode.includes('aria-label="Xuất ảnh hóa đơn"'),
+      'Must have title and aria-label for export image button'
+    );
+    assert.ok(
+      historyCode.includes('title="In hóa đơn"') && historyCode.includes('aria-label="In hóa đơn"'),
+      'Must have title and aria-label for print receipt button'
+    );
+    assert.ok(
+      historyCode.includes('min-w-[40px]') && historyCode.includes('min-h-[40px]'),
+      'Buttons must be sized 40-44px with min 40px dimensions'
+    );
+    assert.ok(
+      historyCode.includes('touch-target'),
+      'Buttons must ensure touch-target (>= 44px) for mobile usability'
+    );
+    assert.ok(
+      !historyCode.includes('<span>Xuất ảnh</span>'),
+      'Must not display text inside the export button'
+    );
+    assert.ok(
+      !historyCode.includes('<span>In bill</span>'),
+      'Must not display text inside the print button'
+    );
+  });
+
+  // ================= F. RECEIPT PRINT VIEW PORTAL & FIX BLACK SCREEN =================
+  it('F.1 - ReceiptPrintView uses createPortal(..., document.body) with z-[9500]', () => {
+    assert.ok(
+      printCode.includes('createPortal') && printCode.includes('document.body'),
+      'ReceiptPrintView must portal into document.body to break out of containing blocks'
+    );
+    assert.ok(
+      printCode.includes('z-[9500]'),
+      'ReceiptPrintView must use z-[9500] to sit above all navigation and page content'
+    );
+  });
+
+  it('F.2 - ReceiptPrintView implements body scroll lock, Escape dismiss, and safe-area', () => {
+    assert.match(
+      printCode,
+      /document\.body\.style\.overflow\s*=\s*['"]hidden['"]/,
+      'ReceiptPrintView must lock body scroll on open'
+    );
+    assert.match(
+      printCode,
+      /e\.key\s*===\s*['"]Escape['"]/,
+      'ReceiptPrintView must close when user presses Escape'
+    );
+    assert.ok(
+      printCode.includes('safe-area-inset-bottom'),
+      'ReceiptPrintView must respect safe-area-inset-bottom on mobile devices'
     );
   });
 });

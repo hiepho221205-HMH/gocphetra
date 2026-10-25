@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { usePos } from '../../store/PosContext';
 import { formatVND } from '../../utils/currency';
 import {
@@ -46,6 +47,26 @@ export default function ReceiptPrintView({
       if (overridePaperWidth) setSelectedWidth(overridePaperWidth);
     }
   }, [isOpen, overridePaperWidth]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen || !order) return null;
 
@@ -123,8 +144,18 @@ export default function ReceiptPrintView({
 
   const is80 = selectedWidth === '80mm';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/65 backdrop-blur-md animate-fadeIn">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9500] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs animate-fadeIn select-none overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label={isPrePrint ? 'Phiếu Tạm Tính' : 'Hóa Đơn'}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose?.();
+        }
+      }}
+    >
       {/* Modal Frame with Dynamic Max Width based on 58mm / 80mm */}
       <div
         className={`w-full ${
@@ -402,7 +433,7 @@ export default function ReceiptPrintView({
         </div>
 
         {/* Bottom Quick Action Bar */}
-        <div className="p-3 bg-white border-t border-gray-100 flex items-center justify-between gap-2 print:hidden shrink-0">
+        <div className="p-3 pb-[max(12px,env(safe-area-inset-bottom,12px))] bg-white border-t border-gray-100 flex items-center justify-between gap-2 print:hidden shrink-0">
           {/* Bluetooth Print Button */}
           <button
             type="button"
@@ -486,6 +517,7 @@ export default function ReceiptPrintView({
           }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }

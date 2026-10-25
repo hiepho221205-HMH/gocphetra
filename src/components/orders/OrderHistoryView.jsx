@@ -714,7 +714,8 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                               {formatVND(ord.total)}
                             </span>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-2">
+                              {/* Nút Xuất ảnh (Icon-only Share2) */}
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -722,24 +723,25 @@ export default function OrderHistoryView({ onGoToOrder, onGoToBill }) {
                                   triggerHaptic('light');
                                   setOnlineBillOrder(ord);
                                 }}
-                                className="touch-target px-2.5 py-1.5 clay-pill-btn text-[#214E34] font-black text-xs flex items-center gap-1 cursor-pointer"
-                                title="Xuất hóa đơn online"
+                                className="touch-target w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-emerald-50 hover:bg-emerald-100/80 active:scale-95 border border-emerald-200 flex items-center justify-center cursor-pointer transition-all shadow-2xs"
+                                title="Xuất ảnh hóa đơn"
+                                aria-label="Xuất ảnh hóa đơn"
                               >
-                                <Share2 className="w-3.5 h-3.5 text-[#214E34]" />
-                                <span>Xuất ảnh</span>
+                                <Share2 className="w-4 h-4 text-[#214E34] stroke-[2.2]" />
                               </button>
 
+                              {/* Nút In bill (Icon-only Printer) */}
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleOpenReceipt(ord);
                                 }}
-                                className="touch-target px-2.5 py-1.5 clay-pill-btn text-gray-600 font-bold text-xs flex items-center gap-1 cursor-pointer"
-                                title="In lại hóa đơn"
+                                className="touch-target w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-white hover:bg-gray-50 active:scale-95 border border-gray-200 flex items-center justify-center cursor-pointer transition-all shadow-2xs"
+                                title="In hóa đơn"
+                                aria-label="In hóa đơn"
                               >
-                                <Printer className="w-3.5 h-3.5" />
-                                <span>In bill</span>
+                                <Printer className="w-4 h-4 text-slate-700 stroke-[2.2]" />
                               </button>
                             </div>
                           </div>
