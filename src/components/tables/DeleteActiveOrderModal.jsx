@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, Trash2, X, Utensils } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
 import { triggerHaptic } from '../../utils/haptics';
+import { motion, AnimatePresence, useReducedMotion, useMotionTokens } from '../../lib/animateUi';
 
 /**
  * DeleteActiveOrderModal
@@ -18,6 +19,8 @@ export default function DeleteActiveOrderModal({
   onConfirm
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const { spring, transition } = useMotionTokens();
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -33,8 +36,10 @@ export default function DeleteActiveOrderModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isDeleting, onClose]);
 
-  if (!isOpen || !table) return null;
+  if (!isOpen && !table) return null;
 
+  const tableName = table?.name || 'Bàn';
+  const tableArea = table?.area || 'Khu vực chính';
   const itemCount = order?.items?.reduce((sum, it) => sum + (it.quantity || 1), 0) || 0;
   const totalAmount = order?.total || 0;
 
@@ -59,65 +64,79 @@ export default function DeleteActiveOrderModal({
   };
 
   const modalContent = (
-    <div
-      data-testid="delete-active-order-modal-backdrop"
-      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6 animate-fadeIn overflow-y-auto select-none"
-      onClick={handleClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="delete-order-modal-title"
-    >
-      <div
-        data-testid="delete-active-order-modal-container"
-        className="w-full max-w-sm bg-white rounded-[28px] shadow-2xl p-5 sm:p-6 space-y-4 border border-rose-100/90 animate-scaleUp my-auto max-h-[calc(100vh-32px)] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* 1. Header Icon & Title */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 shadow-2xs shrink-0">
-              <Trash2 className="w-5 h-5 text-rose-600 stroke-[2.2]" />
-            </div>
-            <div>
-              <h3
-                id="delete-order-modal-title"
-                className="font-black text-sm text-gray-900 tracking-tight"
-              >
-                Xóa đơn của bàn này?
-              </h3>
-              <p className="text-[11px] text-gray-500 font-semibold">
-                Thao tác giải phóng bàn ngay lập tức
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={isDeleting}
-            data-testid="close-delete-order-modal-btn"
-            aria-label="Đóng"
-            className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors disabled:opacity-40 cursor-pointer"
+    <AnimatePresence>
+      {isOpen && table && (
+        <motion.div
+          key="delete-order-backdrop"
+          data-testid="delete-active-order-modal-backdrop"
+          className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-[3px] flex items-center justify-center p-4 sm:p-6 overflow-y-auto select-none"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={shouldReduceMotion ? { duration: 0 } : transition.fade}
+          onClick={handleClose}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-order-modal-title"
+        >
+          <motion.div
+            key="delete-order-card"
+            data-testid="delete-active-order-modal-container"
+            initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.94, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={shouldReduceMotion ? undefined : { opacity: 0, scale: 0.94, y: 8 }}
+            transition={shouldReduceMotion ? { duration: 0 } : spring.dialog}
+            className="w-full max-w-sm bg-white rounded-[28px] shadow-2xl p-5 sm:p-6 space-y-4 border border-rose-100/90 my-auto max-h-[calc(100vh-32px)] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
           >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+            {/* 1. Header Icon & Title */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100 shadow-2xs shrink-0">
+                  <Trash2 className="w-5 h-5 text-rose-600 stroke-[2.2]" />
+                </div>
+                <div>
+                  <h3
+                    id="delete-order-modal-title"
+                    className="font-black text-sm text-gray-900 tracking-tight"
+                  >
+                    Xóa đơn của bàn này?
+                  </h3>
+                  <p className="text-[11px] text-gray-500 font-semibold">
+                    Thao tác giải phóng bàn ngay lập tức
+                  </p>
+                </div>
+              </div>
+              <motion.button
+                type="button"
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
+                transition={spring.press}
+                onClick={handleClose}
+                disabled={isDeleting}
+                data-testid="close-delete-order-modal-btn"
+                aria-label="Đóng"
+                className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors disabled:opacity-40 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </motion.button>
+            </div>
 
-        {/* 2. Table & Order Target Information Card */}
-        <div className="p-3.5 bg-gray-50/90 rounded-2xl border border-gray-100 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="font-black text-sm text-[#214E34]">
-                {table.name}
-              </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                {table.area || 'Khu vực chính'}
-              </span>
-            </div>
-            <div className="text-right">
-              <span className="text-xs font-black text-[#214E34]">
-                {formatVND(totalAmount)}
-              </span>
-            </div>
+            {/* 2. Table & Order Target Information Card */}
+            <div className="p-3.5 bg-gray-50/90 rounded-2xl border border-gray-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-sm text-[#214E34]">
+                    {tableName}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    {tableArea}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-black text-[#214E34]">
+                    {formatVND(totalAmount)}
+                  </span>
+                </div>
           </div>
 
           <div className="flex items-center gap-1.5 text-xs text-gray-600 font-semibold pt-1 border-t border-gray-200/60">
@@ -160,28 +179,34 @@ export default function DeleteActiveOrderModal({
 
         {/* 4. Modal Actions */}
         <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
-          <button
+          <motion.button
             type="button"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+            transition={spring.press}
             onClick={handleClose}
             disabled={isDeleting}
             data-testid="cancel-delete-order-btn"
-            className="touch-target flex-1 py-2.5 h-11 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl transition-all text-xs disabled:opacity-50 cursor-pointer active:scale-[0.98]"
+            className="touch-target flex-1 py-2.5 h-11 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-2xl transition-colors text-xs disabled:opacity-50 cursor-pointer"
           >
             Hủy
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             type="button"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+            transition={spring.press}
             onClick={handleConfirm}
             disabled={isDeleting}
             data-testid="confirm-delete-order-btn"
-            className="touch-target flex-1 py-2.5 h-11 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-1.5 text-xs disabled:opacity-50 cursor-pointer active:scale-[0.98]"
+            className="touch-target flex-1 py-2.5 h-11 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-2xl shadow-md shadow-rose-600/20 transition-colors flex items-center justify-center gap-1.5 text-xs disabled:opacity-50 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>{isDeleting ? 'Đang xóa...' : 'Xóa bàn'}</span>
-          </button>
+          </motion.button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
   );
 
   return typeof document !== 'undefined'

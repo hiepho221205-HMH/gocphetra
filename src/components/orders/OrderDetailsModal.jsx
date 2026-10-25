@@ -29,6 +29,7 @@ import {
 import {
   executeKitchenTicketPrint
 } from '../../utils/bluetoothPrinter';
+import { motion, AnimatePresence, useReducedMotion, useMotionTokens } from '../../lib/animateUi';
 
 export default function OrderDetailsModal({
   isOpen,
@@ -43,6 +44,8 @@ export default function OrderDetailsModal({
   onHistoricalPay
 }) {
   const { saveOrderForTable, recordKitchenTicketPrint, settings, currentUser, showToast } = usePos();
+  const { spring, transition } = useMotionTokens();
+  const shouldReduceMotion = useReducedMotion();
 
   // Local state of items to allow real-time editing (qty + / - or remove)
   const [items, setItems] = useState([]);
@@ -98,10 +101,11 @@ export default function OrderDetailsModal({
     return items.reduce((sum, it) => sum + (it.lineTotal || 0), 0);
   }, [items]);
 
-  if (!isOpen || !table) return null;
+  if (!isOpen && !table) return null;
 
   const isHistorical = order?.status === 'unpaid_carried_over';
-  const currentOrderId = order?.id || table.activeOrderId || 'Đơn mới';
+  const tableName = table?.name || 'Bàn';
+  const currentOrderId = order?.id || table?.activeOrderId || 'Đơn mới';
   const createdAtTime = order?.createdAt
     ? new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
     : 'Vừa xong';
@@ -287,61 +291,82 @@ export default function OrderDetailsModal({
     }
   };
 
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="order-details-title"
-      className="fixed inset-0 z-[9200] bg-black/40 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn"
-    >
-      <div className="clay-card rounded-b-none sm:rounded-b-[28px] w-full max-w-[420px] max-h-[88vh] flex flex-col p-0 overflow-hidden animate-slideUp">
-        {/* ================= HEADER ================= */}
-        <div className="px-5 py-4 bg-gradient-to-r from-[#214E34] to-[#2E6744] text-white flex items-center justify-between shrink-0 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                onClose();
-              }}
-              aria-label="Quay lại"
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
-            </button>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h3 id="order-details-title" className="font-black text-sm sm:text-base leading-tight">
-                  Chi tiết đơn • {table.name}
-                </h3>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">
-                  #{currentOrderId}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-[10.5px] text-emerald-200 mt-0.5 font-semibold">
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" /> {createdAtTime}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <User className="w-3 h-3" /> {cashierName}
-                </span>
-              </div>
-            </div>
-          </div>
+  if (typeof document === 'undefined') return null;
 
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              onClose();
-            }}
-            aria-label="Đóng chi tiết đơn"
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white transition-colors cursor-pointer"
+  return createPortal(
+    <>
+      <AnimatePresence>
+        {isOpen && table && (
+          <motion.div
+            key="order-details-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-details-title"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={shouldReduceMotion ? { duration: 0 } : transition.fade}
+            className="fixed inset-0 z-[9200] bg-black/40 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4"
           >
-            <X className="w-4 h-4 stroke-[2.5]" />
-          </button>
-        </div>
+            <motion.div
+              key="order-details-card"
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, y: 20, scale: 0.98 }}
+              transition={shouldReduceMotion ? { duration: 0 } : spring.dialog}
+              className="clay-card rounded-b-none sm:rounded-b-[28px] w-full max-w-[420px] max-h-[88vh] flex flex-col p-0 overflow-hidden"
+            >
+              {/* ================= HEADER ================= */}
+              <div className="px-5 py-4 bg-gradient-to-r from-[#214E34] to-[#2E6744] text-white flex items-center justify-between shrink-0 shadow-sm">
+                <div className="flex items-center gap-2.5">
+                  <motion.button
+                    type="button"
+                    whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
+                    transition={spring.press}
+                    onClick={() => {
+                      triggerHaptic('light');
+                      onClose();
+                    }}
+                    aria-label="Quay lại"
+                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+                  </motion.button>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h3 id="order-details-title" className="font-black text-sm sm:text-base leading-tight">
+                        Chi tiết đơn • {tableName}
+                      </h3>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">
+                        #{currentOrderId}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10.5px] text-emerald-200 mt-0.5 font-semibold">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {createdAtTime}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <User className="w-3 h-3" /> {cashierName}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <motion.button
+                  type="button"
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
+                  transition={spring.press}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    onClose();
+                  }}
+                  aria-label="Đóng chi tiết đơn"
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4 stroke-[2.5]" />
+                </motion.button>
+              </div>
 
         {/* ================= ITEMS LIST ================= */}
         <div className="p-4 space-y-3 overflow-y-auto no-scrollbar flex-1 divide-y divide-gray-100">
@@ -468,8 +493,10 @@ export default function OrderDetailsModal({
           {isHistorical ? (
             /* FOOTER CHO ĐƠN LỊCH SỬ CHƯA THANH TOÁN: 2 NÚT (ĐÓNG & THU TIỀN) */
             <div className="flex items-center gap-2 w-full pt-1">
-              <button
+              <motion.button
                 type="button"
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                transition={spring.press}
                 disabled={isSubmitting}
                 onClick={() => {
                   triggerHaptic('light');
@@ -478,10 +505,12 @@ export default function OrderDetailsModal({
                 className="touch-target min-h-[44px] px-3 py-2 rounded-[16px] text-xs font-bold text-gray-700 clay-pill-btn flex-1 cursor-pointer"
               >
                 Đóng
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
                 type="button"
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                transition={spring.press}
                 disabled={isSubmitting || items.length === 0}
                 onClick={() => {
                   triggerHaptic('medium');
@@ -493,26 +522,30 @@ export default function OrderDetailsModal({
               >
                 <Banknote className="w-4 h-4 shrink-0" />
                 <span className="truncate">Thu tiền ({formatVND(subtotal)})</span>
-              </button>
+              </motion.button>
             </div>
           ) : (
             /* FOOTER ĐÚNG 3 NÚT DÀN ĐỀU HÀNG NGANG 3 CỘT (GRID 3 COLS) */
             <div className="grid grid-cols-3 gap-2 w-full pt-1">
               {/* Nút 1: Thanh toán */}
-              <button
+              <motion.button
                 type="button"
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                transition={spring.press}
                 disabled={isSubmitting || items.length === 0}
                 onClick={handleCheckout}
                 aria-label="Thanh toán hóa đơn bàn này"
-                className="touch-target min-h-[44px] px-2 py-2 rounded-[16px] text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-95"
+                className="touch-target min-h-[44px] px-2 py-2 rounded-[16px] text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 <Banknote className="w-4 h-4 shrink-0" />
                 <span className="truncate">Thanh toán</span>
-              </button>
+              </motion.button>
 
               {/* Nút 2: Thêm món */}
-              <button
+              <motion.button
                 type="button"
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                transition={spring.press}
                 disabled={isSubmitting}
                 onClick={handleAddMoreItems}
                 aria-label="Thêm món vào đơn của bàn"
@@ -520,11 +553,13 @@ export default function OrderDetailsModal({
               >
                 <PlusCircle className="w-4 h-4 text-[#214E34] shrink-0" />
                 <span className="truncate">Thêm món</span>
-              </button>
+              </motion.button>
 
               {/* Nút 3: Lưu đơn */}
-              <button
+              <motion.button
                 type="button"
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                transition={spring.press}
                 disabled={isSubmitting || items.length === 0}
                 onClick={handleSaveOrder}
                 aria-label="Lưu đơn hàng và giữ trạng thái đang phục vụ"
@@ -532,11 +567,14 @@ export default function OrderDetailsModal({
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
                 <span className="truncate">Lưu đơn</span>
-              </button>
+              </motion.button>
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
 
       {/* Save Order Kitchen Ticket Print Prompt */}
       {printPromptState?.isOpen && (
@@ -555,7 +593,7 @@ export default function OrderDetailsModal({
           <PreparationTicketTemplate ticketModel={activeKitchenTicketModel} />
         </div>
       )}
-    </div>,
+    </>,
     document.body
   );
 }

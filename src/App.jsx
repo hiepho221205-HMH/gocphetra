@@ -8,6 +8,7 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import PageHeader from './components/common/PageHeader';
 import AccessDeniedView from './components/common/AccessDeniedView';
 import { Sparkles, ArrowRight } from 'lucide-react';
+import { AnimateUIProvider } from './lib/animateUi';
 
 // Code-split heavy views and modals for optimal bundle size and Lighthouse scores
 const TableGrid = lazy(() => import('./components/tables/TableGrid'));
@@ -471,7 +472,9 @@ function PosAppRoot() {
 export default function App() {
   return (
     <PosProvider>
-      <PosAppRoot />
+      <AnimateUIProvider tempo={1}>
+        <PosAppRoot />
+      </AnimateUIProvider>
     </PosProvider>
   );
 }

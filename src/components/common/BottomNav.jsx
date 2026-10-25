@@ -3,9 +3,12 @@ import { usePos } from '../../store/PosContext';
 import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
 import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3 } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
+import { motion, AnimatePresence, useReducedMotion, useMotionTokens } from '../../lib/animateUi';
 
 export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
   const { activeTab, setActiveTab, orders, currentRole } = usePos();
+  const { spring } = useMotionTokens();
+  const shouldReduceMotion = useReducedMotion();
   const { isKeyboardOpen: internalIsKeyboardOpen } = useIosKeyboardFix();
 
   // Scroll visibility & auto-hide states
@@ -144,16 +147,16 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
         {/* Track Grid phân bổ theo số tab (2 cột cho Staff, 4 cột cho Manager/Admin) */}
         <div role="tablist" aria-label="Thanh điều hướng chính" className={`relative w-full h-full grid ${isStaff ? 'grid-cols-2' : 'grid-cols-4'} items-center`}>
           {/* Khối Highlight Circle 48x48px nền xanh trượt ngang mượt mà */}
-          <div
-            className={`absolute top-0 bottom-0 left-0 ${isStaff ? 'w-1/2' : 'w-1/4'} flex items-center justify-center pointer-events-none transition-all duration-220 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-              activeIndex >= 0 ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              transform: `translateX(${Math.max(0, activeIndex) * 100}%)`,
+          <motion.div
+            className={`absolute top-0 bottom-0 left-0 ${isStaff ? 'w-1/2' : 'w-1/4'} flex items-center justify-center pointer-events-none z-0`}
+            animate={{
+              x: `${Math.max(0, activeIndex) * 100}%`,
+              opacity: activeIndex >= 0 ? 1 : 0
             }}
+            transition={shouldReduceMotion ? { duration: 0 } : spring.selection}
           >
             <div className="w-12 h-12 rounded-full clay-btn-primary animate-fadeIn flex items-center justify-center" />
-          </div>
+          </motion.div>
 
           {/* Danh sách icon chức năng */}
           {navItems.map((item) => {
@@ -161,7 +164,7 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
             const isActive = activeTab === item.id;
 
             return (
-              <button
+              <motion.button
                 key={item.id}
                 type="button"
                 role="tab"
@@ -169,6 +172,8 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
                 aria-label={item.badge ? `${item.label} ${item.badge}` : item.label}
                 title={item.label}
                 data-testid={`bottom-nav-${item.id}`}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
+                transition={spring.press}
                 onClick={() => {
                   triggerHaptic('light');
                   if (window.history?.pushState) {
@@ -176,7 +181,7 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
                   }
                   setActiveTab(item.id);
                 }}
-                className="touch-target col-span-1 h-full min-h-[44px] flex items-center justify-center relative z-10 active:scale-95 transition-transform duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[#214E34]/40 rounded-full cursor-pointer"
+                className="touch-target col-span-1 h-full min-h-[44px] flex items-center justify-center relative z-10 outline-none focus-visible:ring-2 focus-visible:ring-[#214E34]/40 rounded-full cursor-pointer"
               >
                 <span className="sr-only">{item.label}</span>
                 
@@ -190,13 +195,23 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
                     }`}
                   />
 
-                  {item.badge && (
-                    <span aria-hidden="true" className="absolute -top-1 -right-1.5 bg-rose-500 text-white text-[10.5px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-md ring-2 ring-white leading-none animate-fadeIn">
-                      {item.badge}
-                    </span>
-                  )}
+                  <AnimatePresence>
+                    {item.badge && (
+                      <motion.span
+                        key="nav-badge"
+                        initial={shouldReduceMotion ? false : { scale: 0.4, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={shouldReduceMotion ? undefined : { scale: 0.4, opacity: 0 }}
+                        transition={spring.pop}
+                        aria-hidden="true"
+                        className="absolute -top-1 -right-1.5 bg-rose-500 text-white text-[10.5px] font-black px-1.5 py-0.5 rounded-full min-w-[20px] text-center shadow-md ring-2 ring-white leading-none pointer-events-none"
+                      >
+                        {item.badge}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </div>
-              </button>
+              </motion.button>
             );
           })}
         </div>

@@ -5,6 +5,7 @@ import { formatVND } from '../../utils/currency';
 import { triggerHaptic } from '../../utils/haptics';
 import ViewOrderIconButton from '../common/ViewOrderIconButton';
 import DeleteActiveOrderModal from './DeleteActiveOrderModal';
+import { motion, useReducedMotion, useMotionTokens } from '../../lib/animateUi';
 
 const TableCard = React.memo(function TableCard({
   table,
@@ -21,6 +22,9 @@ const TableCard = React.memo(function TableCard({
     showToast,
     deleteActiveOrderForTable
   } = usePos();
+
+  const { spring } = useMotionTokens();
+  const shouldReduceMotion = useReducedMotion();
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
@@ -95,10 +99,12 @@ const TableCard = React.memo(function TableCard({
 
   return (
     <>
-      <div
+      <motion.div
         onClick={handleCardClick}
         data-table-id={table.id}
         data-testid={`table-card-${table.id}`}
+        whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+        transition={spring.press}
         className={`clay-card clay-card-interactive card-contain p-3.5 flex flex-col justify-between select-none cursor-pointer h-[152px] ${
           isOccupied
             ? 'border-emerald-500/30 hover:border-emerald-600/60 shadow-[0_14px_30px_-4px_rgba(16,185,129,0.18),inset_0_2px_2px_rgba(255,255,255,1)]'
@@ -165,14 +171,16 @@ const TableCard = React.memo(function TableCard({
         <div className="pt-2 border-t border-gray-100">
           {!isOccupied ? (
             /* Bàn trống: 1 button lớn toàn chiều rộng "Gọi món" */
-            <button
+            <motion.button
               type="button"
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+              transition={spring.press}
               onClick={handleOrderClick}
               className="touch-target clay-btn-primary w-full py-2.5 px-3 font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Utensils className="w-3.5 h-3.5 text-emerald-300 stroke-[2.2]" />
               <span>Gọi món</span>
-            </button>
+            </motion.button>
           ) : (
             /* Bàn có khách: Bộ 3 nút icon phân bổ cân đối [Xem đơn] [Thanh toán] [Xóa đơn] */
             <div className="grid grid-cols-3 gap-1.5">
@@ -187,8 +195,10 @@ const TableCard = React.memo(function TableCard({
               />
 
               {/* Nút icon "Thanh toán" (nền xanh #214E34 3D hoặc amber nếu đang khóa) */}
-              <button
+              <motion.button
                 type="button"
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
+                transition={spring.press}
                 onClick={handleBillClick}
                 data-testid={`bill-btn-${table.id}`}
                 title={isLockedByOther ? 'Bàn đang tính tiền' : 'Thanh toán & Lên hóa đơn'}
@@ -198,11 +208,13 @@ const TableCard = React.memo(function TableCard({
                 }`}
               >
                 <Receipt className="w-4 h-4 text-emerald-300 stroke-[2.2]" />
-              </button>
+              </motion.button>
 
               {/* Nút icon "Xóa bàn / Xóa đơn" (nền đỏ nhạt, viền đỏ, icon thùng rác cảnh báo) */}
-              <button
+              <motion.button
                 type="button"
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.92 }}
+                transition={spring.press}
                 onClick={handleDeleteClick}
                 data-testid={`delete-order-btn-${table.id}`}
                 title="Xóa đơn & Giải phóng bàn"
@@ -210,11 +222,11 @@ const TableCard = React.memo(function TableCard({
                 className="touch-target w-full h-10 min-h-[40px] rounded-[14px] bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/90 shadow-2xs flex items-center justify-center cursor-pointer transition-all active:scale-95"
               >
                 <Trash2 className="w-4 h-4 text-rose-600 stroke-[2]" />
-              </button>
+              </motion.button>
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Modal xác nhận xóa đơn bàn đã order */}
       <DeleteActiveOrderModal

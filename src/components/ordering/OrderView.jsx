@@ -16,6 +16,7 @@ import {
 import {
   executeKitchenTicketPrint
 } from '../../utils/bluetoothPrinter';
+import { motion, useReducedMotion, useMotionTokens } from '../../lib/animateUi';
 import {
   ArrowLeft,
   Search,
@@ -78,6 +79,8 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     currentUser
   } = usePos();
   const { isKeyboardOpen } = useIosKeyboardFix();
+  const { spring } = useMotionTokens();
+  const shouldReduceMotion = useReducedMotion();
 
   // Active Category: 'all' is the virtual category (default)
   const [selectedCat, setSelectedCat] = useState('all');
@@ -383,18 +386,27 @@ export default function OrderView({ table, onBack, onGoToBill }) {
           {/* Danh sách danh mục cuộn dọc */}
           <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-touch-contain no-scrollbar p-1.5 space-y-1.5 pb-20">
             {/* TAB HỆ THỐNG CỐ ĐỊNH: "Tất cả" */}
-            <div
+            <motion.div
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+              transition={spring.press}
               onClick={() => {
                 triggerHaptic('light');
                 setSelectedCat('all');
               }}
-              className={`w-full min-h-[50px] px-2.5 py-2 rounded-[18px] text-left cursor-pointer transition-all duration-200 flex flex-col justify-center ${
+              className={`w-full min-h-[50px] px-2.5 py-2 rounded-[18px] text-left cursor-pointer transition-colors duration-150 flex flex-col justify-center relative select-none ${
                 selectedCat === 'all'
-                  ? 'clay-btn-primary shadow-sm font-black'
+                  ? 'font-black shadow-sm'
                   : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-100'
               }`}
             >
-              <div className="flex items-center justify-between w-full mb-0.5">
+              {selectedCat === 'all' && (
+                <motion.div
+                  layoutId="category-active-bg"
+                  transition={shouldReduceMotion ? { duration: 0 } : spring.selection}
+                  className="absolute inset-0 rounded-[18px] clay-btn-primary z-0 pointer-events-none"
+                />
+              )}
+              <div className="relative z-10 flex items-center justify-between w-full mb-0.5">
                 <Grid
                   className={`w-4 h-4 shrink-0 ${
                     selectedCat === 'all' ? 'text-white' : 'text-[#214E34]'
@@ -410,8 +422,10 @@ export default function OrderView({ table, onBack, onGoToBill }) {
                   {menu.length}
                 </span>
               </div>
-              <span className="text-[11px] leading-tight font-extrabold">Tất cả</span>
-            </div>
+              <span className={`relative z-10 text-[11px] leading-tight font-extrabold ${selectedCat === 'all' ? 'text-white' : ''}`}>
+                Tất cả
+              </span>
+            </motion.div>
 
             {/* CÁC DANH MỤC TỪ MENU */}
             {categories.map((cat) => {
@@ -420,19 +434,28 @@ export default function OrderView({ table, onBack, onGoToBill }) {
               const count = categoryCounts[cat.id] ?? 0;
 
               return (
-                <div
+                <motion.div
                   key={cat.id}
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                  transition={spring.press}
                   onClick={() => {
                     triggerHaptic('light');
                     setSelectedCat(cat.id);
                   }}
-                  className={`w-full min-h-[50px] px-2.5 py-2 rounded-[18px] text-left cursor-pointer transition-all duration-200 flex flex-col justify-center ${
+                  className={`w-full min-h-[50px] px-2.5 py-2 rounded-[18px] text-left cursor-pointer transition-colors duration-150 flex flex-col justify-center relative select-none ${
                     isActive
-                      ? 'clay-btn-primary shadow-sm font-black'
+                      ? 'font-black shadow-sm'
                       : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-100'
                   }`}
                 >
-                  <div className="flex items-center justify-between w-full mb-0.5">
+                  {isActive && (
+                    <motion.div
+                      layoutId="category-active-bg"
+                      transition={shouldReduceMotion ? { duration: 0 } : spring.selection}
+                      className="absolute inset-0 rounded-[18px] clay-btn-primary z-0 pointer-events-none"
+                    />
+                  )}
+                  <div className="relative z-10 flex items-center justify-between w-full mb-0.5">
                     <IconComp
                       className={`w-4 h-4 shrink-0 ${
                         isActive ? 'text-white' : 'text-[#214E34]'
@@ -448,10 +471,10 @@ export default function OrderView({ table, onBack, onGoToBill }) {
                       {count}
                     </span>
                   </div>
-                  <span className="text-[11px] leading-tight font-extrabold truncate pr-1">
+                  <span className={`relative z-10 text-[11px] leading-tight font-extrabold truncate pr-1 ${isActive ? 'text-white' : ''}`}>
                     {cat.name}
                   </span>
-                </div>
+                </motion.div>
               );
             })}
           </div>

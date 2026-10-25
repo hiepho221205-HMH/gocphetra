@@ -3,6 +3,7 @@ import { usePos } from '../../store/PosContext';
 import TableCard from './TableCard';
 import { Plus, Search, Layers, CheckCircle2, Users, Coffee } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
+import { motion, useReducedMotion, useMotionTokens } from '../../lib/animateUi';
 
 export default function TableGrid({
   onAddNewTable,
@@ -11,6 +12,8 @@ export default function TableGrid({
   onViewOrderDetails
 }) {
   const { tables, orders } = usePos();
+  const { spring } = useMotionTokens();
+  const shouldReduceMotion = useReducedMotion();
   const [selectedStatus, setSelectedStatus] = useState('all'); // 'all' | 'empty' | 'occupied'
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -96,12 +99,14 @@ export default function TableGrid({
       {/* 1. Dashboard 3 Thẻ Thống Kê kiêm Bộ Lọc Chính (Claymorphism 3D Token) */}
       <div className="grid grid-cols-3 gap-2.5 mb-3.5" role="region" aria-label="Bộ lọc thống kê bàn">
         {/* Tổng bàn - Blue 3D Disc Badge */}
-        <div
+        <motion.div
           role="button"
           tabIndex={0}
           aria-label="Lọc tất cả bàn"
           aria-pressed={selectedStatus === 'all'}
           data-testid="filter-card-all"
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+          transition={spring.press}
           onClick={() => handleStatusChange('all')}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleStatusChange('all')}
           className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-all duration-200 select-none ${
@@ -118,15 +123,17 @@ export default function TableGrid({
           <div className="w-12 h-12 clay-disc-base clay-disc-blue text-lg shadow-clay-disc">
             {totalCount}
           </div>
-        </div>
+        </motion.div>
 
         {/* Có khách - Green 3D Disc Badge with Sub-Badge Pill */}
-        <div
+        <motion.div
           role="button"
           tabIndex={0}
           aria-label="Lọc bàn có khách"
           aria-pressed={selectedStatus === 'occupied'}
           data-testid="filter-card-occupied"
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+          transition={spring.press}
           onClick={() => handleStatusChange('occupied')}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleStatusChange('occupied')}
           className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-all duration-200 select-none ${
@@ -148,15 +155,17 @@ export default function TableGrid({
               </span>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Bàn trống - White Clay 3D Disc Badge */}
-        <div
+        <motion.div
           role="button"
           tabIndex={0}
           aria-label="Lọc bàn trống"
           aria-pressed={selectedStatus === 'empty'}
           data-testid="filter-card-empty"
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.96 }}
+          transition={spring.press}
           onClick={() => handleStatusChange('empty')}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleStatusChange('empty')}
           className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-all duration-200 select-none ${
@@ -173,7 +182,7 @@ export default function TableGrid({
           <div className="w-12 h-12 clay-disc-base clay-disc-white text-lg border border-gray-100 shadow-clay-disc">
             {emptyCount}
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* 2. Thanh công cụ tìm kiếm & nút Thêm bàn */}
@@ -191,14 +200,16 @@ export default function TableGrid({
         </div>
 
         {/* Nút "+ Thêm bàn" 3D Pill Forest Green */}
-        <button
+        <motion.button
           type="button"
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.94 }}
+          transition={spring.press}
           onClick={handleAddClick}
           className="touch-target clay-btn-primary px-3.5 py-2.5 text-xs font-black flex items-center gap-1.5 shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4 text-emerald-300 stroke-[2.5]" />
           <span>Thêm bàn</span>
-        </button>
+        </motion.button>
       </div>
 
       {/* Hidden standard select element for backward compatibility with automated tests */}
