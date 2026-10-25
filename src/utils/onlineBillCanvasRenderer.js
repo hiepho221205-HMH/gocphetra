@@ -1,18 +1,17 @@
 /**
  * GÓC POS — Online Bill Canvas Graphic Renderer & Exporter
  * Renders high-fidelity, high-DPI (2x Retina) digital receipts as standalone PNG images.
- * Redesigned with a modern, premium aesthetic:
- * - Ambient Pastel Aurora Glow background (linear-gradient 135deg + multi-color radial glowing accents)
- * - Centered white card with rounded corners (30px radius) and subtle drop shadow
- * - Subtle GÓC brand watermark (opacity ~0.07) at center of the card
- * - Centered minimalist Header: Store name in bold uppercase, address, contact hotline
- * - Balanced metadata block: Date/Time in Asia/Ho_Chi_Minh, Order ID, Table/Takeaway, Cashier/Customer
- * - Elegant dashed dividers between items and financial blocks
- * - Item titles in bold uppercase with quantity × unit price and line totals
- * - Prominent Grand Total in brand color #214E34
- * - Full-width payment status badge: "✔ ĐÃ THANH TOÁN" (mint pastel) vs "⏳ CHƯA THANH TOÁN" (warm amber pastel)
- * - Courteous closing message and GÓC POS signature
- * - Dynamic height hugging content with uniform 32px padding (no excess bottom whitespace)
+ * Editorial Cafe Typography Scale & Compact Space Optimization:
+ * - Ambient Pastel Aurora Glow background (135deg gradient + soft radial glows)
+ * - Centered white card with 30px rounded corners & subtle shadow
+ * - Subtle GÓC brand watermark (opacity 0.09) at center of the card
+ * - Minimalist centered Header: Store name in 800 17.5px, address & hotline in 11.5px
+ * - Single-row Metadata block: Date/Time (left) — Order ID (right) (Completely removes 'Khu vực')
+ * - Item titles in 700 12.5px with 11px unit prices and neat dashed dividers
+ * - Harmonized Grand Total: Label 13px bold — Amount in 900 18.5px #214E34
+ * - Streamlined status badge: 32px height, 10px rounded corners, 700 11.5px font
+ * - Compact vertical rhythm (8-10px gaps) for a sleek, premium, non-stretched poster look
+ * - Dynamic height hugging content with uniform 32px canvas padding (no dead bottom whitespace)
  * - Standard filename: GOC-HoaDon-[MaDon].png
  */
 
@@ -48,10 +47,8 @@ export function preloadLogoImage() {
       resolve(img);
     };
     img.onerror = () => {
-      // Graceful fallback if image load fails
       resolve(null);
     };
-    // Primary path in public/images, fallback to default-logo
     img.src = '/images/goc-logo.png';
   });
 
@@ -104,7 +101,7 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 /**
  * Draws a horizontal dashed line across content width
  */
-function drawDashedLine(ctx, x1, y, x2, color = '#E5E7EB', dash = [5, 4], lineWidth = 1) {
+function drawDashedLine(ctx, x1, y, x2, color = '#E2E8F0', dash = [4, 4], lineWidth = 1) {
   ctx.save();
   ctx.strokeStyle = color;
   ctx.lineWidth = lineWidth;
@@ -134,68 +131,68 @@ function drawGlowSpot(ctx, x, y, radius, colorHex, alpha = 0.35) {
 }
 
 /**
- * Calculates dynamic height required to render receipt without cutoffs or dead whitespace
+ * Calculates compact dynamic height required to render receipt without cutoffs or dead whitespace
  */
 function calculateReceiptLayout(model, printableWidth, ctx) {
   const storeAddress = model.store?.storeAddress || '76A Võ Văn Dũng, P. An Nhơn, Gia Lai';
 
-  ctx.font = `600 12px ${FONT_FAMILY}`;
+  ctx.font = `500 11.5px ${FONT_FAMILY}`;
   const addressLines = wrapText(ctx, `ĐC: ${storeAddress}`, printableWidth);
 
   let height = 0;
   // Card top internal padding
-  height += 28;
+  height += 22;
 
   // Header: Store Name, Address, Hotline
-  height += 28; // Store Name
-  height += addressLines.length * 17; // Store Address
-  height += 18; // Contact Hotline
-  height += 14; // Spacing before dashed separator
+  height += 22; // Store Name
+  height += addressLines.length * 15; // Store Address
+  height += 15; // Contact Hotline
+  height += 10; // Spacing before dashed separator
 
   // Separator
-  height += 14;
+  height += 10;
 
-  // Meta block: Date, Order ID, Table, Cashier/Customer
-  height += 46;
-  height += 14; // Separator
+  // Meta block: Single row (Date & Order ID)
+  height += 18;
+  height += 10; // Separator
 
   // Items
   const items = model.items || [];
   for (const it of items) {
-    ctx.font = `800 13.5px ${FONT_FAMILY}`;
-    const nameLines = wrapText(ctx, (it.name || 'MÓN').toUpperCase(), printableWidth - 90);
-    height += nameLines.length * 19; // Item Name
-    height += 19; // Qty x Unit Price line
+    ctx.font = `700 12.5px ${FONT_FAMILY}`;
+    const nameLines = wrapText(ctx, (it.name || 'MÓN').toUpperCase(), printableWidth - 85);
+    height += nameLines.length * 17; // Item Name
+    height += 16; // Qty x Unit Price line
     if (it.toppings && it.toppings.length > 0) {
-      height += it.toppings.length * 15; // Toppings
+      height += it.toppings.length * 14; // Toppings
     }
     if (it.notes) {
-      height += 15; // Notes
+      height += 14; // Notes
     }
-    height += 14; // Dashed separator between items
+    height += 10; // Dashed separator between items
   }
 
   // Financial summary
-  height += 6;
-  height += 22; // Subtotal
+  height += 4;
+  height += 18; // Subtotal
   if (model.discountAmount > 0) {
-    height += 20; // Discount
+    height += 16; // Discount
   }
   if (model.surcharge > 0) {
-    height += 20; // Surcharge
+    height += 16; // Surcharge
   }
-  height += 12; // Separator before total
-  height += 36; // Big Total (Tổng cộng)
-  height += 16; // Spacing before badge
+  height += 10; // Separator before total
+  height += 28; // Harmonized Grand Total
+  height += 12; // Spacing before badge
 
-  // Payment Status Badge
-  height += 38; // Badge height
+  // Payment Status Badge (Streamlined height 32px)
+  height += 32;
 
   // Footer note
-  height += 20; // Spacing
-  height += 18; // Thank you text
-  height += 16; // Branding text
-  height += 28; // Card bottom internal padding
+  height += 14; // Spacing
+  height += 15; // Thank you text
+  height += 14; // Branding text
+  height += 22; // Card bottom internal padding
 
   return Math.ceil(height);
 }
@@ -210,11 +207,11 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
   if (typeof document === 'undefined') return null;
 
   // Visual layout dimensions in CSS pixels
-  const CARD_WIDTH = 420;
+  const CARD_WIDTH = 416;
   const CANVAS_PADDING_X = 32;
   const CANVAS_PADDING_Y = 32;
-  const CANVAS_WIDTH = CARD_WIDTH + CANVAS_PADDING_X * 2; // 484px
-  const CARD_INTERNAL_PADDING = 24;
+  const CANVAS_WIDTH = CARD_WIDTH + CANVAS_PADDING_X * 2; // 480px
+  const CARD_INTERNAL_PADDING = 22;
   const PRINTABLE_WIDTH = CARD_WIDTH - CARD_INTERNAL_PADDING * 2;
   const SCALE = 2; // 2x Retina rendering for crisp typography
 
@@ -243,15 +240,15 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
   ctx.fillRect(0, 0, CANVAS_WIDTH, canvasHeight);
 
   // Soft glowing aurora spots replicating pastel conic blur
-  drawGlowSpot(ctx, CANVAS_WIDTH * 0.15, canvasHeight * 0.15, 200, '#FF9AA2', 0.40); // Soft pink
-  drawGlowSpot(ctx, CANVAS_WIDTH * 0.85, canvasHeight * 0.20, 220, '#FFDAC1', 0.45); // Pastel peach
-  drawGlowSpot(ctx, CANVAS_WIDTH * 0.08, canvasHeight * 0.55, 190, '#E2F0CB', 0.35); // Mint green
-  drawGlowSpot(ctx, CANVAS_WIDTH * 0.90, canvasHeight * 0.85, 230, '#A2E4FF', 0.40); // Baby blue
-  drawGlowSpot(ctx, CANVAS_WIDTH * 0.20, canvasHeight * 0.82, 210, '#C9AFFF', 0.38); // Lavender
+  drawGlowSpot(ctx, CANVAS_WIDTH * 0.15, canvasHeight * 0.15, 180, '#FF9AA2', 0.38); // Soft pink
+  drawGlowSpot(ctx, CANVAS_WIDTH * 0.85, canvasHeight * 0.20, 200, '#FFDAC1', 0.42); // Pastel peach
+  drawGlowSpot(ctx, CANVAS_WIDTH * 0.08, canvasHeight * 0.55, 170, '#E2F0CB', 0.32); // Mint green
+  drawGlowSpot(ctx, CANVAS_WIDTH * 0.90, canvasHeight * 0.85, 210, '#A2E4FF', 0.38); // Baby blue
+  drawGlowSpot(ctx, CANVAS_WIDTH * 0.20, canvasHeight * 0.82, 190, '#C9AFFF', 0.35); // Lavender
 
   // Subtle ambient radial overlay
   const ambientOverlay = ctx.createRadialGradient(
-    CANVAS_WIDTH / 2, canvasHeight / 2, 80,
+    CANVAS_WIDTH / 2, canvasHeight / 2, 70,
     CANVAS_WIDTH / 2, canvasHeight / 2, canvasHeight / 1.5
   );
   ambientOverlay.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
@@ -269,10 +266,10 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
   // Drop shadow
   ctx.save();
   ctx.fillStyle = '#FFFFFF';
-  ctx.shadowColor = 'rgba(100, 116, 139, 0.18)';
-  ctx.shadowBlur = 24;
+  ctx.shadowColor = 'rgba(100, 116, 139, 0.16)';
+  ctx.shadowBlur = 22;
   ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 10;
+  ctx.shadowOffsetY = 8;
   drawRoundedRect(ctx, cardX, cardY, cardW, cardH, cardRadius);
   ctx.fill();
   ctx.restore();
@@ -285,14 +282,14 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
   ctx.stroke();
   ctx.restore();
 
-  // 5. Watermark Logo at Center of the Card (Opacity 0.07)
+  // 5. Watermark Logo at Center of the Card (Opacity 0.09 exactly)
   const cardCenterX = cardX + cardW / 2;
   const cardCenterY = cardY + cardH / 2;
-  const watermarkSize = Math.min(cardW * 0.65, 240);
+  const watermarkSize = Math.min(cardW * 0.62, 230);
 
   ctx.save();
   if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
-    ctx.globalAlpha = 0.07;
+    ctx.globalAlpha = 0.09; // Exactly 0.09 per user specification
     ctx.drawImage(
       logoImg,
       cardCenterX - watermarkSize / 2,
@@ -302,19 +299,19 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
     );
   } else {
     // Elegant vector text fallback watermark if image is unavailable
-    ctx.globalAlpha = 0.055;
+    ctx.globalAlpha = 0.07;
     ctx.fillStyle = '#214E34';
-    ctx.font = `900 84px ${FONT_FAMILY}`;
+    ctx.font = `900 80px ${FONT_FAMILY}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('GÓC', cardCenterX, cardCenterY - 10);
-    ctx.font = `800 18px ${FONT_FAMILY}`;
-    ctx.fillText('— PHÊ • TRÀ —', cardCenterX, cardCenterY + 44);
+    ctx.font = `800 16px ${FONT_FAMILY}`;
+    ctx.fillText('— PHÊ • TRÀ —', cardCenterX, cardCenterY + 40);
   }
   ctx.restore();
 
   // 6. Draw Content Inside White Card
-  let curY = cardY + 28;
+  let curY = cardY + 22;
   const contentLeft = cardX + CARD_INTERNAL_PADDING;
   const contentRight = cardX + cardW - CARD_INTERNAL_PADDING;
   const printableWidth = contentRight - contentLeft;
@@ -325,53 +322,44 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
   const contactPhone = model.store?.contactPhone || '0369623489';
 
   ctx.fillStyle = '#0F172A';
-  ctx.font = `900 20px ${FONT_FAMILY}`;
+  ctx.font = `800 17.5px ${FONT_FAMILY}`;
   ctx.textAlign = 'center';
   ctx.fillText(storeName, cardCenterX, curY);
-  curY += 20;
+  curY += 17;
 
-  ctx.fillStyle = '#475569';
-  ctx.font = `600 12px ${FONT_FAMILY}`;
+  ctx.fillStyle = '#64748B';
+  ctx.font = `500 11.5px ${FONT_FAMILY}`;
   const addressLines = wrapText(ctx, `ĐC: ${storeAddress}`, printableWidth);
   for (const line of addressLines) {
     ctx.fillText(line, cardCenterX, curY);
-    curY += 17;
+    curY += 15;
   }
+  ctx.font = `600 11.5px ${FONT_FAMILY}`;
+  ctx.fillStyle = '#475569';
   ctx.fillText(`Hotline: ${contactPhone}`, cardCenterX, curY);
-  curY += 16;
+  curY += 12;
 
   // Dashed separator after store info
-  drawDashedLine(ctx, contentLeft, curY, contentRight, '#E2E8F0', [5, 4]);
-  curY += 16;
+  drawDashedLine(ctx, contentLeft, curY, contentRight, '#E2E8F0', [4, 4]);
+  curY += 12;
 
-  // ================= METADATA BLOCK =================
+  // ================= METADATA BLOCK (SINGLE ROW, NO KHU VỰC) =================
   const formattedDateTime = formatReceiptDateTime(model.receiptIssuedAt || model.orderCreatedAt);
-  const tableLabel = model.table ? `Bàn: ${model.table}` : 'Mang đi';
   const orderCode = model.orderId ? `#${model.orderId}` : '#ORD-GOC';
-  const customerName = model.order?.customerName || model.order?.customer || 'Khách lẻ';
 
-  ctx.font = `600 12px ${FONT_FAMILY}`;
-  ctx.fillStyle = '#0F172A';
+  ctx.font = `600 11.5px ${FONT_FAMILY}`;
+  ctx.fillStyle = '#64748B';
   ctx.textAlign = 'left';
   ctx.fillText(`Ngày: ${formattedDateTime}`, contentLeft, curY);
 
   ctx.textAlign = 'right';
+  ctx.font = `700 11.5px ${FONT_FAMILY}`;
+  ctx.fillStyle = '#0F172A';
   ctx.fillText(`Mã đơn: ${orderCode}`, contentRight, curY);
-  curY += 18;
+  curY += 10;
 
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#214E34'; // Highlight table in brand green
-  ctx.font = `700 12px ${FONT_FAMILY}`;
-  ctx.fillText(`Khu vực: ${tableLabel}`, contentLeft, curY);
-
-  ctx.textAlign = 'right';
-  ctx.fillStyle = '#475569';
-  ctx.font = `600 12px ${FONT_FAMILY}`;
-  ctx.fillText(`KH: ${customerName}`, contentRight, curY);
-  curY += 14;
-
-  drawDashedLine(ctx, contentLeft, curY, contentRight, '#E2E8F0', [5, 4]);
-  curY += 16;
+  drawDashedLine(ctx, contentLeft, curY, contentRight, '#E2E8F0', [4, 4]);
+  curY += 12;
 
   // ================= ITEMS LIST =================
   const items = model.items || [];
@@ -383,11 +371,11 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
     const lineTotal = it.lineTotal || (qty * unitPrice);
 
     // Item Title (Left) + Line Total (Right)
-    ctx.font = `800 13.5px ${FONT_FAMILY}`;
+    ctx.font = `700 12.5px ${FONT_FAMILY}`;
     ctx.fillStyle = '#0F172A';
     ctx.textAlign = 'left';
 
-    const nameLines = wrapText(ctx, itemName, printableWidth - 95);
+    const nameLines = wrapText(ctx, itemName, printableWidth - 85);
     for (let l = 0; l < nameLines.length; l++) {
       ctx.fillText(nameLines[l], contentLeft, curY);
       if (l === 0) {
@@ -395,41 +383,41 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
         ctx.fillText(formatVND(lineTotal), contentRight, curY);
         ctx.textAlign = 'left';
       }
-      curY += 18;
+      curY += 16;
     }
 
     // Row: [Quantity] x [Unit Price] (Left)
-    ctx.font = `600 12px ${FONT_FAMILY}`;
+    ctx.font = `500 11px ${FONT_FAMILY}`;
     ctx.fillStyle = '#64748B';
     ctx.textAlign = 'left';
     ctx.fillText(`${qty} × ${formatVND(unitPrice)}`, contentLeft, curY);
-    curY += 16;
+    curY += 14;
 
     // Optional Toppings
     if (it.toppings && it.toppings.length > 0) {
-      ctx.font = `500 11px ${FONT_FAMILY}`;
+      ctx.font = `500 10.5px ${FONT_FAMILY}`;
       ctx.fillStyle = '#64748B';
       ctx.textAlign = 'left';
       for (const tp of it.toppings) {
         const topPrice = tp.priceOverride || tp.price || 0;
         const tpLabel = `+ ${tp.name}${topPrice > 0 ? ` (${formatVND(topPrice)})` : ''}`;
         ctx.fillText(tpLabel, contentLeft + 6, curY);
-        curY += 15;
+        curY += 13;
       }
     }
 
     // Optional notes
     if (it.notes) {
-      ctx.font = `italic 11px ${FONT_FAMILY}`;
+      ctx.font = `italic 10.5px ${FONT_FAMILY}`;
       ctx.fillStyle = '#64748B';
       ctx.textAlign = 'left';
       ctx.fillText(`Ghi chú: ${it.notes}`, contentLeft + 6, curY);
-      curY += 15;
+      curY += 13;
     }
 
-    curY += 4;
+    curY += 2;
     drawDashedLine(ctx, contentLeft, curY, contentRight, '#F1F5F9', [3, 3]);
-    curY += 14;
+    curY += 10;
   }
 
   // ================= FINANCIAL SUMMARY =================
@@ -441,60 +429,60 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
   const totalItemCount = (model.items || []).reduce((sum, it) => sum + (it.quantity || 1), 0);
 
   // Subtotal (Tổng tiền hàng)
-  ctx.font = `600 12px ${FONT_FAMILY}`;
-  ctx.fillStyle = '#475569';
+  ctx.font = `500 11.5px ${FONT_FAMILY}`;
+  ctx.fillStyle = '#64748B';
   ctx.textAlign = 'left';
   ctx.fillText(`Tổng tiền hàng (${totalItemCount} món)`, contentLeft, curY);
   ctx.textAlign = 'right';
   ctx.fillStyle = '#0F172A';
-  ctx.font = `700 12.5px ${FONT_FAMILY}`;
+  ctx.font = `700 12px ${FONT_FAMILY}`;
   ctx.fillText(formatVND(subtotal), contentRight, curY);
-  curY += 20;
+  curY += 16;
 
   // Discount (if any)
   if (discountAmount > 0) {
-    ctx.font = `600 12px ${FONT_FAMILY}`;
+    ctx.font = `500 11.5px ${FONT_FAMILY}`;
     ctx.fillStyle = '#059669'; // Emerald
     ctx.textAlign = 'left';
     ctx.fillText(`Chiết khấu (${discountPercent}%)`, contentLeft, curY);
     ctx.textAlign = 'right';
-    ctx.font = `700 12px ${FONT_FAMILY}`;
+    ctx.font = `700 11.5px ${FONT_FAMILY}`;
     ctx.fillText(`-${formatVND(discountAmount)}`, contentRight, curY);
-    curY += 18;
+    curY += 15;
   }
 
   // Surcharge (if any)
   if (surcharge > 0) {
-    ctx.font = `600 12px ${FONT_FAMILY}`;
-    ctx.fillStyle = '#475569';
+    ctx.font = `500 11.5px ${FONT_FAMILY}`;
+    ctx.fillStyle = '#64748B';
     ctx.textAlign = 'left';
     ctx.fillText('Phụ thu / Phí dịch vụ', contentLeft, curY);
     ctx.textAlign = 'right';
-    ctx.font = `700 12px ${FONT_FAMILY}`;
+    ctx.font = `700 11.5px ${FONT_FAMILY}`;
     ctx.fillText(`+${formatVND(surcharge)}`, contentRight, curY);
-    curY += 18;
+    curY += 15;
   }
 
-  curY += 4;
-  drawDashedLine(ctx, contentLeft, curY, contentRight, '#CBD5E1', [5, 4], 1.2);
-  curY += 22;
+  curY += 2;
+  drawDashedLine(ctx, contentLeft, curY, contentRight, '#CBD5E1', [4, 4], 1.1);
+  curY += 16;
 
-  // GRAND TOTAL (TỔNG CỘNG) Highlighted in #214E34
+  // GRAND TOTAL (TỔNG CỘNG) — Balanced Proportionate Hierarchy
   ctx.textAlign = 'left';
   ctx.fillStyle = '#0F172A';
-  ctx.font = `800 14px ${FONT_FAMILY}`;
-  ctx.fillText('TỔNG CỘNG', contentLeft, curY);
+  ctx.font = `800 13px ${FONT_FAMILY}`;
+  ctx.fillText('TỔNG CỘNG', contentLeft, curY + 2);
 
   ctx.textAlign = 'right';
   ctx.fillStyle = '#214E34'; // Bold Brand Green
-  ctx.font = `900 22px ${FONT_FAMILY}`;
+  ctx.font = `900 18.5px ${FONT_FAMILY}`;
   ctx.fillText(formatVND(grandTotal), contentRight, curY);
-  curY += 26;
+  curY += 20;
 
-  // ================= PAYMENT STATUS BADGE =================
+  // ================= PAYMENT STATUS BADGE (Streamlined height 32px) =================
   const isPaid = model.order?.status === 'completed' || model.isPaid;
   const statusW = printableWidth;
-  const statusH = 38;
+  const statusH = 32;
   const badgeX = contentLeft;
   const badgeY = curY;
 
@@ -506,32 +494,32 @@ export function renderOnlineBillToCanvas(model, logoImg = cachedLogoImage) {
     ctx.fillStyle = '#FFFBEB'; // Warm cream/amber pastel bg
     ctx.strokeStyle = '#FDE68A'; // Warm amber border
   }
-  ctx.lineWidth = 1.2;
-  drawRoundedRect(ctx, badgeX, badgeY, statusW, statusH, 12);
+  ctx.lineWidth = 1.1;
+  drawRoundedRect(ctx, badgeX, badgeY, statusW, statusH, 10);
   ctx.fill();
   ctx.stroke();
 
-  ctx.font = `800 12.5px ${FONT_FAMILY}`;
+  ctx.font = `700 11.5px ${FONT_FAMILY}`;
   ctx.textAlign = 'center';
   if (isPaid) {
     ctx.fillStyle = '#065F46'; // Emerald dark text
     const methodStr = model.paymentMethodLabel ? ` • ${model.paymentMethodLabel.toUpperCase()}` : '';
-    ctx.fillText(`✔ ĐÃ THANH TOÁN${methodStr}`, badgeX + statusW / 2, badgeY + 24);
+    ctx.fillText(`✔ ĐÃ THANH TOÁN${methodStr}`, badgeX + statusW / 2, badgeY + 20);
   } else {
     ctx.fillStyle = '#92400E'; // Amber dark text
-    ctx.fillText('⏳ CHƯA THANH TOÁN', badgeX + statusW / 2, badgeY + 24);
+    ctx.fillText('⏳ CHƯA THANH TOÁN', badgeX + statusW / 2, badgeY + 20);
   }
   ctx.restore();
-  curY += statusH + 20;
+  curY += statusH + 14;
 
   // ================= FOOTER =================
   ctx.textAlign = 'center';
-  ctx.font = `600 12px ${FONT_FAMILY}`;
-  ctx.fillStyle = '#475569';
+  ctx.font = `500 11px ${FONT_FAMILY}`;
+  ctx.fillStyle = '#64748B';
   ctx.fillText(model.store?.receiptFooter || 'Cảm ơn quý khách và hẹn gặp lại!', cardCenterX, curY);
-  curY += 18;
+  curY += 15;
 
-  ctx.font = `600 10.5px ${FONT_FAMILY}`;
+  ctx.font = `500 10px ${FONT_FAMILY}`;
   ctx.fillStyle = '#94A3B8';
   ctx.fillText('Một sản phẩm của GÓC POS', cardCenterX, curY);
 
@@ -554,7 +542,6 @@ export function getOnlineBillFileName(orderId) {
  * @returns {Promise<Blob>}
  */
 export async function exportOnlineBillBlob(model) {
-  // Preload logo for watermark if not ready yet
   const logo = await preloadLogoImage();
   const canvas = renderOnlineBillToCanvas(model, logo);
 

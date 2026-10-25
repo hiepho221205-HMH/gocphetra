@@ -72,8 +72,6 @@ export default function OnlineBillModal({
   const storeAddress = model.store?.storeAddress || '76A Võ Văn Dũng, P. An Nhơn, Gia Lai';
   const contactPhone = model.store?.contactPhone || '0369623489';
   const formattedDateTime = formatReceiptDateTime(model.receiptIssuedAt || model.orderCreatedAt);
-  const customerName = order.customerName || order.customer || 'Khách lẻ';
-  const tableLabel = model.table ? `Bàn: ${model.table}` : 'Mang đi';
   const orderCode = model.orderId ? `#${model.orderId}` : '#ORD-GOC';
 
   const subtotal = model.subtotal || 0;
@@ -169,7 +167,7 @@ export default function OnlineBillModal({
         }
       `}</style>
 
-      <div className="clay-card rounded-[28px] w-full max-w-[430px] h-full max-h-[min(94dvh,820px)] flex flex-col p-0 overflow-hidden shadow-2xl bg-white animate-slideUp border border-gray-100">
+      <div className="clay-card rounded-[28px] w-full max-w-[420px] h-full max-h-[min(94dvh,820px)] flex flex-col p-0 overflow-hidden shadow-2xl bg-white animate-slideUp border border-gray-100">
         {/* ================= MODAL HEADER ================= */}
         <div className="shrink-0 px-5 py-3.5 bg-gradient-to-r from-[#214E34] to-[#2E6744] text-white flex items-center justify-between shadow-xs z-20">
           <div className="flex items-center gap-2.5">
@@ -214,10 +212,10 @@ export default function OnlineBillModal({
           {/* Centered White Card with 30px Border Radius & Subtle Shadow */}
           <div
             id="digital-receipt-card"
-            className="relative z-10 bg-white/95 backdrop-blur-md rounded-[30px] p-5 sm:p-6 shadow-xl border border-white/80 space-y-3.5 text-xs text-gray-800 overflow-hidden"
+            className="relative z-10 bg-white/95 backdrop-blur-md rounded-[30px] p-4 sm:p-5 shadow-xl border border-white/80 space-y-2.5 text-xs text-gray-800 overflow-hidden"
           >
-            {/* Subtle GÓC Watermark Logo at Center (Opacity ~0.07) */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden opacity-[0.07] z-0">
+            {/* Subtle GÓC Watermark Logo at Center (Opacity 0.09) */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden opacity-[0.09] z-0">
               <img
                 src="/images/goc-logo.png"
                 alt=""
@@ -228,41 +226,35 @@ export default function OnlineBillModal({
               />
             </div>
 
-            {/* Inner Content Layer */}
-            <div className="relative z-10 space-y-3.5">
+            {/* Inner Content Layer with Compact Vertical Rhythm */}
+            <div className="relative z-10 space-y-2.5">
               {/* Minimalist Centered Store Branding */}
-              <div className="text-center space-y-1">
-                <h2 className="text-base sm:text-lg font-black text-gray-900 tracking-tight uppercase">
+              <div className="text-center space-y-0.5">
+                <h2 className="text-sm sm:text-base font-extrabold text-gray-900 tracking-tight uppercase">
                   {storeName}
                 </h2>
-                <p className="text-[11.5px] text-gray-600 font-semibold leading-relaxed">
-                  <span className="font-bold text-gray-800">ĐC:</span> {storeAddress}
+                <p className="text-[11px] text-gray-500 font-medium leading-tight">
+                  <span className="font-semibold text-gray-700">ĐC:</span> {storeAddress}
                 </p>
-                <p className="text-[11.5px] text-gray-600 font-semibold">
-                  <span className="font-bold text-gray-800">Hotline:</span> {contactPhone}
+                <p className="text-[11px] text-gray-600 font-semibold">
+                  <span className="font-bold text-gray-700">Hotline:</span> {contactPhone}
                 </p>
               </div>
 
               {/* Dashed Separator */}
               <div className="border-b border-dashed border-gray-200" />
 
-              {/* Order Metadata */}
-              <div className="space-y-1 text-[11.5px] font-semibold text-gray-700">
-                <div className="flex items-center justify-between">
-                  <span><strong className="text-gray-900">Ngày:</strong> {formattedDateTime}</span>
-                  <span><strong className="text-gray-900">Mã đơn:</strong> {orderCode}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#214E34] font-bold">Khu vực: {tableLabel}</span>
-                  <span className="text-gray-600"><strong className="text-gray-800">KH:</strong> {customerName}</span>
-                </div>
+              {/* Order Metadata (Single Row, No Khu vực) */}
+              <div className="flex items-center justify-between text-[11px] font-semibold text-gray-600">
+                <span><strong className="text-gray-800">Ngày:</strong> {formattedDateTime}</span>
+                <span><strong className="text-gray-800">Mã đơn:</strong> {orderCode}</span>
               </div>
 
               {/* Dashed Separator */}
               <div className="border-b border-dashed border-gray-200" />
 
               {/* Line Items List */}
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {model.items && model.items.length > 0 ? (
                   model.items.map((it, idx) => {
                     const qty = it.quantity || 1;
@@ -273,22 +265,22 @@ export default function OnlineBillModal({
                       <div key={idx} className="space-y-0.5">
                         {/* Item Name & Line Total */}
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="font-black text-gray-900 text-xs sm:text-[13px] uppercase tracking-wide">
+                          <span className="font-bold text-gray-900 text-xs sm:text-[12.5px] uppercase tracking-wide">
                             {it.name}
                           </span>
-                          <span className="font-black text-gray-900 text-xs sm:text-[13px] shrink-0">
+                          <span className="font-bold text-gray-900 text-xs sm:text-[12.5px] shrink-0">
                             {formatVND(lineTotal)}
                           </span>
                         </div>
 
                         {/* Qty x Price */}
-                        <div className="text-[11.5px] text-gray-600 font-semibold">
+                        <div className="text-[11px] text-gray-500 font-medium">
                           {qty} × {formatVND(unitPrice)}
                         </div>
 
                         {/* Toppings (if any) */}
                         {it.toppings && it.toppings.length > 0 && (
-                          <div className="text-[10.5px] text-gray-500 pl-2 font-medium">
+                          <div className="text-[10px] text-gray-500 pl-2 font-medium">
                             {it.toppings.map((tp, tpIdx) => (
                               <div key={tpIdx}>
                                 + {tp.name}{tp.price ? ` (${formatVND(tp.price)})` : ''}
@@ -306,56 +298,56 @@ export default function OnlineBillModal({
 
                         {/* Item divider */}
                         {idx < model.items.length - 1 && (
-                          <div className="pt-1.5 border-b border-dashed border-gray-100" />
+                          <div className="pt-1 border-b border-dashed border-gray-100" />
                         )}
                       </div>
                     );
                   })
                 ) : (
-                  <div className="py-4 text-center text-gray-400 font-semibold text-xs">
+                  <div className="py-3 text-center text-gray-400 font-semibold text-xs">
                     Chưa có món nào trong đơn
                   </div>
                 )}
               </div>
 
               {/* Dashed Separator */}
-              <div className="border-b border-dashed border-gray-300" />
+              <div className="border-b border-dashed border-gray-250" />
 
               {/* Financial Summary */}
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between text-gray-600 font-semibold">
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center justify-between text-gray-600 text-[11.5px] font-medium">
                   <span>Tổng tiền hàng ({totalItemCount} món)</span>
                   <span className="font-bold text-gray-900">{formatVND(subtotal)}</span>
                 </div>
 
                 {discountAmount > 0 && (
-                  <div className="flex items-center justify-between text-emerald-800 font-bold">
+                  <div className="flex items-center justify-between text-emerald-800 text-[11.5px] font-bold">
                     <span>Chiết khấu ({discountPercent}%)</span>
                     <span>-{formatVND(discountAmount)}</span>
                   </div>
                 )}
 
                 {surcharge > 0 && (
-                  <div className="flex items-center justify-between text-gray-600 font-bold">
+                  <div className="flex items-center justify-between text-gray-600 text-[11.5px] font-bold">
                     <span>Phụ thu / Phí dịch vụ</span>
                     <span>+{formatVND(surcharge)}</span>
                   </div>
                 )}
 
-                {/* Grand Total Highlighted in Brand Color #214E34 */}
-                <div className="pt-2 border-t border-dashed border-gray-300 flex items-baseline justify-between font-black">
-                  <span className="text-xs sm:text-sm text-gray-900 uppercase">
+                {/* Harmonized Grand Total */}
+                <div className="pt-1.5 border-t border-dashed border-gray-250 flex items-baseline justify-between">
+                  <span className="text-xs font-extrabold text-gray-900 uppercase">
                     TỔNG CỘNG
                   </span>
-                  <span className="text-xl sm:text-2xl font-black text-[#214E34]">
+                  <span className="text-base sm:text-lg font-black text-[#214E34]">
                     {formatVND(grandTotal)}
                   </span>
                 </div>
               </div>
 
-              {/* Full-Width Payment Status Badge */}
+              {/* Streamlined Payment Status Badge (32px) */}
               <div
-                className={`py-2.5 px-3 rounded-xl text-center text-xs font-black border transition-all ${
+                className={`py-1.5 px-3 rounded-lg text-center text-[11.5px] font-bold border transition-all ${
                   isOrderPaid
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                     : 'bg-amber-50 text-amber-800 border-amber-200'
@@ -363,23 +355,23 @@ export default function OnlineBillModal({
               >
                 {isOrderPaid ? (
                   <div className="flex items-center justify-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>
                       ✔ ĐÃ THANH TOÁN {model.paymentMethodLabel ? `• ${model.paymentMethodLabel.toUpperCase()}` : ''}
                     </span>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-1.5">
-                    <Clock className="w-4 h-4 text-amber-600" />
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
                     <span>⏳ CHƯA THANH TOÁN</span>
                   </div>
                 )}
               </div>
 
               {/* Footer Closing */}
-              <div className="text-center pt-2 text-[11.5px] text-gray-500 font-medium space-y-0.5">
+              <div className="text-center pt-1 text-[11px] text-gray-500 font-medium space-y-0.5">
                 <p>{model.store?.receiptFooter || 'Cảm ơn quý khách và hẹn gặp lại!'}</p>
-                <p className="text-[10px] text-gray-400 font-semibold">Một sản phẩm của GÓC POS</p>
+                <p className="text-[10px] text-gray-400 font-normal">Một sản phẩm của GÓC POS</p>
               </div>
             </div>
           </div>

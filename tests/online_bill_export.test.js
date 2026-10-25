@@ -82,10 +82,15 @@ describe('GÓC POS — Online Bill Export & Share Test Suite', () => {
     );
   });
 
-  it('B.4 - OnlineBillModal renders Pastel Aurora background & watermark logo in preview', () => {
+  it('B.4 - OnlineBillModal renders Pastel Aurora background & watermark logo (0.09) in preview', () => {
     assert.ok(modalCode.includes('modal-aurora-spin'), 'Modal must render ambient aurora spin animation');
     assert.ok(modalCode.includes('goc-logo.png'), 'Modal must render GÓC watermark logo');
     assert.ok(modalCode.includes('rounded-[30px]'), 'Card must have 30px rounded corners');
+    assert.ok(modalCode.includes('opacity-[0.09]'), 'Modal must apply exact 0.09 watermark opacity');
+  });
+
+  it('B.5 - OnlineBillModal completely removes "Khu vực" from metadata', () => {
+    assert.ok(!modalCode.includes('Khu vực:'), 'Modal must completely remove Khu vực from metadata');
   });
 
   // ================= C. WEB SHARE API & DOWNLOAD ACTIONS =================
@@ -95,7 +100,6 @@ describe('GÓC POS — Online Bill Export & Share Test Suite', () => {
   });
 
   it('C.2 - Web Share API strictly only sends files (NO text, NO title, NO url)', () => {
-    // Strictly verify shareData only contains files
     assert.ok(
       modalCode.includes('files: [file]'),
       'shareData must strictly contain files: [file]'
@@ -146,7 +150,13 @@ describe('GÓC POS — Online Bill Export & Share Test Suite', () => {
     assert.ok(rendererCode.includes('cardRadius = 30'), 'Canvas must render card with 30px rounded corners');
   });
 
-  it('D.3 - Canvas renderer exposes blob, file, download, and preload utilities', () => {
+  it('D.3 - Canvas renderer implements refined typography scale, 0.09 watermark opacity, and removes "Khu vực"', () => {
+    assert.ok(rendererCode.includes('globalAlpha = 0.09'), 'Canvas watermark opacity must be exactly 0.09');
+    assert.ok(!rendererCode.includes('Khu vực:'), 'Canvas must completely remove Khu vực');
+    assert.ok(rendererCode.includes('statusH = 32'), 'Canvas status badge height must be streamlined to 32px');
+  });
+
+  it('D.4 - Canvas renderer exposes blob, file, download, and preload utilities', () => {
     assert.ok(rendererCode.includes('export async function exportOnlineBillBlob'));
     assert.ok(rendererCode.includes('export async function exportOnlineBillFile'));
     assert.ok(rendererCode.includes('export async function downloadOnlineBillImage'));
