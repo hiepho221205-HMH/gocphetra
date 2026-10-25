@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { usePos } from '../../store/PosContext';
 import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
@@ -107,6 +107,39 @@ export default function MenuManagementView() {
   const [catName, setCatName] = useState('');
   const [catIcon, setCatIcon] = useState('Coffee');
 
+  // Loading & double-submit protection
+  const [isSavingItem, setIsSavingItem] = useState(false);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+
+  // Lock body scroll when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = isItemModalOpen || isCategoryModalOpen || isToppingManagerOpen || Boolean(deleteConfirmation);
+    if (isAnyModalOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isItemModalOpen, isCategoryModalOpen, isToppingManagerOpen, deleteConfirmation]);
+
+  // Support ESC key to safely dismiss top-most modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (deleteConfirmation) {
+          setDeleteConfirmation(null);
+        } else if (isItemModalOpen) {
+          setIsItemModalOpen(false);
+        } else if (isCategoryModalOpen) {
+          setIsCategoryModalOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [deleteConfirmation, isItemModalOpen, isCategoryModalOpen]);
+
   // Count items per category
   const categoryCounts = useMemo(() => {
     const counts = {};
@@ -186,37 +219,43 @@ export default function MenuManagementView() {
 
   const handleSaveItem = (e) => {
     e.preventDefault();
-    if (!itemName.trim()) return;
-    triggerHaptic('success');
+    if (!itemName.trim() || isSavingItem) return;
+    setIsSavingItem(true);
 
-    const activeToppingLinks = itemToppingConfigs
-      .filter((cfg) => cfg.enabled)
-      .map((cfg) => ({
-        toppingId: cfg.toppingId,
-        priceOverride: cfg.priceOverride !== '' && !isNaN(Number(cfg.priceOverride)) ? Number(cfg.priceOverride) : null
-      }));
+    try {
+      triggerHaptic('success');
 
-    const payload = {
-      name: itemName.trim(),
-      code: itemCode.trim().toUpperCase() || `M${Date.now().toString().slice(-4)}`,
-      categoryId: itemCat,
-      basePrice: Number(itemPrice) || 0,
-      inStock: itemInStock,
-      description: itemDesc.trim(),
-      toppingLinks: activeToppingLinks,
-      sizes: [
-        { id: 'S', name: 'Nhỏ (S)', priceAdjustment: 0 },
-        { id: 'M', name: 'Vừa (M)', priceAdjustment: 6000 },
-        { id: 'L', name: 'Lớn (L)', priceAdjustment: 12000 }
-      ]
-    };
+      const activeToppingLinks = itemToppingConfigs
+        .filter((cfg) => cfg.enabled)
+        .map((cfg) => ({
+          toppingId: cfg.toppingId,
+          priceOverride: cfg.priceOverride !== '' && !isNaN(Number(cfg.priceOverride)) ? Number(cfg.priceOverride) : null
+        }));
 
-    if (editingItem) {
-      updateMenuItem(editingItem.id, payload);
-    } else {
-      addMenuItem(payload);
+      const payload = {
+        name: itemName.trim(),
+        code: itemCode.trim().toUpperCase() || `M${Date.now().toString().slice(-4)}`,
+        categoryId: itemCat,
+        basePrice: Math.max(0, Number(itemPrice) || 0),
+        inStock: itemInStock,
+        description: itemDesc.trim(),
+        toppingLinks: activeToppingLinks,
+        sizes: [
+          { id: 'S', name: 'Nhỏ (S)', priceAdjustment: 0 },
+          { id: 'M', name: 'Vừa (M)', priceAdjustment: 6000 },
+          { id: 'L', name: 'Lớn (L)', priceAdjustment: 12000 }
+        ]
+      };
+
+      if (editingItem) {
+        updateMenuItem(editingItem.id, payload);
+      } else {
+        addMenuItem(payload);
+      }
+      setIsItemModalOpen(false);
+    } finally {
+      setIsSavingItem(false);
     }
-    setIsItemModalOpen(false);
   };
 
   // ================= CATEGORY MODAL HANDLERS =================
@@ -239,21 +278,27 @@ export default function MenuManagementView() {
 
   const handleSaveCategory = (e) => {
     e.preventDefault();
-    if (!catName.trim()) return;
-    triggerHaptic('success');
+    if (!catName.trim() || isSavingCategory) return;
+    setIsSavingCategory(true);
 
-    if (editingCategory) {
-      updateCategory(editingCategory.id, {
-        name: catName.trim(),
-        icon: catIcon
-      });
-    } else {
-      addCategory({
-        name: catName.trim(),
-        icon: catIcon
-      });
+    try {
+      triggerHaptic('success');
+
+      if (editingCategory) {
+        updateCategory(editingCategory.id, {
+          name: catName.trim(),
+          icon: catIcon
+        });
+      } else {
+        addCategory({
+          name: catName.trim(),
+          icon: catIcon
+        });
+      }
+      setIsCategoryModalOpen(false);
+    } finally {
+      setIsSavingCategory(false);
     }
-    setIsCategoryModalOpen(false);
   };
 
   // ================= DELETE CONFIRMATION HANDLER =================
@@ -599,382 +644,431 @@ export default function MenuManagementView() {
       />
 
       {/* ================= MODAL: THÊM / SỬA MÓN ================= */}
-      {isItemModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-3 animate-fadeIn">
-          <div className="clay-card rounded-[28px] w-full max-w-[380px] max-h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl">
-            {/* Modal Header */}
-            <div className="px-5 py-4 bg-gradient-to-r from-[#214E34] to-[#2E6744] text-white flex items-center justify-between">
-              <div>
-                <h3 className="font-black text-sm">
-                  {editingItem ? 'Chỉnh sửa món' : 'Thêm món mới'}
-                </h3>
-                <p className="text-[10px] text-emerald-200 font-semibold">
-                  {editingItem ? `Mã món: ${editingItem.code || 'Chưa có'}` : 'Nhập thông tin sản phẩm'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setIsItemModalOpen(false);
-                }}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer"
-              >
-                <X className="w-4 h-4 stroke-[2.5]" />
-              </button>
-            </div>
-
-            {/* Modal Form Body */}
-            <form onSubmit={handleSaveItem} className="p-4 sm:p-5 space-y-4 overflow-y-auto no-scrollbar flex-1">
-              <div>
-                <label className="block text-xs font-extrabold text-gray-700 mb-1">
-                  Tên món <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: Cà phê sữa đá, Trà sen vàng..."
-                  value={itemName}
-                  onChange={(e) => setItemName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 clay-input text-xs font-bold text-gray-800"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
+      {isItemModalOpen &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="item-modal-title"
+            className="fixed inset-0 z-[9000] bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-fadeIn select-none"
+          >
+            <form
+              onSubmit={handleSaveItem}
+              className="clay-card rounded-[28px] w-full max-w-[390px] h-full max-h-[min(90dvh,720px)] flex flex-col p-0 overflow-hidden shadow-2xl bg-white animate-slideUp"
+            >
+              {/* Modal Header */}
+              <div className="shrink-0 px-5 py-3.5 bg-gradient-to-r from-[#214E34] to-[#2E6744] text-white flex items-center justify-between shadow-xs">
                 <div>
-                  <label className="block text-xs font-extrabold text-gray-700 mb-1">
-                    Mã món
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="CF01, TS02..."
-                    value={itemCode}
-                    onChange={(e) => setItemCode(e.target.value.toUpperCase())}
-                    className="w-full px-3.5 py-2.5 clay-input text-xs font-mono font-bold text-gray-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold text-gray-700 mb-1">
-                    Danh mục <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={itemCat}
-                    onChange={(e) => setItemCat(e.target.value)}
-                    className="w-full px-3 py-2.5 clay-input text-xs font-bold text-gray-800 cursor-pointer"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-extrabold text-gray-700 mb-1">
-                  Giá bán cơ bản (VNĐ) <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="1000"
-                    min="0"
-                    required
-                    value={itemPrice}
-                    onChange={(e) => setItemPrice(e.target.value)}
-                    className="w-full pl-3.5 pr-10 py-2.5 clay-input text-xs font-black text-[#214E34]"
-                  />
-                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">
-                    đ
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 clay-inset">
-                <div>
-                  <span className="text-xs font-black text-gray-800 block">
-                    Trạng thái món
-                  </span>
-                  <span className="text-[10px] text-gray-500 font-semibold">
-                    {itemInStock ? 'Món đang sẵn sàng phục vụ' : 'Tạm hết nguyên liệu'}
-                  </span>
+                  <h3 id="item-modal-title" className="font-black text-sm">
+                    {editingItem ? 'Chỉnh sửa món' : 'Thêm món mới'}
+                  </h3>
+                  <p className="text-[10px] text-emerald-200 font-semibold">
+                    {editingItem ? `Mã món: ${editingItem.code || 'Chưa có'}` : 'Nhập thông tin sản phẩm'}
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
                     triggerHaptic('light');
-                    setItemInStock(!itemInStock);
+                    setIsItemModalOpen(false);
                   }}
-                  className={`min-h-[34px] px-3 py-1 rounded-[12px] text-xs font-black transition-all flex items-center gap-1.5 border cursor-pointer ${
-                    itemInStock
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                      : 'bg-rose-50 text-rose-800 border-rose-300'
-                  }`}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white cursor-pointer transition-colors"
+                  title="Đóng"
                 >
-                  {itemInStock ? (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Còn hàng</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                      <span>Hết hàng</span>
-                    </>
-                  )}
+                  <X className="w-4 h-4 stroke-[2.5]" />
                 </button>
               </div>
 
-              {/* Topping Config */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-extrabold text-gray-700">
-                    Topping áp dụng ({itemToppingConfigs.filter((c) => c.enabled).length}/{toppings.length})
+              {/* Modal Form Body - Independent Scroll Container */}
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-touch-contain p-4 sm:p-5 space-y-4 no-scrollbar">
+                <div>
+                  <label className="block text-xs font-extrabold text-gray-700 mb-1">
+                    Tên món <span className="text-rose-500">*</span>
                   </label>
-                  <div className="flex items-center gap-1.5 text-[10.5px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        triggerHaptic('light');
-                        setItemToppingConfigs((prev) =>
-                          prev.map((c) => ({ ...c, enabled: true }))
-                        );
-                      }}
-                      className="text-[#214E34] font-black hover:underline cursor-pointer"
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Cà phê sữa đá, Trà sen vàng..."
+                    value={itemName}
+                    onChange={(e) => setItemName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 clay-input text-xs font-bold text-gray-800"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-extrabold text-gray-700 mb-1">
+                      Mã món
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="CF01, TS02..."
+                      value={itemCode}
+                      onChange={(e) => setItemCode(e.target.value.toUpperCase())}
+                      className="w-full px-3.5 py-2.5 clay-input text-xs font-mono font-bold text-gray-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-extrabold text-gray-700 mb-1">
+                      Danh mục <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={itemCat}
+                      onChange={(e) => setItemCat(e.target.value)}
+                      className="w-full px-3 py-2.5 clay-input text-xs font-bold text-gray-800 cursor-pointer"
                     >
-                      Chọn tất
-                    </button>
-                    <span className="text-gray-300">•</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        triggerHaptic('light');
-                        setItemToppingConfigs((prev) =>
-                          prev.map((c) => ({ ...c, enabled: false }))
-                        );
-                      }}
-                      className="text-gray-400 font-bold hover:underline cursor-pointer"
-                    >
-                      Bỏ chọn
-                    </button>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
-                <div className="max-h-44 overflow-y-auto no-scrollbar p-2.5 clay-inset space-y-2">
-                  {toppings.map((top) => {
-                    const cfg = itemToppingConfigs.find((c) => c.toppingId === top.id) || {
-                      toppingId: top.id,
-                      enabled: false,
-                      priceOverride: ''
-                    };
-
-                    return (
-                      <div
-                        key={top.id}
-                        className={`p-2.5 rounded-[12px] border text-xs transition-colors flex items-center justify-between gap-2 ${
-                          cfg.enabled
-                            ? 'bg-white border-gray-200 shadow-xs'
-                            : 'bg-gray-100/60 border-transparent opacity-60'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              triggerHaptic('light');
-                              setItemToppingConfigs((prev) =>
-                                prev.map((c) =>
-                                  c.toppingId === top.id ? { ...c, enabled: !c.enabled } : c
-                                )
-                              );
-                            }}
-                            className="text-gray-700 shrink-0 cursor-pointer"
-                          >
-                            {cfg.enabled ? (
-                              <CheckSquare className="w-4 h-4 text-[#214E34]" />
-                            ) : (
-                              <Square className="w-4 h-4 text-gray-400" />
-                            )}
-                          </button>
-                          <div className="truncate">
-                            <span className="font-extrabold text-gray-800 block truncate">
-                              {top.name}
-                            </span>
-                            <span className="text-[10px] text-gray-400 block font-semibold">
-                              {top.isGlobal ? 'Chung' : 'Riêng'} • Gốc: {formatVND(top.price)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {cfg.enabled && (
-                          <div className="shrink-0 flex items-center gap-1">
-                            <input
-                              type="number"
-                              step="1000"
-                              placeholder="Giá riêng"
-                              value={cfg.priceOverride}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setItemToppingConfigs((prev) =>
-                                  prev.map((c) =>
-                                    c.toppingId === top.id ? { ...c, priceOverride: val } : c
-                                  )
-                                );
-                              }}
-                              className="w-20 px-2 py-1 bg-[#F5F7F4] border border-gray-200 rounded-[10px] text-[10.5px] font-black text-[#214E34] focus:bg-white focus:outline-none"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div>
+                  <label className="block text-xs font-extrabold text-gray-700 mb-1">
+                    Giá bán cơ bản (VNĐ) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="1000"
+                      min="0"
+                      required
+                      value={itemPrice}
+                      onChange={(e) => setItemPrice(e.target.value)}
+                      className="w-full pl-3.5 pr-10 py-2.5 clay-input text-xs font-black text-[#214E34]"
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-gray-400">
+                      đ
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Mô tả ngắn */}
-              <div>
-                <label className="block text-xs font-extrabold text-gray-700 mb-1">
-                  Mô tả ngắn gọn
-                </label>
-                <textarea
-                  rows="2"
-                  placeholder="Ghi chú hương vị, nguyên liệu đặc trưng..."
-                  value={itemDesc}
-                  onChange={(e) => setItemDesc(e.target.value)}
-                  className="w-full px-3.5 py-2 clay-input text-xs font-medium resize-none text-gray-800"
-                />
-              </div>
-
-              {/* Modal Actions */}
-              <div className="pt-2 flex items-center gap-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setIsItemModalOpen(false)}
-                  className="flex-1 min-h-[44px] py-2 rounded-[16px] text-xs font-bold text-gray-600 clay-pill-btn cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 min-h-[44px] py-2 rounded-[16px] text-xs font-black text-white clay-btn-primary cursor-pointer"
-                >
-                  {editingItem ? 'Lưu thay đổi' : 'Thêm món'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ================= MODAL: THÊM / SỬA DANH MỤC ================= */}
-      {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-md flex items-center justify-center p-3 animate-fadeIn">
-          <div className="clay-card rounded-[28px] w-full max-w-[350px] flex flex-col p-0 overflow-hidden shadow-2xl">
-            <div className="px-5 py-4 bg-gradient-to-r from-[#214E34] to-[#2E6744] text-white flex items-center justify-between">
-              <div>
-                <h3 className="font-black text-sm">
-                  {editingCategory ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới'}
-                </h3>
-                <p className="text-[10px] text-emerald-200 font-semibold">
-                  Phân loại cho menu nước và đồ ăn
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCategoryModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer"
-              >
-                <X className="w-4 h-4 stroke-[2.5]" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCategory} className="p-4 sm:p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-extrabold text-gray-700 mb-1">
-                  Tên danh mục <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="VD: Sữa chua, Đồ ăn vặt, Freeze..."
-                  value={catName}
-                  onChange={(e) => setCatName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 clay-input text-xs font-bold text-gray-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-extrabold text-gray-700 mb-1.5">
-                  Chọn biểu tượng
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {AVAILABLE_ICONS.map((ic) => {
-                    const IconComponent = ic.icon;
-                    const isSelected = catIcon === ic.name;
-                    return (
-                      <button
-                        key={ic.name}
-                        type="button"
-                        onClick={() => {
-                          triggerHaptic('light');
-                          setCatIcon(ic.name);
-                        }}
-                        className={`p-2.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
-                          isSelected
-                            ? 'clay-btn-primary shadow-sm text-white'
-                            : 'clay-pill-btn text-gray-600'
-                        }`}
-                      >
-                        <IconComponent className="w-4 h-4" />
-                        <span className="text-[10px] font-bold">{ic.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {editingCategory && (
-                <div className="pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between p-3 clay-inset">
+                  <div>
+                    <span className="text-xs font-black text-gray-800 block">
+                      Trạng thái món
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-semibold">
+                      {itemInStock ? 'Món đang sẵn sàng phục vụ' : 'Tạm hết nguyên liệu'}
+                    </span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
-                      triggerHaptic('warning');
-                      setIsCategoryModalOpen(false);
-                      setDeleteConfirmation({
-                        type: 'category',
-                        id: editingCategory.id,
-                        name: editingCategory.name
-                      });
+                      triggerHaptic('light');
+                      setItemInStock(!itemInStock);
                     }}
-                    className="w-full py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-[14px] transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    className={`min-h-[34px] px-3 py-1 rounded-[12px] text-xs font-black transition-all flex items-center gap-1.5 border cursor-pointer ${
+                      itemInStock
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : 'bg-rose-50 text-rose-800 border-rose-300'
+                    }`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Xóa danh mục này</span>
+                    {itemInStock ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Còn hàng</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Hết hàng</span>
+                      </>
+                    )}
                   </button>
                 </div>
-              )}
 
-              <div className="pt-2 flex items-center gap-2 border-t border-gray-100">
+                {/* Topping Config */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-extrabold text-gray-700">
+                      Topping áp dụng ({itemToppingConfigs.filter((c) => c.enabled).length}/{toppings.length})
+                    </label>
+                    <div className="flex items-center gap-1.5 text-[10.5px]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('light');
+                          setItemToppingConfigs((prev) =>
+                            prev.map((c) => ({ ...c, enabled: true }))
+                          );
+                        }}
+                        className="text-[#214E34] font-black hover:underline cursor-pointer"
+                      >
+                        Chọn tất
+                      </button>
+                      <span className="text-gray-300">•</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('light');
+                          setItemToppingConfigs((prev) =>
+                            prev.map((c) => ({ ...c, enabled: false }))
+                          );
+                        }}
+                        className="text-gray-400 font-bold hover:underline cursor-pointer"
+                      >
+                        Bỏ chọn
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-44 overflow-y-auto no-scrollbar p-2.5 clay-inset space-y-2">
+                    {toppings.map((top) => {
+                      const cfg = itemToppingConfigs.find((c) => c.toppingId === top.id) || {
+                        toppingId: top.id,
+                        enabled: false,
+                        priceOverride: ''
+                      };
+
+                      return (
+                        <div
+                          key={top.id}
+                          className={`p-2.5 rounded-[12px] border text-xs transition-colors flex items-center justify-between gap-2 ${
+                            cfg.enabled
+                              ? 'bg-white border-gray-200 shadow-xs'
+                              : 'bg-gray-100/60 border-transparent opacity-60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                triggerHaptic('light');
+                                setItemToppingConfigs((prev) =>
+                                  prev.map((c) =>
+                                    c.toppingId === top.id ? { ...c, enabled: !c.enabled } : c
+                                  )
+                                );
+                              }}
+                              className="text-gray-700 shrink-0 cursor-pointer"
+                            >
+                              {cfg.enabled ? (
+                                <CheckSquare className="w-4 h-4 text-[#214E34]" />
+                              ) : (
+                                <Square className="w-4 h-4 text-gray-400" />
+                              )}
+                            </button>
+                            <div className="truncate">
+                              <span className="font-extrabold text-gray-800 block truncate">
+                                {top.name}
+                              </span>
+                              <span className="text-[10px] text-gray-400 block font-semibold">
+                                {top.isGlobal ? 'Chung' : 'Riêng'} • Gốc: {formatVND(top.price)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {cfg.enabled && (
+                            <div className="shrink-0 flex items-center gap-1">
+                              <input
+                                type="number"
+                                step="1000"
+                                placeholder="Giá riêng"
+                                value={cfg.priceOverride}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setItemToppingConfigs((prev) =>
+                                    prev.map((c) =>
+                                      c.toppingId === top.id ? { ...c, priceOverride: val } : c
+                                    )
+                                  );
+                                }}
+                                className="w-20 px-2 py-1 bg-[#F5F7F4] border border-gray-200 rounded-[10px] text-[10.5px] font-black text-[#214E34] focus:bg-white focus:outline-none"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Mô tả ngắn */}
+                <div>
+                  <label className="block text-xs font-extrabold text-gray-700 mb-1">
+                    Mô tả ngắn gọn
+                  </label>
+                  <textarea
+                    rows="2"
+                    placeholder="Ghi chú hương vị, nguyên liệu đặc trưng..."
+                    value={itemDesc}
+                    onChange={(e) => setItemDesc(e.target.value)}
+                    className="w-full px-3.5 py-2 clay-input text-xs font-medium resize-none text-gray-800"
+                  />
+                </div>
+              </div>
+
+              {/* Pinned Action Footer with Safe-Area Padding */}
+              <div className="shrink-0 p-3 sm:px-5 sm:py-3.5 bg-white/95 backdrop-blur-md border-t border-gray-100 flex items-center gap-2 pb-[max(14px,env(safe-area-inset-bottom,14px))]">
                 <button
                   type="button"
-                  onClick={() => setIsCategoryModalOpen(false)}
-                  className="flex-1 min-h-[44px] py-2 rounded-[16px] text-xs font-bold text-gray-600 clay-pill-btn cursor-pointer"
+                  disabled={isSavingItem}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setIsItemModalOpen(false);
+                  }}
+                  className="flex-1 min-h-[44px] py-2 rounded-[16px] text-xs font-bold text-gray-600 clay-pill-btn active:scale-97 cursor-pointer transition-all disabled:opacity-50"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 min-h-[44px] py-2 rounded-[16px] text-xs font-black text-white clay-btn-primary cursor-pointer"
+                  disabled={isSavingItem}
+                  className="flex-1 min-h-[44px] py-2 rounded-[16px] text-xs font-black text-white clay-btn-primary active:scale-97 cursor-pointer transition-all disabled:opacity-60 flex items-center justify-center gap-1.5"
                 >
-                  {editingCategory ? 'Lưu danh mục' : 'Thêm danh mục'}
+                  {isSavingItem ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <span>{editingItem ? 'Lưu thay đổi' : 'Thêm món'}</span>
+                  )}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
+
+      {/* ================= MODAL: THÊM / SỬA DANH MỤC ================= */}
+      {isCategoryModalOpen &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="category-modal-title"
+            className="fixed inset-0 z-[9000] bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-fadeIn select-none"
+          >
+            <form
+              onSubmit={handleSaveCategory}
+              className="clay-card rounded-[28px] w-full max-w-[360px] h-full max-h-[min(90dvh,640px)] flex flex-col p-0 overflow-hidden shadow-2xl bg-white animate-slideUp"
+            >
+              <div className="shrink-0 px-5 py-3.5 bg-gradient-to-r from-[#214E34] to-[#2E6744] text-white flex items-center justify-between shadow-xs">
+                <div>
+                  <h3 id="category-modal-title" className="font-black text-sm">
+                    {editingCategory ? 'Chỉnh sửa danh mục' : 'Thêm danh mục mới'}
+                  </h3>
+                  <p className="text-[10px] text-emerald-200 font-semibold">
+                    Phân loại cho menu nước và đồ ăn
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setIsCategoryModalOpen(false);
+                  }}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white cursor-pointer transition-colors"
+                  title="Đóng"
+                >
+                  <X className="w-4 h-4 stroke-[2.5]" />
+                </button>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-touch-contain p-4 sm:p-5 space-y-4 no-scrollbar">
+                <div>
+                  <label className="block text-xs font-extrabold text-gray-700 mb-1">
+                    Tên danh mục <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Sữa chua, Đồ ăn vặt, Freeze..."
+                    value={catName}
+                    onChange={(e) => setCatName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 clay-input text-xs font-bold text-gray-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold text-gray-700 mb-1.5">
+                    Chọn biểu tượng
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {AVAILABLE_ICONS.map((ic) => {
+                      const IconComponent = ic.icon;
+                      const isSelected = catIcon === ic.name;
+                      return (
+                        <button
+                          key={ic.name}
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic('light');
+                            setCatIcon(ic.name);
+                          }}
+                          className={`p-2.5 rounded-[14px] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'clay-btn-primary shadow-sm text-white'
+                              : 'clay-pill-btn text-gray-600'
+                          }`}
+                        >
+                          <IconComponent className="w-4 h-4" />
+                          <span className="text-[10px] font-bold">{ic.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {editingCategory && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic('warning');
+                        setIsCategoryModalOpen(false);
+                        setDeleteConfirmation({
+                          type: 'category',
+                          id: editingCategory.id,
+                          name: editingCategory.name
+                        });
+                      }}
+                      className="w-full py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-[14px] transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Xóa danh mục này</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="shrink-0 p-3 sm:px-5 sm:py-3.5 bg-white/95 backdrop-blur-md border-t border-gray-100 flex items-center gap-2 pb-[max(14px,env(safe-area-inset-bottom,14px))]">
+                <button
+                  type="button"
+                  disabled={isSavingCategory}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setIsCategoryModalOpen(false);
+                  }}
+                  className="flex-1 min-h-[44px] py-2 rounded-[16px] text-xs font-bold text-gray-600 clay-pill-btn active:scale-97 cursor-pointer transition-all disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCategory}
+                  className="flex-1 min-h-[44px] py-2 rounded-[16px] text-xs font-black text-white clay-btn-primary active:scale-97 cursor-pointer transition-all disabled:opacity-60 flex items-center justify-center gap-1.5"
+                >
+                  {isSavingCategory ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <span>{editingCategory ? 'Lưu danh mục' : 'Thêm danh mục'}</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>,
+          document.body
+        )}
 
       {/* ================= MODAL: CONFIRM DELETE SAFETY ================= */}
       {deleteConfirmation &&
