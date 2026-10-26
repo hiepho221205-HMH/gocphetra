@@ -1,5 +1,5 @@
 // LocalStorage Schema Migrator & Safe Storage Manager
-export const LOCAL_SCHEMA_VERSION = 6;
+export const LOCAL_SCHEMA_VERSION = 7;
 const VERSION_KEY = 'goc_storage_schema_version';
 
 export function runStorageMigrations() {
@@ -44,6 +44,14 @@ export function runStorageMigrations() {
         localStorage.removeItem('goc_pos_history_v4');
         localStorage.removeItem('goc_pos_tables_v4');
         localStorage.removeItem('goc_pos_menu_v4');
+      }
+
+      // Migration v6 -> v7: Dọn dẹp cache nhân sự cũ để đồng bộ 100% 7 tài khoản từ Supabase SSOT
+      if (savedVersion < 7) {
+        console.info('[Migrator] Nâng cấp schema v7: Dọn dẹp cache nhân sự cũ để đồng bộ 100% từ Supabase...');
+        localStorage.removeItem('goc_pos_staff_v4');
+        localStorage.removeItem('goc_user_profiles_v4');
+        localStorage.removeItem('goc_schema_capabilities');
       }
 
       // Đánh dấu đã nâng cấp thành công

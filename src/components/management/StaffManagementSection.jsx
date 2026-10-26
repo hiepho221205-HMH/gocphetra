@@ -32,8 +32,16 @@ export default function StaffManagementSection() {
     navigate,
     canManageStaff,
     showToast,
-    isStaffOnline
+    isStaffOnline,
+    syncStaffWithCloud
   } = usePos();
+
+  // Tự động đồng bộ danh sách nhân sự từ Supabase SSOT khi mở trang
+  React.useEffect(() => {
+    if (typeof syncStaffWithCloud === 'function') {
+      syncStaffWithCloud();
+    }
+  }, [syncStaffWithCloud]);
 
   // Thống kê KPI tổng quan (Real-time live metrics)
   // Yêu cầu 10-13: TỔNG NV = HOẠT ĐỘNG + TẠM KHÓA; loại trừ nhân sự đã archived/removed

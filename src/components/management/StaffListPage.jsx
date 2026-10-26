@@ -49,8 +49,16 @@ export default function StaffListPage() {
     userProfiles = {},
     navigate,
     currentUser,
-    isStaffOnline
+    isStaffOnline,
+    syncStaffWithCloud
   } = usePos();
+
+  // Tự động đồng bộ danh sách nhân sự từ Supabase SSOT khi mở trang
+  React.useEffect(() => {
+    if (typeof syncStaffWithCloud === 'function') {
+      syncStaffWithCloud();
+    }
+  }, [syncStaffWithCloud]);
 
   const isAdmin = currentRole === 'admin';
 

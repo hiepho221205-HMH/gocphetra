@@ -522,14 +522,22 @@ export async function fetchAllCloudData() {
     const prodToppingsRes = results[4];
     const ordersRes = results[5];
     const settingsRes = results[6];
-    const staffRes = results[7] || null;
+    let profilesRes = null;
+    let rolesRes = null;
+    let legacyStaffRes = null;
 
-    if (staffRes?.error) {
-      if (staffRes.error.code === 'PGRST205' || staffRes.error.message?.includes('schema cache')) {
+    if (schemaCapabilities.profiles !== false) {
+      profilesRes = results[7] || null;
+      rolesRes = results[8] || null;
+      if (profilesRes?.error && (profilesRes.error.code === 'PGRST205' || profilesRes.error.message?.includes('schema cache'))) {
+        schemaCapabilities.profiles = false; persistCapability('profiles', false);
+        schemaCapabilities.user_roles = false; persistCapability('user_roles', false);
+      }
+    } else if (schemaCapabilities.staff_profiles !== false) {
+      legacyStaffRes = results[7] || null;
+      if (legacyStaffRes?.error && (legacyStaffRes.error.code === 'PGRST205' || legacyStaffRes.error.message?.includes('schema cache'))) {
         schemaCapabilities.staff_profiles = false; persistCapability('staff_profiles', false);
       }
-    } else if (staffRes && !staffRes.error) {
-      schemaCapabilities.staff_profiles = true; persistCapability('staff_profiles', true);
     }
 
     // Nếu bất kỳ bảng chính nào lỗi (chưa tạo schema) thì return null để fallback
@@ -595,18 +603,15 @@ export async function fetchAllCloudData() {
     }
 
     let staff = [];
-    const profilesRes = results[7] || null;
-    const rolesRes = results[8] || null;
-
     if (profilesRes && !profilesRes.error && Array.isArray(profilesRes.data) && profilesRes.data.length > 0) {
       schemaCapabilities.profiles = true; persistCapability('profiles', true);
       schemaCapabilities.user_roles = true; persistCapability('user_roles', true);
       const rolesMap = new Map();
       (rolesRes?.data || []).forEach((r) => rolesMap.set(r.user_id, r.role));
       staff = profilesRes.data.map((p) => mapProfileFromDb(p, rolesMap.get(p.id)));
-    } else if (staffRes && !staffRes.error && Array.isArray(staffRes.data) && staffRes.data.length > 0) {
+    } else if (legacyStaffRes && !legacyStaffRes.error && Array.isArray(legacyStaffRes.data) && legacyStaffRes.data.length > 0) {
       schemaCapabilities.staff_profiles = true; persistCapability('staff_profiles', true);
-      staff = staffRes.data.map(mapStaffProfileFromDb);
+      staff = legacyStaffRes.data.map(mapStaffProfileFromDb);
     } else {
       staff = fallbackStaff;
     }

@@ -646,6 +646,9 @@ export function PosProvider({ children }) {
             setLoginSuccessRole(hydrated.role);
           }
         } catch (_) {}
+        try {
+          syncFromCloud(false, true);
+        } catch (_) {}
       } else {
         setSession(null);
         setAuthUser(null);
@@ -664,7 +667,7 @@ export function PosProvider({ children }) {
       if (newSession?.user) {
         await hydrateUserAndRole(newSession.user, newSession);
         try {
-          syncFromCloud(false);
+          syncFromCloud(false, true);
         } catch (_) {}
       } else if (event === 'SIGNED_OUT' || !newSession) {
         setSession(null);
@@ -707,7 +710,7 @@ export function PosProvider({ children }) {
     } catch (_) {}
     setActiveTab('tables');
     try {
-      syncFromCloud(false);
+      syncFromCloud(false, true);
     } catch (_) {}
     return { success: true, user: res.user, role: hydrated.role };
   };
@@ -4064,6 +4067,7 @@ export function PosProvider({ children }) {
     cloudStatus,
     isSyncing,
     syncFromCloud,
+    syncStaffWithCloud,
     seedToCloud,
     refreshCloudHealth,
 

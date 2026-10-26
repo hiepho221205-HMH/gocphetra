@@ -25,8 +25,16 @@ export default function RbacMainPage({ onBack }) {
     currentRole,
     userProfiles = {},
     currentRoute,
-    navigate
+    navigate,
+    syncStaffWithCloud
   } = usePos();
+
+  // Tự động đồng bộ danh sách nhân sự từ Supabase SSOT khi mở trang
+  React.useEffect(() => {
+    if (typeof syncStaffWithCloud === 'function') {
+      syncStaffWithCloud();
+    }
+  }, [syncStaffWithCloud]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'admin' | 'manager' | 'staff'
