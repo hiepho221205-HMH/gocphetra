@@ -13,6 +13,7 @@ import AccessDeniedView from '../common/AccessDeniedView';
 const ProfileEditSubpage = lazy(() => import('./ProfileEditSubpage'));
 const StaffListPage = lazy(() => import('./StaffListPage'));
 const StaffCreatePage = lazy(() => import('./StaffCreatePage'));
+const StaffEditProfilePage = lazy(() => import('./StaffEditProfilePage'));
 const StoreConfigSubpage = lazy(() => import('./StoreConfigSubpage'));
 const RbacMainPage = lazy(() => import('../rbac/RbacMainPage'));
 const StaffDetailSubpage = lazy(() => import('../rbac/StaffDetailSubpage'));
@@ -241,6 +242,17 @@ export default function ManagementProfileView({ onBack }) {
       <div className="px-4 pt-3.5 pb-24 text-xs">
         <Suspense fallback={<SubpageLoadingFallback />}>
           <StaffListPage />
+        </Suspense>
+      </div>
+    );
+  }
+
+  // Subpage 1D: Chỉnh sửa Profile Nhân viên (/staff/edit)
+  if (currentRoute === '/staff/edit') {
+    return (
+      <div className="px-4 pt-3.5 pb-24 text-xs">
+        <Suspense fallback={<SubpageLoadingFallback />}>
+          <StaffEditProfilePage />
         </Suspense>
       </div>
     );
