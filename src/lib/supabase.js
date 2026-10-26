@@ -40,8 +40,8 @@ export const schemaCapabilities = {
   staff_profiles: savedCaps.staff_profiles === true,
   daily_closures: savedCaps.daily_closures === true,
   payments: savedCaps.payments === true,
-  profiles: savedCaps.profiles === true,
-  user_roles: savedCaps.user_roles === true,
+  profiles: savedCaps.profiles !== false,
+  user_roles: savedCaps.user_roles !== false,
   rollover_daily_orders: savedCaps.rollover_daily_orders === true,
   store_settings: savedCaps.store_settings === true,
   receipts: savedCaps.receipts === true,
@@ -320,12 +320,61 @@ export function mapStaffProfileFromDb(r) {
   if (!r || typeof r !== 'object') return null;
   return {
     id: r.id,
+    uid: r.id,
+    userId: r.id,
     name: r.name || '',
+    email: r.email || '',
+    phone: r.phone || '',
     status: r.status || 'active',
     role: r.role || 'staff',
     branchId: r.branch_id || r.branchId || 'main',
+    shiftName: r.shift_name || r.shiftName || 'Ca Sáng (06:30 - 14:30)',
+    notes: r.notes || '',
+    avatarUrl: r.avatar_url || r.avatarUrl || null,
+    isDemo: Boolean(r.is_demo),
     createdAt: r.created_at || r.createdAt || new Date().toISOString(),
     updatedAt: r.updated_at || r.updatedAt || new Date().toISOString()
+  };
+}
+
+export function mapProfileFromDb(p, userRole = null) {
+  if (!p || typeof p !== 'object') return null;
+  return {
+    id: p.id,
+    uid: p.id,
+    userId: p.id,
+    email: p.email || '',
+    name: p.name || 'Nhân viên',
+    role: userRole || p.role || 'staff',
+    status: p.status || 'active',
+    avatarUrl: p.avatar_url || null,
+    phone: p.phone || '',
+    branchId: p.branch_id || 'main',
+    shiftName: p.shift_name || 'Ca Sáng (06:30 - 14:30)',
+    notes: p.notes || '',
+    isDemo: Boolean(p.is_demo),
+    createdAt: p.created_at || new Date().toISOString(),
+    updatedAt: p.updated_at || new Date().toISOString()
+  };
+}
+
+export function mapProfileToDb(s) {
+  if (!s || typeof s !== 'object') return null;
+  const status = ['active', 'paused', 'inactive', 'suspended'].includes(s.status) ? s.status : 'active';
+  const role = ['admin', 'manager', 'staff'].includes(s.role) ? s.role : 'staff';
+  return {
+    id: s.id,
+    email: s.email ? String(s.email).trim().toLowerCase() : null,
+    name: s.name ? String(s.name).trim() : 'Nhân viên',
+    status,
+    role,
+    avatar_url: s.avatarUrl || null,
+    phone: s.phone ? String(s.phone).trim() : '',
+    branch_id: s.branchId || s.branch_id || 'main',
+    shift_name: s.shiftName || 'Ca Sáng (06:30 - 14:30)',
+    notes: s.notes ? String(s.notes).trim() : '',
+    is_demo: Boolean(s.isDemo),
+    updated_at: new Date().toISOString()
   };
 }
 
@@ -456,7 +505,12 @@ export async function fetchAllCloudData() {
       supabase.from('settings').select('*')
     ];
 
-    if (schemaCapabilities.staff_profiles === true) {
+    if (schemaCapabilities.profiles !== false) {
+      queries.push(
+        supabase.from('profiles').select('*').order('created_at', { ascending: true }),
+        supabase.from('user_roles').select('*')
+      );
+    } else if (schemaCapabilities.staff_profiles !== false) {
       queries.push(supabase.from('staff_profiles').select('*').order('created_at', { ascending: true }));
     }
 
@@ -540,9 +594,22 @@ export async function fetchAllCloudData() {
       }
     }
 
-    const staff = (staffRes && !staffRes.error && Array.isArray(staffRes.data) && staffRes.data.length > 0)
-      ? staffRes.data.map(mapStaffProfileFromDb)
-      : fallbackStaff;
+    let staff = [];
+    const profilesRes = results[7] || null;
+    const rolesRes = results[8] || null;
+
+    if (profilesRes && !profilesRes.error && Array.isArray(profilesRes.data) && profilesRes.data.length > 0) {
+      schemaCapabilities.profiles = true; persistCapability('profiles', true);
+      schemaCapabilities.user_roles = true; persistCapability('user_roles', true);
+      const rolesMap = new Map();
+      (rolesRes?.data || []).forEach((r) => rolesMap.set(r.user_id, r.role));
+      staff = profilesRes.data.map((p) => mapProfileFromDb(p, rolesMap.get(p.id)));
+    } else if (staffRes && !staffRes.error && Array.isArray(staffRes.data) && staffRes.data.length > 0) {
+      schemaCapabilities.staff_profiles = true; persistCapability('staff_profiles', true);
+      staff = staffRes.data.map(mapStaffProfileFromDb);
+    } else {
+      staff = fallbackStaff;
+    }
 
     let payments = [];
     if (schemaCapabilities.payments === true) {
@@ -836,32 +903,51 @@ export async function fetchStaffProfiles() {
   fallback.data = [];
   fallback.error = null;
 
-  if (!supabase || schemaCapabilities.staff_profiles === false) return fallback;
+  if (!supabase) return fallback;
 
   try {
-    const { data, error } = await supabase
-      .from('staff_profiles')
-      .select('*')
-      .order('created_at', { ascending: true });
+    // 1. Primary Source of Truth: public.profiles + public.user_roles
+    if (schemaCapabilities.profiles !== false) {
+      const [profilesRes, rolesRes] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: true }),
+        supabase.from('user_roles').select('*')
+      ]);
 
-    if (error) {
-      if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-        schemaCapabilities.staff_profiles = false; persistCapability('staff_profiles', false);
+      if (!profilesRes.error && Array.isArray(profilesRes.data) && profilesRes.data.length > 0) {
+        schemaCapabilities.profiles = true; persistCapability('profiles', true);
+        schemaCapabilities.user_roles = true; persistCapability('user_roles', true);
+        const rolesMap = new Map();
+        (rolesRes.data || []).forEach((r) => rolesMap.set(r.user_id, r.role));
+        const mapped = profilesRes.data.map((p) => mapProfileFromDb(p, rolesMap.get(p.id)));
+        mapped.data = mapped;
+        mapped.error = null;
+        return mapped;
       }
-      fallback.error = error;
-      return fallback;
     }
 
-    schemaCapabilities.staff_profiles = true; persistCapability('staff_profiles', true);
-    const mapped = (data || []).map(mapStaffProfileFromDb);
-    mapped.data = mapped;
-    mapped.error = null;
-    return mapped;
+    // 2. Secondary fallback: staff_profiles
+    if (schemaCapabilities.staff_profiles !== false) {
+      const { data, error } = await supabase
+        .from('staff_profiles')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const mapped = data.map(mapStaffProfileFromDb);
+        mapped.data = mapped;
+        mapped.error = null;
+        return mapped;
+      }
+    }
+
+    return fallback;
   } catch (err) {
     fallback.error = err;
     return fallback;
   }
 }
+
+export const fetchProfilesAndRoles = fetchStaffProfiles;
 
 /**
  * Upsert a single staff profile to Supabase.
@@ -967,20 +1053,11 @@ export async function bulkUpsertStaffProfiles(staffList = []) {
  */
 export async function deleteStaffProfile(staffId) {
   if (!supabase) return { success: false, error: new Error('Supabase not configured or offline') };
-  if (schemaCapabilities.staff_profiles === false) {
-    try {
-      const { data: currentSettings } = await supabase.from('settings').select('*').eq('key', 'pos_staff_profiles').maybeSingle();
-      const existing = currentSettings?.value && Array.isArray(currentSettings.value) ? currentSettings.value : [];
-      const updated = existing.filter(s => s.id !== staffId);
-      await supabase.from('settings').upsert([{ key: 'pos_staff_profiles', value: updated, updated_at: new Date().toISOString() }], { onConflict: 'key' });
-      return { success: true, error: null };
-    } catch {
-      return { success: true, error: null };
-    }
-  }
   try {
-    const { error } = await supabase.from('staff_profiles').delete().eq('id', staffId);
-    if (error) throw error;
+    // Delete from profiles (cascades to user_roles)
+    await supabase.from('profiles').delete().eq('id', staffId);
+    // Delete from staff_profiles
+    await supabase.from('staff_profiles').delete().eq('id', staffId);
     return { success: true, error: null };
   } catch (err) {
     return { success: false, error: err };
@@ -1326,12 +1403,13 @@ export function mapAuditLogFromDb(r) {
   };
 }
 
-export async function adminChangeUserRoleRpc(targetUserId, newRole) {
+export async function adminChangeUserRoleRpc(targetUserId, newRole, note = '') {
   if (!supabase) return { success: false, error: new Error('Supabase client not initialized') };
   try {
     const { data, error } = await supabase.rpc('admin_change_user_role', {
       p_target_user_id: targetUserId,
-      p_new_role: newRole
+      p_new_role: newRole,
+      p_note: note
     });
     if (error) {
       console.warn('Lỗi adminChangeUserRoleRpc:', error.message);
@@ -1340,6 +1418,83 @@ export async function adminChangeUserRoleRpc(targetUserId, newRole) {
     return { success: true, data };
   } catch (err) {
     console.warn('Lỗi adminChangeUserRoleRpc (exception):', err?.message || err);
+    return { success: false, error: err };
+  }
+}
+
+export async function adminToggleStaffStatusRpc(targetUserId, status = null) {
+  if (!supabase) return { success: false, error: new Error('Supabase client not initialized') };
+  try {
+    const { data, error } = await supabase.rpc('admin_toggle_staff_status', {
+      p_target_user_id: targetUserId,
+      p_status: status
+    });
+    if (error) {
+      console.warn('Lỗi adminToggleStaffStatusRpc:', error.message);
+      return { success: false, error };
+    }
+    return { success: true, data };
+  } catch (err) {
+    console.warn('Lỗi adminToggleStaffStatusRpc (exception):', err?.message || err);
+    return { success: false, error: err };
+  }
+}
+
+export async function adminCreateStaffAccountRpc({
+  email,
+  password = '123456',
+  name,
+  role = 'staff',
+  phone = '',
+  shiftName = 'Ca Sáng (06:30 - 14:30)',
+  notes = ''
+}) {
+  if (!supabase) return { success: false, error: new Error('Supabase client not initialized') };
+  try {
+    const { data, error } = await supabase.rpc('admin_create_staff_account', {
+      p_email: email,
+      p_password: password,
+      p_name: name,
+      p_role: role,
+      p_phone: phone,
+      p_shift_name: shiftName,
+      p_notes: notes
+    });
+    if (error) {
+      console.warn('Lỗi adminCreateStaffAccountRpc:', error.message);
+      return { success: false, error };
+    }
+    return { success: true, data };
+  } catch (err) {
+    console.warn('Lỗi adminCreateStaffAccountRpc (exception):', err?.message || err);
+    return { success: false, error: err };
+  }
+}
+
+export async function uploadStaffAvatarToStorage(file, userId) {
+  if (!supabase) return { success: false, error: new Error('Supabase client chưa sẵn sàng') };
+  if (!userId) return { success: false, error: new Error('Thiếu userId để lưu ảnh đại diện') };
+  try {
+    const ext = file?.name ? file.name.split('.').pop() : 'png';
+    const filePath = `${userId}/avatar_${Date.now()}.${ext}`;
+    const { data: uploadData, error: uploadErr } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadErr) {
+      return { success: false, error: uploadErr };
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+
+    return {
+      success: true,
+      path: filePath,
+      publicUrl: urlData?.publicUrl || null
+    };
+  } catch (err) {
     return { success: false, error: err };
   }
 }
@@ -1588,6 +1743,9 @@ export async function updateUserProfile(userId, updates = {}) {
     if (updates.name !== undefined) payload.name = updates.name;
     if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
     if (updates.phone !== undefined) payload.phone = updates.phone;
+    if (updates.shiftName !== undefined) payload.shift_name = updates.shiftName;
+    if (updates.notes !== undefined) payload.notes = updates.notes;
+    if (updates.status !== undefined) payload.status = updates.status;
     payload.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
@@ -1601,6 +1759,19 @@ export async function updateUserProfile(userId, updates = {}) {
       console.warn('Lỗi updateUserProfile:', error.message);
       return { success: false, error };
     }
+
+    // Dual-write to staff_profiles for backward compatibility
+    try {
+      await supabase.from('staff_profiles').update({
+        ...(updates.name ? { name: updates.name } : {}),
+        ...(updates.phone ? { phone: updates.phone } : {}),
+        ...(updates.shiftName ? { shift_name: updates.shiftName } : {}),
+        ...(updates.notes ? { notes: updates.notes } : {}),
+        ...(updates.status ? { status: updates.status } : {}),
+        updated_at: new Date().toISOString()
+      }).eq('id', String(userId));
+    } catch (_) {}
+
     return { success: true, data };
   } catch (err) {
     console.warn('Lỗi updateUserProfile exception:', err);

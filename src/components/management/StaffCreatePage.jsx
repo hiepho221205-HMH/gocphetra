@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePos } from '../../store/PosContext';
 import { getStaffInitials } from '../../utils/router';
+import { uploadStaffAvatarToStorage, updateUserProfile } from '../../lib/supabase';
 import {
   ArrowLeft,
   Camera,
@@ -30,6 +31,7 @@ export default function StaffCreatePage() {
 
   const isAdmin = currentRole === 'admin';
   const fileInputRef = useRef(null);
+  const selectedFileRef = useRef(null);
 
   // Check if we are in Edit mode via URL query param: ?edit=[id]
   const editStaffId = routeParams?.edit || null;
@@ -136,7 +138,7 @@ export default function StaffCreatePage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
-  const handlePhotoUpload = (e) => {
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -149,12 +151,25 @@ export default function StaffCreatePage() {
       return;
     }
 
+    selectedFileRef.current = file;
+
+    if (editingStaff?.id) {
+      try {
+        const uploadRes = await uploadStaffAvatarToStorage(file, editingStaff.id);
+        if (uploadRes && uploadRes.success && uploadRes.publicUrl) {
+          setFormAvatarUrl(uploadRes.publicUrl);
+          showToast?.('Đã tải ảnh lên kho lưu trữ đám mây!', 'success');
+          return;
+        }
+      } catch (_) {}
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64 = event.target?.result;
       if (base64) {
         setFormAvatarUrl(base64);
-        }
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -210,7 +225,7 @@ export default function StaffCreatePage() {
 
     try {
       if (typeof saveStaffMember === 'function') {
-        await saveStaffMember({
+        const result = await saveStaffMember({
           id: editingStaff ? editingStaff.id : null,
           name: cleanName,
           email: cleanEmail,
@@ -222,6 +237,15 @@ export default function StaffCreatePage() {
           avatarUrl: formAvatarUrl,
           notes: formNotes.trim()
         });
+
+        if (result?.staff?.id && selectedFileRef.current && !editingStaff) {
+          try {
+            const uploadRes = await uploadStaffAvatarToStorage(selectedFileRef.current, result.staff.id);
+            if (uploadRes?.success && uploadRes?.publicUrl) {
+              await updateUserProfile(result.staff.id, { avatarUrl: uploadRes.publicUrl });
+            }
+          } catch (_) {}
+        }
       }
       navigate(targetDestination);
     } catch (err) {

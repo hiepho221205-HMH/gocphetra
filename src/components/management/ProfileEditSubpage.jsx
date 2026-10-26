@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { usePos } from '../../store/PosContext';
+import { uploadStaffAvatarToStorage } from '../../lib/supabase';
 import {
   ArrowLeft,
   User,
@@ -38,7 +39,7 @@ export default function ProfileEditSubpage({ onBack }) {
   const [imageError, setImageError] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const handlePhotoUpload = (e) => {
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -52,13 +53,25 @@ export default function ProfileEditSubpage({ onBack }) {
       return;
     }
 
+    try {
+      const uploadRes = await uploadStaffAvatarToStorage(file, activeId);
+      if (uploadRes && uploadRes.success && uploadRes.publicUrl) {
+        setImageError(false);
+        setAvatarUrl(uploadRes.publicUrl);
+        showToast?.('Đã tải ảnh đại diện lên kho lưu trữ đám mây!', 'success');
+        return;
+      }
+    } catch (_) {
+      // Fallback to base64
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64 = event.target?.result;
       if (base64) {
         setImageError(false);
         setAvatarUrl(base64);
-        }
+      }
     };
     reader.onerror = () => {
       showToast?.('Không thể đọc file ảnh. Vui lòng thử lại.', 'error');
@@ -71,7 +84,7 @@ export default function ProfileEditSubpage({ onBack }) {
     setImageError(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const cleanName = displayName.trim();
     if (!cleanName) {
@@ -81,12 +94,13 @@ export default function ProfileEditSubpage({ onBack }) {
 
     setSaving(true);
     try {
-      updateCurrentUserProfile?.({
+      await updateCurrentUserProfile?.({
         name: cleanName,
         avatarUrl,
         phone: phone.trim(),
         notes: notes.trim()
       });
+      showToast?.('Cập nhật hồ sơ thành công!', 'success');
       onBack?.();
     } catch (err) {
       showToast?.(err.message || 'Lỗi khi cập nhật hồ sơ', 'error');
@@ -147,6 +161,10 @@ export default function ProfileEditSubpage({ onBack }) {
                   onError={() => setImageError(true)}
                   className="w-full h-full object-cover"
                 />
+              ) : displayName ? (
+                <span className="text-xl font-black text-white tracking-wider">
+                  {displayName.split(' ').map((w) => w[0]).filter(Boolean).slice(-2).join('').toUpperCase()}
+                </span>
               ) : (
                 <User className="w-10 h-10 text-white stroke-[1.8]" />
               )}

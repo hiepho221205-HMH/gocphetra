@@ -102,7 +102,7 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
           {/* Online status indicator dot */}
           <span
             aria-hidden="true"
-            className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#10B981] rounded-full border-2 border-white shadow-xs"
+            className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#009E78] rounded-full border-2 border-white shadow-xs"
           />
         </button>
       </div>

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { usePos } from '../../store/PosContext';
 import { getStaffInitials } from '../../utils/router';
+import { getStaffDisplayCode } from '../management/StaffListPage';
 import { formatVietnamDateTime } from '../../utils/dateTime';
 import {
   ArrowLeft,
@@ -150,7 +151,7 @@ export default function StaffDetailSubpage() {
                 {staff.name}
               </h3>
               <span className="text-[10px] font-mono font-medium text-gray-400">
-                #{staff.id}
+                #{getStaffDisplayCode(staff)}
               </span>
             </div>
 

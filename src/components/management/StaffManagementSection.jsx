@@ -5,7 +5,8 @@ import {
   UserPlus,
   UserCheck,
   UserX,
-  ChevronRight
+  ChevronRight,
+  Radio
 } from 'lucide-react';
 
 /**
@@ -30,13 +31,17 @@ export default function StaffManagementSection() {
     staffList = [],
     navigate,
     canManageStaff,
-    showToast
+    showToast,
+    isStaffOnline
   } = usePos();
 
   // Thống kê KPI tổng quan (Real-time live metrics)
-  const totalCount = staffList.length;
-  const activeCount = staffList.filter((s) => s.status === 'active').length;
-  const pausedCount = staffList.filter((s) => s.status !== 'active').length;
+  // Yêu cầu 10-13: TỔNG NV = HOẠT ĐỘNG + TẠM KHÓA; loại trừ nhân sự đã archived/removed
+  const managedStaff = staffList.filter((s) => s.status !== 'archived' && s.status !== 'removed');
+  const activeCount = managedStaff.filter((s) => s.status === 'active').length;
+  const pausedCount = managedStaff.filter((s) => s.status === 'paused' || s.status === 'suspended' || s.status === 'inactive').length;
+  const totalCount = activeCount + pausedCount;
+  const onlineCount = managedStaff.filter((s) => s.status === 'active' && isStaffOnline?.(s.id)).length;
 
   const handleOpenList = () => {
     navigate('/staff/list');
@@ -56,9 +61,9 @@ export default function StaffManagementSection() {
       className="space-y-4 animate-fadeIn"
     >
       {/* ========================================================= */}
-      {/* A. 3 THẺ KPI TỔNG QUAN (GIỮ NGUYÊN 100% CẤU TRÚC & STYLING) */}
+      {/* A. 4 THẺ KPI TỔNG QUAN (2X2 TRÊN MOBILE, BỔ SUNG REALTIME ONLINE) */}
       {/* ========================================================= */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {/* KPI 1: Tổng nhân viên */}
         <div
           data-testid="kpi-total-staff"
@@ -80,7 +85,7 @@ export default function StaffManagementSection() {
             <UserCheck className="w-3.5 h-3.5" />
           </div>
           <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-tight flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span>Hoạt động</span>
           </span>
           <span className="text-base font-black text-emerald-700 leading-none">{activeCount}</span>
@@ -96,6 +101,21 @@ export default function StaffManagementSection() {
           </div>
           <span className="text-[10px] font-semibold text-amber-700 uppercase tracking-tight">Tạm khóa</span>
           <span className="text-base font-black text-amber-700 leading-none">{pausedCount}</span>
+        </div>
+
+        {/* KPI 4: Đang Online Realtime */}
+        <div
+          data-testid="kpi-online-staff"
+          className="p-2.5 rounded-2xl bg-white border border-blue-100/80 shadow-2xs flex flex-col items-center text-center space-y-1"
+        >
+          <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
+            <Radio className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-[10px] font-semibold text-blue-700 uppercase tracking-tight flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Online</span>
+          </span>
+          <span className="text-base font-black text-blue-700 leading-none">{onlineCount}</span>
         </div>
       </div>
 

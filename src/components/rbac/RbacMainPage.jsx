@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { usePos } from '../../store/PosContext';
 import { getStaffInitials } from '../../utils/router';
+import { getStaffDisplayCode } from '../management/StaffListPage';
 import {
   Shield,
   ShieldAlert,
@@ -39,18 +40,20 @@ export default function RbacMainPage({ onBack }) {
     }
   };
 
-  // Thống kê 4 KPIs
+  // Thống kê 4 KPIs (chỉ tính nhân sự đang quản lý, loại trừ archived/removed)
   const stats = useMemo(() => {
-    const total = staffList.length;
-    const adminCount = staffList.filter((s) => s.role === 'admin').length;
-    const managerCount = staffList.filter((s) => s.role === 'manager').length;
-    const staffCount = staffList.filter((s) => s.role === 'staff').length;
+    const managedStaff = staffList.filter((s) => s.status !== 'archived' && s.status !== 'removed');
+    const total = managedStaff.length;
+    const adminCount = managedStaff.filter((s) => s.role === 'admin').length;
+    const managerCount = managedStaff.filter((s) => s.role === 'manager').length;
+    const staffCount = managedStaff.filter((s) => s.role === 'staff').length;
     return { total, adminCount, managerCount, staffCount };
   }, [staffList]);
 
   // Lọc danh sách nhân viên
   const filteredStaff = useMemo(() => {
     return staffList.filter((staff) => {
+      if (staff.status === 'archived' || staff.status === 'removed') return false;
       // 1. Lọc theo tìm kiếm
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
@@ -59,7 +62,8 @@ export default function RbacMainPage({ onBack }) {
         const idMatch = staff.id?.toLowerCase().includes(query);
         const phoneMatch = (staff.phone || profile.phone || '').toLowerCase().includes(query);
         const emailMatch = (staff.email || profile.email || '').toLowerCase().includes(query);
-        if (!nameMatch && !idMatch && !phoneMatch && !emailMatch) return false;
+        const codeMatch = getStaffDisplayCode(staff).toLowerCase().includes(query);
+        if (!nameMatch && !idMatch && !phoneMatch && !emailMatch && !codeMatch) return false;
       }
 
       // 2. Lọc theo vai trò
@@ -341,7 +345,7 @@ export default function RbacMainPage({ onBack }) {
                         {staff.name}
                       </h4>
                       <span className="text-[10px] font-mono font-medium text-gray-400 shrink-0">
-                        #{staff.id}
+                        #{getStaffDisplayCode(staff)}
                       </span>
                     </div>
 

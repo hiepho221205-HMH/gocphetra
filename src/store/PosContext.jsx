@@ -66,6 +66,11 @@ import {
   cloudUpsertPayment,
   fetchPaymentsByBusinessDate,
   adminChangeUserRoleRpc,
+  adminToggleStaffStatusRpc,
+  adminCreateStaffAccountRpc,
+  uploadStaffAvatarToStorage,
+  fetchProfilesAndRoles,
+  mapProfileFromDb,
   adminArchiveOrdersRpc,
   fetchAuditLogs,
   cloudRecordAuditLog,
@@ -140,9 +145,23 @@ export function mergeStaffProfiles(localList = [], cloudList = []) {
   const safeLocal = Array.isArray(localList) ? localList : [];
   const safeCloud = Array.isArray(cloudList) ? cloudList : [];
 
-  const localMap = new Map(safeLocal.map((s) => [s.id, s]));
+  if (safeCloud.length === 0) return safeLocal;
+
+  // Real accounts from cloud: filter out legacy mock items (staff-01, staff-02, staff-03) from local
+  const cloudEmails = new Set(safeCloud.map((s) => (s.email || '').toLowerCase().trim()).filter(Boolean));
+  const cloudIds = new Set(safeCloud.map((s) => s.id));
+
+  const validLocal = safeLocal.filter((l) => {
+    if (cloudIds.has(l.id)) return true;
+    if (l.id.startsWith('staff-0') || l.isDemo || cloudEmails.has((l.email || '').toLowerCase().trim())) {
+      return false;
+    }
+    return true;
+  });
+
+  const localMap = new Map(validLocal.map((s) => [s.id, s]));
   const cloudMap = new Map(safeCloud.map((s) => [s.id, s]));
-  const allIds = new Set([...localMap.keys(), ...cloudMap.keys()]);
+  const allIds = new Set([...cloudMap.keys(), ...localMap.keys()]);
 
   const merged = [];
   for (const id of allIds) {
@@ -165,7 +184,7 @@ export function mergeStaffProfiles(localList = [], cloudList = []) {
         merged.push({
           ...cloud,
           ...local,
-          status: local.status || cloud.status
+          status: cloud.status || local.status
         });
       }
     }
@@ -222,6 +241,18 @@ export function PosProvider({ children }) {
   const [isAuthLoading, setIsAuthLoading] = useState(Boolean(isSupabaseConfigured && typeof window !== 'undefined'));
   const [authError, setAuthError] = useState(null);
   const [loginSuccessRole, setLoginSuccessRole] = useState(null);
+
+  // Realtime Access Control & Presence State (M5)
+  const [isAccountSuspended, setIsAccountSuspended] = useState(false);
+  const isAccountSuspendedRef = useRef(false);
+  useEffect(() => { isAccountSuspendedRef.current = isAccountSuspended; }, [isAccountSuspended]);
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
+  const presenceChannelRef = useRef(null);
+
+  const isStaffOnline = useCallback((userId) => {
+    if (!userId) return false;
+    return onlineUserIds.has(userId) || onlineUserIds.has(String(userId));
+  }, [onlineUserIds]);
 
   // RBAC 3-Tier State: 'admin' | 'manager' | 'staff'
   const [currentRole, setCurrentRole] = useState(() => {
@@ -470,6 +501,68 @@ export function PosProvider({ children }) {
     };
   }, []);
 
+  // =================== SUPABASE REALTIME PRESENCE (pos_presence) ===================
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !currentUser?.id || isAccountSuspended) {
+      if (presenceChannelRef.current) {
+        presenceChannelRef.current.untrack().catch(() => {});
+        supabase?.removeChannel(presenceChannelRef.current);
+        presenceChannelRef.current = null;
+      }
+      return;
+    }
+
+    const currentUserId = currentUser.id;
+    const channel = supabase.channel('pos_presence', {
+      config: {
+        presence: {
+          key: currentUserId
+        }
+      }
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const ids = new Set();
+        Object.keys(state).forEach((k) => {
+          if (state[k] && state[k].length > 0) ids.add(k);
+        });
+        setOnlineUserIds(ids);
+      })
+      .on('presence', { event: 'join' }, ({ key }) => {
+        setOnlineUserIds((prev) => new Set([...prev, key]));
+      })
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        const state = channel.presenceState();
+        if (!state[key] || state[key].length === 0) {
+          setOnlineUserIds((prev) => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            user_id: currentUserId,
+            name: currentUser?.name || 'Nhân viên',
+            role: currentRole || 'staff',
+            online_at: new Date().toISOString()
+          });
+        }
+      });
+
+    presenceChannelRef.current = channel;
+
+    return () => {
+      channel.untrack().catch(() => {});
+      supabase.removeChannel(channel);
+      presenceChannelRef.current = null;
+    };
+  }, [isSupabaseConfigured, currentUser?.id, currentRole, isAccountSuspended]);
+
   // =================== SUPABASE AUTH & SESSION HYDRATION (AUTH V1) ===================
   const hydrateUserAndRole = async (user, sessionObj = null) => {
     if (!user) return null;
@@ -620,6 +713,16 @@ export function PosProvider({ children }) {
   };
 
   const logoutUser = async () => {
+    if (presenceChannelRef.current) {
+      try {
+        await presenceChannelRef.current.untrack();
+        supabase?.removeChannel(presenceChannelRef.current);
+        presenceChannelRef.current = null;
+      } catch (_) {}
+    }
+    setOnlineUserIds(new Set());
+    setIsAccountSuspended(false);
+
     if (realtimeChannelRef.current) {
       try {
         supabase?.removeChannel(realtimeChannelRef.current);
@@ -683,14 +786,21 @@ export function PosProvider({ children }) {
     if (!isSupabaseConfigured || !supabase) return;
     try {
       let cloudStaff = prefetchedStaff;
-      if (!cloudStaff && typeof fetchStaffProfiles === 'function' && schemaCapabilities?.staff_profiles === true) {
+      if (!cloudStaff && typeof fetchStaffProfiles === 'function') {
         const res = await fetchStaffProfiles();
         cloudStaff = Array.isArray(res) ? res : (res?.data || []);
       }
 
       if (Array.isArray(cloudStaff) && cloudStaff.length > 0) {
-        // Cloud has profiles: Merge with local state (pure in-memory update, no redundant background writes)
+        // Cloud has profiles: Merge with local state
         setStaffList((prevLocal) => mergeStaffProfiles(prevLocal, cloudStaff));
+        setUserProfiles((prev) => {
+          const next = { ...prev };
+          cloudStaff.forEach((s) => {
+            next[s.id] = { ...(next[s.id] || {}), ...s };
+          });
+          return next;
+        });
       }
     } catch (err) {
       console.warn('Lỗi đồng bộ nhân viên từ Cloud:', err);
@@ -1144,6 +1254,67 @@ export function PosProvider({ children }) {
             setOrderHistory((prev) => prev.filter((o) => o.id !== delId));
           }
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const updatedProfile = mapProfileFromDb ? mapProfileFromDb(payload.new) : payload.new;
+            if (!updatedProfile || !updatedProfile.id) return;
+            setStaffList((prev) => {
+              const idx = prev.findIndex((s) => s.id === updatedProfile.id);
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = { ...next[idx], ...updatedProfile };
+                return next;
+              }
+              return [...prev, updatedProfile];
+            });
+            setUserProfiles((prev) => ({
+              ...prev,
+              [updatedProfile.id]: { ...(prev[updatedProfile.id] || {}), ...updatedProfile }
+            }));
+            if (currentUserRef.current?.id === updatedProfile.id) {
+              setCurrentUser((prev) => ({ ...prev, ...updatedProfile }));
+              if (updatedProfile.role) setCurrentRole(updatedProfile.role);
+              if (updatedProfile.status === 'suspended' || updatedProfile.status === 'paused' || updatedProfile.status === 'inactive') {
+                setIsAccountSuspended(true);
+                if (presenceChannelRef.current) {
+                  try {
+                    presenceChannelRef.current.untrack().catch(() => {});
+                  } catch (_) {}
+                }
+              } else if (updatedProfile.status === 'active') {
+                setIsAccountSuspended(false);
+              }
+            }
+          } else if (payload.eventType === 'DELETE') {
+            const delId = payload.old?.id;
+            if (delId) {
+              setStaffList((prev) => prev.filter((s) => s.id !== delId));
+              setUserProfiles((prev) => {
+                const next = { ...prev };
+                delete next[delId];
+                return next;
+              });
+            }
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles' }, async (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const userId = payload.new?.user_id;
+            const newRole = payload.new?.role;
+            if (!userId || !newRole) return;
+            setStaffList((prev) =>
+              prev.map((s) => (s.id === userId ? { ...s, role: newRole } : s))
+            );
+            setUserProfiles((prev) => {
+              if (!prev[userId]) return prev;
+              return { ...prev, [userId]: { ...prev[userId], role: newRole } };
+            });
+            if (currentUserRef.current?.id === userId) {
+              setCurrentRole(newRole);
+              setCurrentUser((prev) => ({ ...prev, role: newRole }));
+            }
+          }
+        })
         .subscribe((status, err) => {
           console.log('[Realtime] Subscription status:', status, err ? err.message : '');
           if (status === 'SUBSCRIBED') {
@@ -1368,13 +1539,20 @@ export function PosProvider({ children }) {
 
     // Sync staffList roster
     setStaffList((prev) =>
-      prev.map((s) => (s.id === activeId ? { ...s, name: updatedName, updatedAt: new Date().toISOString() } : s))
+      prev.map((s) => (s.id === activeId ? { ...s, name: updatedName, avatarUrl: updatedAvatar, phone: updatedPhone, notes: updatedNotes, updatedAt: new Date().toISOString() } : s))
     );
 
     if (isSupabaseConfigured && supabase) {
+      updateUserProfile(activeId, {
+        name: updatedName,
+        avatarUrl: updatedAvatar,
+        phone: updatedPhone,
+        notes: updatedNotes
+      }).catch((err) => console.warn('Lỗi updateUserProfile:', err));
+
       const activeStaff = staffList.find((s) => s.id === activeId);
       if (activeStaff) {
-        upsertStaffProfile({ ...activeStaff, name: updatedName, updatedAt: new Date().toISOString() }).catch(() => {});
+        upsertStaffProfile({ ...activeStaff, name: updatedName, avatarUrl: updatedAvatar, phone: updatedPhone, notes: updatedNotes, updatedAt: new Date().toISOString() }).catch(() => {});
       }
     }
 
@@ -1447,17 +1625,22 @@ export function PosProvider({ children }) {
     );
     setStaffList(updatedStaffList);
 
-    // Đồng bộ userProfiles nếu tồn tại profile của nhân sự này
+    // Đồng bộ userProfiles
     setUserProfiles((prev) => {
-      if (!prev || !prev[targetStaffId]) return prev;
+      if (!prev) return prev;
       return {
         ...prev,
         [targetStaffId]: {
-          ...prev[targetStaffId],
+          ...(prev[targetStaffId] || target),
           role: newRole
         }
       };
     });
+
+    if (currentUser?.id === targetStaffId) {
+      setCurrentRole(newRole);
+      setCurrentUser((prev) => ({ ...prev, role: newRole }));
+    }
 
     // Audit Log
     const newAuditLog = {
@@ -1479,15 +1662,18 @@ export function PosProvider({ children }) {
     setAuditLogs((prev) => [newAuditLog, ...prev]);
 
     if (isSupabaseConfigured && supabase) {
-      adminChangeUserRoleRpc(targetStaffId, newRole).catch((e) =>
-        console.warn('Lỗi gọi adminChangeUserRoleRpc:', e)
-      );
-      cloudRecordAuditLog(newAuditLog).catch((e) =>
-        console.warn('Lỗi ghi cloudRecordAuditLog:', e)
-      );
-      upsertStaffProfile({ ...target, role: newRole, updatedAt: new Date().toISOString() });
+      try {
+        const res = await adminChangeUserRoleRpc(targetStaffId, newRole, note);
+        if (!res.success) {
+          showToast(res.error?.message || 'Lỗi khi cập nhật vai trò trên máy chủ', 'error');
+        }
+      } catch (e) {
+        console.warn('Lỗi gọi adminChangeUserRoleRpc:', e);
+      }
+      cloudRecordAuditLog(newAuditLog).catch(() => {});
     }
 
+    showToast(`Đã cập nhật vai trò "${target.name}" thành ${newRole.toUpperCase()}`, 'success');
     return { success: true, targetId: targetStaffId, oldRole, newRole };
   };
 
@@ -3407,48 +3593,79 @@ export function PosProvider({ children }) {
     return { success: true };
   };
 
-  const toggleStaffStatus = (id) => {
-    let updatedStatus = null;
-    let staffName = '';
-    let activeRemaining = 0;
-    let updatedStaff = null;
-    setStaffList((prev) => {
-      const target = prev.find((s) => s.id === id);
-      if (!target) return prev;
-      staffName = target.name;
-      const nextStatus = target.status === 'active' ? 'paused' : 'active';
-      updatedStatus = nextStatus;
-      updatedStaff = { ...target, status: nextStatus, updatedAt: new Date().toISOString() };
-      const nextList = prev.map((s) =>
-        s.id === id ? updatedStaff : s
-      );
-      activeRemaining = nextList.filter((s) => s.status === 'active').length;
-      return nextList;
-    });
+  const toggleStaffStatus = async (id, requestedStatus = null) => {
+    // 0. Permission Guard: ONLY Admin can toggle employee POS access (Requirement A.6)
+    if (currentRole !== 'admin') {
+      showToast('Từ chối quyền: Chỉ Quản trị viên (Admin) mới có quyền bật/tắt quyền sử dụng POS!', 'error');
+      return { success: false, error: 'Unauthorized' };
+    }
 
-    if (updatedStatus) {
-      const isNowActive = updatedStatus === 'active';
-      showToast(
-        isNowActive
-          ? `Đã kích hoạt hoạt động cho "${staffName}"`
-          : `Đã tạm ngưng hoạt động cho "${staffName}"`,
-        isNowActive ? 'success' : 'info'
+    const target = staffList.find((s) => s.id === id);
+    if (!target) return { success: false, error: 'NotFound' };
+
+    const currentStatus = target.status || 'active';
+    const nextStatus = requestedStatus || (currentStatus === 'active' ? 'suspended' : 'active');
+
+    // Safeguard: Prevent locking last active Admin (Requirement A.8)
+    if (target.role === 'admin' && nextStatus !== 'active') {
+      const remainingAdmins = staffList.filter(
+        (s) => s.id !== id && s.role === 'admin' && (s.status === 'active')
       );
-      if (!isNowActive && activeRemaining === 0) {
-        showToast('Khuyến nghị: Cần ít nhất 1 nhân viên đang hoạt động cho ca bán hàng', 'info');
+      if (remainingAdmins.length === 0) {
+        showToast('Hành động bị chặn: Không thể khóa tài khoản Quản trị viên duy nhất của hệ thống!', 'error');
+        return { success: false, message: 'Không thể khóa Admin cuối cùng' };
       }
 
-      // Milestone 4: Asynchronous non-blocking cloud push
-      if (isSupabaseConfigured && supabase && updatedStaff && typeof upsertStaffProfile === 'function') {
-        upsertStaffProfile(updatedStaff).catch((err) => {
-          console.warn('Lỗi đồng bộ đổi trạng thái nhân viên lên Supabase:', err);
-        });
+      // Safeguard: Prevent Admin from self-locking if active (Requirement A.9)
+      if (currentUser?.id === id) {
+        showToast('Hành động bị chặn: Bạn không thể tự khóa tài khoản Quản trị viên của chính mình!', 'error');
+        return { success: false, message: 'Không thể tự khóa tài khoản của mình' };
       }
     }
-    return { success: true, nextStatus: updatedStatus };
+
+    // Save snapshot for rollback on error (Requirement A.11)
+    const prevStaffList = [...staffList];
+    const prevUserProfiles = { ...userProfiles };
+
+    const updatedStaff = { ...target, status: nextStatus, updatedAt: new Date().toISOString() };
+    setStaffList((prev) => prev.map((s) => (s.id === id ? updatedStaff : s)));
+    setUserProfiles((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] || target), status: nextStatus }
+    }));
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const res = await adminToggleStaffStatusRpc(id, nextStatus);
+        if (!res || !res.success) {
+          // ROLLBACK UI (Requirement A.11)
+          setStaffList(prevStaffList);
+          setUserProfiles(prevUserProfiles);
+          const errMsg = res?.error?.message || 'Lỗi khi cập nhật trạng thái trên máy chủ';
+          showToast(errMsg, 'error');
+          return { success: false, error: errMsg };
+        }
+      } catch (err) {
+        // ROLLBACK UI (Requirement A.11)
+        setStaffList(prevStaffList);
+        setUserProfiles(prevUserProfiles);
+        showToast('Lỗi kết nối máy chủ khi cập nhật trạng thái. Đã khôi phục trạng thái ban đầu.', 'error');
+        return { success: false, error: err };
+      }
+    }
+
+    const isNowActive = nextStatus === 'active';
+    showToast(
+      isNowActive
+        ? `Đã mở khóa quyền sử dụng POS cho "${target.name}"`
+        : `Đã tạm khóa tài khoản "${target.name}"`,
+      isNowActive ? 'success' : 'info'
+    );
+
+    return { success: true, nextStatus };
   };
 
-  const saveStaffMember = ({
+  const saveStaffMember = async ({
     id,
     name,
     email = '',
@@ -3458,7 +3675,8 @@ export function PosProvider({ children }) {
     shiftName = 'Ca Sáng (06:30 - 14:30)',
     status = 'active',
     avatarUrl = null,
-    notes = ''
+    notes = '',
+    password = '123456'
   }) => {
     const cleanName = (name || '').trim();
     if (!cleanName) {
@@ -3487,10 +3705,6 @@ export function PosProvider({ children }) {
       }
     }
 
-    // Role security:
-    // Admin có thể chọn 'staff' hoặc 'manager' (không được tạo 'admin' từ form này)
-    // Manager bị khóa cố định ở 'staff'
-    // Nếu sửa tài khoản Admin hiện hữu, giữ nguyên role 'admin'
     let effectiveRole = 'staff';
     if (currentRole === 'admin') {
       if (role === 'manager' || role === 'staff') {
@@ -3505,8 +3719,6 @@ export function PosProvider({ children }) {
       effectiveRole = 'staff';
     }
 
-    let savedRecord = null;
-
     if (id) {
       // EDIT EXISTING STAFF
       const existing = staffList.find((s) => s.id === id);
@@ -3520,7 +3732,7 @@ export function PosProvider({ children }) {
         return { success: false, message: 'Unauthorized' };
       }
 
-      savedRecord = {
+      const savedRecord = {
         ...existing,
         name: cleanName,
         email: cleanEmail,
@@ -3535,46 +3747,78 @@ export function PosProvider({ children }) {
       };
 
       setStaffList((prev) => prev.map((s) => (s.id === id ? savedRecord : s)));
-
-      // Sync user profile
       setUserProfiles((prev) => ({
         ...prev,
-        [id]: {
-          ...(prev[id] || {}),
-          id,
-          name: cleanName,
-          email: email.trim(),
-          phone: phone.trim(),
-          role: savedRecord.role,
-          avatarUrl: savedRecord.avatarUrl,
-          notes: notes.trim()
-        }
+        [id]: savedRecord
       }));
 
-      // If updating currently active user:
       if (currentUser?.id === id) {
         setCurrentUser((prev) => ({
           ...prev,
           name: cleanName,
           avatarUrl: savedRecord.avatarUrl,
-          phone: phone.trim(),
+          phone: cleanPhone,
           notes: notes.trim()
         }));
         setSettings((prev) => ({
           ...prev,
           avatarUrl: savedRecord.avatarUrl,
-          currentCashier: `${cleanName} (Mã NV: ${id.toUpperCase()})`
+          currentCashier: `${cleanName} (${effectiveRole.toUpperCase()})`
         }));
       }
 
+      if (isSupabaseConfigured && supabase) {
+        updateUserProfile(id, {
+          name: cleanName,
+          phone: cleanPhone,
+          shiftName,
+          notes: notes.trim(),
+          avatarUrl: savedRecord.avatarUrl,
+          status
+        }).catch((err) => console.warn('Lỗi updateUserProfile:', err));
+
+        if (effectiveRole !== existing.role && currentRole === 'admin') {
+          adminChangeUserRoleRpc(id, effectiveRole, 'Cập nhật từ form chỉnh sửa').catch(() => {});
+        }
+      }
+
+      showToast(`Đã cập nhật thông tin nhân viên "${cleanName}"`, 'success');
+      return { success: true, staff: savedRecord };
+
     } else {
       // CREATE NEW STAFF
-      const newId = `staff-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      savedRecord = {
-        id: newId,
+      let newUserId = null;
+
+      let finalEmail = cleanEmail;
+      if (isSupabaseConfigured && supabase) {
+        const staffEmail = cleanEmail || (`nv_${Date.now().toString(36)}@gocpos.vn`);
+        finalEmail = staffEmail;
+        const createRes = await adminCreateStaffAccountRpc({
+          email: staffEmail,
+          password: password || '123456',
+          name: cleanName,
+          role: effectiveRole,
+          phone: cleanPhone,
+          shiftName,
+          notes: notes.trim()
+        });
+
+        if (!createRes.success) {
+          const errText = createRes.error?.message || 'Lỗi khi tạo tài khoản trên Supabase';
+          showToast(errText, 'error');
+          throw new Error(errText);
+        }
+        newUserId = createRes.data?.user_id;
+      }
+
+      const finalId = newUserId || `staff-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const savedRecord = {
+        id: finalId,
+        uid: finalId,
+        userId: finalId,
         name: cleanName,
-        email: email.trim(),
-        phone: phone.trim(),
+        email: finalEmail,
+        phone: cleanPhone,
         role: effectiveRole,
         branchId: branchId || 'main',
         shiftName: shiftName || 'Ca Sáng (06:30 - 14:30)',
@@ -3586,29 +3830,14 @@ export function PosProvider({ children }) {
       };
 
       setStaffList((prev) => [...prev, savedRecord]);
-
       setUserProfiles((prev) => ({
         ...prev,
-        [newId]: {
-          id: newId,
-          name: cleanName,
-          email: email.trim(),
-          phone: phone.trim(),
-          role: effectiveRole,
-          avatarUrl: savedRecord.avatarUrl,
-          notes: notes.trim()
-        }
+        [finalId]: savedRecord
       }));
 
+      showToast(`Đã tạo tài khoản nhân viên mới "${cleanName}" thành công!`, 'success');
+      return { success: true, staff: savedRecord };
     }
-
-    if (isSupabaseConfigured && supabase && typeof upsertStaffProfile === 'function') {
-      upsertStaffProfile(savedRecord).catch((err) => {
-        console.warn('Lỗi đồng bộ nhân viên lên Supabase:', err);
-      });
-    }
-
-    return { success: true, staff: savedRecord };
   };
 
   const deleteStaff = async (staffId) => {
@@ -3907,6 +4136,11 @@ export function PosProvider({ children }) {
     setLoginSuccessRole,
     loginWithEmail,
     logoutUser,
+    logout: logoutUser,
+    isAccountSuspended,
+    setIsAccountSuspended,
+    onlineUserIds,
+    isStaffOnline,
     // RBAC Context values
     currentRole,
     currentUser,

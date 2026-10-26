@@ -22,6 +22,7 @@ const OrderHistoryView = lazy(() => import('./components/orders/OrderHistoryView
 const ReportsView = lazy(() => import('./components/reports/ReportsView'));
 const SettingsView = lazy(() => import('./components/settings/SettingsView'));
 const LoginPage = lazy(() => import('./components/auth/LoginPage'));
+import AccountSuspendedBannerModal from './components/auth/AccountSuspendedBannerModal';
 const LoginSuccessView = lazy(() => import('./components/auth/LoginSuccessView'));
 
 const ViewLoadingFallback = () => (
@@ -44,7 +45,9 @@ function PosContent() {
     canManageMenu,
     canViewReports,
     canAccessSettings,
-    showToast
+    showToast,
+    isAccountSuspended,
+    logoutUser
   } = usePos();
 
   const [previousTab, setPreviousTab] = useState('tables');

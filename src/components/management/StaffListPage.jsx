@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { usePos } from '../../store/PosContext';
 import { getStaffInitials } from './StaffManagementSection';
 import DeleteStaffConfirmModal from './DeleteStaffConfirmModal';
+import SuspendStaffConfirmModal from './SuspendStaffConfirmModal';
 import {
   ArrowLeft,
   Search,
@@ -20,6 +21,24 @@ import {
   Lock
 } from 'lucide-react';
 
+export function getStaffDisplayCode(staff) {
+  if (!staff) return 'NV';
+  if (staff.code) return staff.code.toUpperCase();
+  if (staff.email) {
+    const userPart = staff.email.split('@')[0];
+    if (/^(admin|manager|staff)\d+$/i.test(userPart)) {
+      return `NV-${userPart.toUpperCase()}`;
+    }
+  }
+  if (staff.id && staff.id.startsWith('staff-')) {
+    return staff.id.toUpperCase().replace('STAFF-', 'NV-');
+  }
+  if (staff.id && staff.id.length > 8) {
+    return `NV-${staff.id.slice(0, 6).toUpperCase()}`;
+  }
+  return `NV-${staff.id || ''}`;
+}
+
 export default function StaffListPage() {
   const {
     staffList = [],
@@ -28,7 +47,9 @@ export default function StaffListPage() {
     showToast,
     currentRole,
     userProfiles = {},
-    navigate
+    navigate,
+    currentUser,
+    isStaffOnline
   } = usePos();
 
   const isAdmin = currentRole === 'admin';
@@ -38,17 +59,30 @@ export default function StaffListPage() {
   const [filterRole, setFilterRole] = useState('all'); // 'all' | 'admin' | 'manager' | 'staff'
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'active' | 'paused'
   const [deletingStaff, setDeletingStaff] = useState(null);
+  const [suspendingStaff, setSuspendingStaff] = useState(null);
+
+  // Deduplicated and active-managed list calculation
+  const seenIds = new Set();
+  const managedStaffList = staffList.filter((staff) => {
+    if (!staff || staff.status === 'archived' || staff.status === 'removed') return false;
+    const key = staff.id || staff.email;
+    if (seenIds.has(key)) return false;
+    seenIds.add(key);
+    return true;
+  });
 
   // Filtered List calculation
-  const filteredStaffList = staffList.filter((staff) => {
+  const filteredStaffList = managedStaffList.filter((staff) => {
     // Search match
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
+      const code = getStaffDisplayCode(staff).toLowerCase();
       const matchName = (staff.name || '').toLowerCase().includes(q);
       const matchEmail = (staff.email || '').toLowerCase().includes(q);
       const matchPhone = (staff.phone || '').toLowerCase().includes(q);
       const matchId = (staff.id || '').toLowerCase().includes(q);
-      if (!matchName && !matchEmail && !matchPhone && !matchId) return false;
+      const matchCode = code.includes(q);
+      if (!matchName && !matchEmail && !matchPhone && !matchId && !matchCode) return false;
     }
     // Role filter
     if (filterRole !== 'all' && staff.role !== filterRole) {
@@ -71,13 +105,36 @@ export default function StaffListPage() {
     navigate(`/staff/create?edit=${staff.id}`);
   };
 
-  const handleToggle = (staffId) => {
-    const target = staffList.find((s) => s.id === staffId);
-    if (!isAdmin && target?.role === 'admin') {
-      showToast?.('Từ chối quyền: Manager không thể tạm ngưng tài khoản Quản trị viên (Admin)!', 'error');
+  const handleToggle = (staff) => {
+    if (!isAdmin) {
+      showToast?.('Từ chối quyền: Chỉ Quản trị viên (Admin) mới có quyền bật/tắt quyền sử dụng POS!', 'error');
       return;
     }
-    toggleStaffStatus?.(staffId);
+
+    const isActive = staff.status === 'active';
+
+    if (isActive) {
+      // Safeguard: Last active admin
+      if (staff.role === 'admin') {
+        const activeAdmins = staffList.filter((s) => s.role === 'admin' && s.status === 'active' && s.id !== staff.id);
+        if (activeAdmins.length === 0) {
+          showToast?.('Hành động bị chặn: Không thể khóa tài khoản Quản trị viên duy nhất của hệ thống!', 'error');
+          return;
+        }
+      }
+
+      // Safeguard: Self-lock
+      if (currentUser?.id === staff.id) {
+        showToast?.('Hành động bị chặn: Bạn không thể tự khóa tài khoản Quản trị viên của chính mình!', 'error');
+        return;
+      }
+
+      // Open confirm modal when locking
+      setSuspendingStaff(staff);
+    } else {
+      // Direct reactivate when unlocking
+      toggleStaffStatus?.(staff.id, 'active');
+    }
   };
 
   const handleDeleteClick = (staff) => {
@@ -337,7 +394,7 @@ export default function StaffListPage() {
                       {/* Mã NV + Chi nhánh */}
                       <div className="flex items-center gap-2 text-[10.5px] text-gray-500 mt-0.5 truncate">
                         <span className="font-mono font-bold text-gray-700">
-                          {staff.id.toUpperCase().replace('STAFF-', 'NV-')}
+                          {getStaffDisplayCode(staff)}
                         </span>
                         <span>•</span>
                         <span className="truncate">{staff.shiftName || 'Ca Sáng (06:30 - 14:30)'}</span>
@@ -345,24 +402,39 @@ export default function StaffListPage() {
                     </div>
                   </div>
 
-                  {/* Toggle Status Switch */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {/* Status Pill Indicator */}
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        isActive
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                      }`}
-                    >
-                      {isActive ? 'Hoạt động' : 'Tạm khóa'}
-                    </span>
+                  {/* Toggle Status Switch & Presence Badge */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Status / Presence Badge (Requirement 24 & 25) */}
+                    {!isActive ? (
+                      <span
+                        data-testid="badge-status-suspended"
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/60 flex items-center gap-1"
+                      >
+                        <Lock className="w-2.5 h-2.5" />
+                        <span>Đã khóa</span>
+                      </span>
+                    ) : isStaffOnline?.(staff.id) ? (
+                      <span
+                        data-testid="badge-status-online"
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center gap-1 shadow-2xs"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Đang online</span>
+                      </span>
+                    ) : (
+                      <span
+                        data-testid="badge-status-offline"
+                        className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200"
+                      >
+                        Offline
+                      </span>
+                    )}
 
-                    {/* Toggle Button */}
-                    {(!isAdmin && isTargetAdmin) ? (
+                    {/* Toggle Button / Switch (Requirement A.3 - A.9) */}
+                    {!isAdmin ? (
                       <div
                         data-testid={`locked-admin-indicator-${staff.id}`}
-                        title="Tài khoản Quản trị viên (Khóa bảo mật)"
+                        title="Chỉ Quản trị viên (Admin) mới có quyền bật/tắt quyền sử dụng POS"
                         className="p-1 text-gray-400"
                       >
                         <Lock className="w-3.5 h-3.5 text-gray-400" />
@@ -370,23 +442,28 @@ export default function StaffListPage() {
                     ) : (
                       <button
                         type="button"
+                        role="switch"
+                        aria-checked={isActive}
+                        aria-label={`Bật/tắt quyền sử dụng POS cho ${staff.name}`}
                         data-testid={`toggle-staff-btn-${staff.id}`}
-                        onClick={() => handleToggle(staff.id)}
-                        disabled={isLastActiveAdmin}
+                        onClick={() => handleToggle(staff)}
+                        disabled={isLastActiveAdmin || (currentUser?.id === staff.id && isTargetAdmin)}
                         title={
                           isLastActiveAdmin
                             ? 'Không thể khóa Quản trị viên duy nhất của hệ thống'
+                            : (currentUser?.id === staff.id && isTargetAdmin)
+                            ? 'Bạn không thể tự khóa tài khoản Quản trị viên của chính mình'
                             : isActive
-                            ? 'Bấm để tạm khóa tài khoản'
-                            : 'Bấm để kích hoạt lại'
+                            ? 'Nhấn để tạm khóa quyền sử dụng POS'
+                            : 'Nhấn để mở khóa quyền sử dụng POS'
                         }
-                        className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                        className={`w-10 h-5.5 rounded-full transition-colors relative cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                           isActive ? 'bg-emerald-600' : 'bg-gray-300'
                         }`}
                       >
                         <span
-                          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-xs transition-transform ${
-                            isActive ? 'left-4.5' : 'left-0.5'
+                          className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white shadow-xs transition-transform ${
+                            isActive ? 'left-[19px]' : 'left-0.5'
                           }`}
                         />
                       </button>
@@ -450,6 +527,16 @@ export default function StaffListPage() {
           })
         )}
       </div>
+
+      {/* Modal xác nhận tạm khóa tài khoản */}
+      <SuspendStaffConfirmModal
+        isOpen={Boolean(suspendingStaff)}
+        staff={suspendingStaff}
+        onClose={() => setSuspendingStaff(null)}
+        onConfirm={async (staffId) => {
+          await toggleStaffStatus?.(staffId, 'suspended');
+        }}
+      />
 
       {/* Modal xác nhận xóa an toàn */}
       <DeleteStaffConfirmModal
