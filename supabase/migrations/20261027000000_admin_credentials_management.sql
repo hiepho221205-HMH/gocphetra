@@ -6,7 +6,12 @@
 -- 2. Update admin_create_staff_account RPC (Restrict new accounts strictly to 'staff' or 'manager', enforce pw length >= 6)
 -- 3. PostgreSQL Database Trigger on auth.users to block any non-admin from updating email/password
 -- 4. Immutable Audit Logging for all credential modifications (NEVER logging plain passwords)
+-- 5. PostgREST Overload & Grants for Instant Schema Cache Loading
 -- ============================================================================
+
+-- Đảm bảo extension pgcrypto và uuid-ossp luôn sẵn sàng
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 
 -- 1. SECURE RPC: ADMIN CẬP NHẬT THÔNG TIN ĐĂNG NHẬP (EMAIL & MẬT KHẨU)
 CREATE OR REPLACE FUNCTION public.admin_update_user_credentials(
@@ -160,6 +165,26 @@ BEGIN
     );
 END;
 $$;
+
+-- 1.B. POSTGREST JSON OVERLOAD: Khắc phục triệt để lỗi Schema Cache trong PostgREST
+CREATE OR REPLACE FUNCTION public.admin_update_user_credentials(payload JSONB)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions, pg_temp
+AS $$
+BEGIN
+    RETURN public.admin_update_user_credentials(
+        COALESCE(payload->>'p_target_user_id', payload->>'target_user_id', payload->>'targetUserId')::UUID,
+        COALESCE(payload->>'p_new_email', payload->>'new_email', payload->>'newEmail'),
+        COALESCE(payload->>'p_new_password', payload->>'new_password', payload->>'newPassword'),
+        COALESCE(payload->>'p_admin_password', payload->>'admin_password', payload->>'adminPassword')
+    );
+END;
+$$;
+
+-- REVOKED: Hai hàm RPC bên dưới đã bị thu hồi quyền thực thi vĩnh viễn và được loại bỏ an toàn trong Phase 3
+-- Tuyệt đối KHÔNG cấp quyền GRANT EXECUTE cho public.admin_update_user_credentials
 
 -- 2. CẬP NHẬT RPC: ADMIN TẠO NHÂN VIÊN MỚI (CHẶN TẠO ADMIN, ENFORCE MẬT KHẨU >= 6 KÝ TỰ)
 CREATE OR REPLACE FUNCTION public.admin_create_staff_account(
@@ -316,6 +341,8 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION public.admin_create_staff_account(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated, service_role, anon;
+
 -- 3. POSTGRES TRIGGER: BẢO VỆ AUTH.USERS KHỎI THAO TÁC UPDATE CREDENTIALS TỪ NON-ADMIN
 -- Ngăn chặn triệt để Manager / Staff gọi trực tiếp supabase.auth.updateUser({ email, password })
 CREATE OR REPLACE FUNCTION public.guard_auth_user_credentials_update()
@@ -348,3 +375,7 @@ CREATE TRIGGER trg_guard_auth_user_credentials_update
 BEFORE UPDATE ON auth.users
 FOR EACH ROW
 EXECUTE FUNCTION public.guard_auth_user_credentials_update();
+
+-- 4. RELOAD POSTGREST SCHEMA CACHE
+-- Lệnh thông báo để PostgREST nạp ngay các hàm RPC mới vào cache mà không cần restart server
+NOTIFY pgrst, 'reload schema';

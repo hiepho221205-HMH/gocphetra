@@ -4017,19 +4017,25 @@ export function PosProvider({ children }) {
     const targetStaff = staffList.find((s) => s.id === targetUserId || s.userId === targetUserId || s.uid === targetUserId);
     const targetName = targetStaff?.name || targetUserId;
 
-    // 1. Supabase Cloud Sync via RPC
+    // 1. Supabase Cloud Sync via Secure Edge Function (Phase 3)
     if (isSupabaseConfigured && supabase) {
-      const rpcRes = await adminUpdateUserCredentialsRpc({
+      const edgeRes = await adminUpdateUserCredentialsRpc({
         targetUserId,
         newEmail: cleanNewEmail,
         newPassword: cleanNewPassword,
         adminPassword
       });
 
-      if (!rpcRes.success) {
-        const errMsg = rpcRes.error?.message || 'Không thể cập nhật thông tin đăng nhập trên hệ thống Auth';
+      if (!edgeRes.success) {
+        const errMsg = edgeRes.message || edgeRes.error?.message || 'Không thể cập nhật thông tin đăng nhập trên hệ thống Auth';
         showToast(errMsg, 'error');
-        return { success: false, error: rpcRes.error, message: errMsg };
+        return {
+          success: false,
+          error: edgeRes.error,
+          message: errMsg,
+          remainingAttempts: edgeRes.remainingAttempts,
+          retryAfterSeconds: edgeRes.retryAfterSeconds
+        };
       }
     }
 

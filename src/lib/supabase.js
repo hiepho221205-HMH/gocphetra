@@ -83,7 +83,9 @@ export const schemaCapabilities = {
   store_assets: savedCaps.store_assets === true,
   atomic_save_order: savedCaps.atomic_save_order === true,
   atomic_finalize_order: savedCaps.atomic_finalize_order === true,
-  preparation_tickets: savedCaps.preparation_tickets === true
+  preparation_tickets: savedCaps.preparation_tickets === true,
+  admin_manage_credentials_edge: savedCaps.admin_manage_credentials_edge !== false,
+  admin_update_user_credentials_rpc: false
 };
 
 export function persistCapability(key, val) {
@@ -1528,33 +1530,78 @@ export async function adminCreateStaffAccountRpc({
   }
 }
 
-export async function adminUpdateUserCredentialsRpc({
+export async function adminUpdateUserCredentialsEdge({
   targetUserId,
   newEmail = null,
   newPassword = null,
-  adminPassword = null
+  adminPassword = null,
+  idempotencyKey = null
 }) {
   if (!supabase) return { success: false, error: new Error('Supabase client not initialized') };
   if (!targetUserId) return { success: false, error: new Error('Thiếu targetUserId') };
+  if (!adminPassword || !adminPassword.trim()) {
+    return { success: false, error: new Error('Bắt buộc nhập mật khẩu Quản trị viên để xác thực') };
+  }
+
+  const cleanNewEmail = newEmail ? String(newEmail).trim().toLowerCase() : null;
+  const cleanNewPassword = newPassword ? String(newPassword).trim() : null;
+  const key = idempotencyKey || `idemp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
   try {
-    const { data, error } = await supabase.rpc('admin_update_user_credentials', {
-      p_target_user_id: targetUserId,
-      p_new_email: newEmail || null,
-      p_new_password: newPassword || null,
-      p_admin_password: adminPassword || null
-    });
+    // 1. Gọi Supabase Edge Function bảo mật
+    if (supabase.functions && typeof supabase.functions.invoke === 'function') {
+      const { data, error } = await supabase.functions.invoke('admin-manage-credentials', {
+        body: {
+          targetUserId,
+          newEmail: cleanNewEmail,
+          newPassword: cleanNewPassword,
+          adminPassword: adminPassword.trim(),
+          idempotencyKey: key
+        }
+      });
 
-    if (error) {
-      console.warn('Lỗi adminUpdateUserCredentialsRpc:', error.message);
-      return { success: false, error };
+      if (error) {
+        console.warn('Lỗi invoke admin-manage-credentials:', error);
+        return {
+          success: false,
+          error,
+          message: error.message || 'Không thể cập nhật tài khoản qua Edge Function'
+        };
+      }
+
+      if (data) {
+        if (data.success === false) {
+          return {
+            success: false,
+            error: new Error(data.message || 'Thao tác không thành công'),
+            message: data.message,
+            remainingAttempts: data.remainingAttempts,
+            retryAfterSeconds: data.retryAfterSeconds
+          };
+        }
+        return {
+          success: true,
+          data,
+          authUpdated: data.authUpdated ?? true,
+          profileSyncPending: data.profileSyncPending ?? false,
+          status: data.status || 'completed'
+        };
+      }
     }
-    return { success: true, data };
+
+    return {
+      success: false,
+      error: new Error('Không thể kết nối dịch vụ Edge Function'),
+      message: 'Không thể kết nối dịch vụ Edge Function'
+    };
   } catch (err) {
-    console.warn('Lỗi adminUpdateUserCredentialsRpc (exception):', err?.message || err);
-    return { success: false, error: err };
+    console.warn('Lỗi adminUpdateUserCredentialsEdge (exception):', err?.message || err);
+    return { success: false, error: err, message: err?.message || 'Lỗi ngoại lệ khi cập nhật thông tin đăng nhập' };
   }
 }
+
+// Alias tương thích ngược cho PosContext
+export const adminUpdateUserCredentialsRpc = adminUpdateUserCredentialsEdge;
 
 export async function uploadStaffAvatarToStorage(file, userId) {
   if (!supabase) return { success: false, error: new Error('Supabase client chưa sẵn sàng') };

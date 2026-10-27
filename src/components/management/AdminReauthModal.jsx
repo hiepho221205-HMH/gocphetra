@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ShieldAlert, Lock, Eye, EyeOff, Loader2, X, Check } from 'lucide-react';
+import {
+  ShieldAlert,
+  Lock,
+  Eye,
+  EyeOff,
+  Loader2,
+  X,
+  Check,
+  AlertCircle
+} from 'lucide-react';
 
 export default function AdminReauthModal({
   isOpen,
@@ -102,6 +111,7 @@ export default function AdminReauthModal({
                 ref={inputRef}
                 type={showPassword ? 'text' : 'password'}
                 required
+                disabled={isSubmitting}
                 value={adminPassword}
                 onChange={(e) => {
                   setAdminPassword(e.target.value);
@@ -109,22 +119,29 @@ export default function AdminReauthModal({
                 }}
                 placeholder="Nhập mật khẩu Admin..."
                 data-testid="input-admin-reauth-password"
-                className="w-full h-11 pl-9 pr-10 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-[#214E34] focus:ring-1 focus:ring-[#214E34]/20 text-xs font-semibold text-gray-900 transition-all"
+                className="w-full h-11 pl-9 pr-10 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-[#214E34] focus:ring-1 focus:ring-[#214E34]/20 text-xs font-semibold text-gray-900 transition-all disabled:opacity-60"
               />
               <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
               <button
                 type="button"
+                disabled={isSubmitting}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors p-0.5 disabled:opacity-50"
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+
+            {/* Error Message */}
             {localError && (
-              <p className="text-[11px] text-rose-600 font-bold animate-shake">
-                {localError}
-              </p>
+              <div
+                data-testid="admin-reauth-error-message"
+                className="flex items-start gap-1.5 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-semibold animate-shake"
+              >
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-600" />
+                <span className="leading-snug">{localError}</span>
+              </div>
             )}
           </div>
 
@@ -135,7 +152,7 @@ export default function AdminReauthModal({
               disabled={isSubmitting}
               onClick={onClose}
               data-testid="cancel-reauth-btn"
-              className="flex-1 py-2.5 px-3 rounded-xl border border-gray-200 hover:bg-gray-100 text-gray-700 text-xs font-bold active:scale-95 transition-all cursor-pointer text-center disabled:opacity-50"
+              className="flex-1 py-2.5 px-3 rounded-xl border border-gray-200 hover:bg-gray-100 text-gray-700 text-xs font-bold active:scale-95 transition-all cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Hủy bỏ
             </button>
@@ -148,7 +165,7 @@ export default function AdminReauthModal({
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  <span>Đang xác thực...</span>
+                  <span>Đang xử lý an toàn...</span>
                 </>
               ) : (
                 <>
