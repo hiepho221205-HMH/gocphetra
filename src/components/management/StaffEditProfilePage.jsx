@@ -3,6 +3,7 @@ import { usePos } from '../../store/PosContext';
 import { getStaffInitials } from './StaffManagementSection';
 import { getStaffDisplayCode } from './StaffListPage';
 import SuspendStaffConfirmModal from './SuspendStaffConfirmModal';
+import AdminReauthModal from './AdminReauthModal';
 import UnsavedChangesModal from '../settings/hub/UnsavedChangesModal';
 import {
   ArrowLeft,
@@ -19,14 +20,33 @@ import {
   Loader2,
   Trash2,
   Sparkles,
-  Radio
+  Radio,
+  Key,
+  KeyRound,
+  Eye,
+  EyeOff
 } from 'lucide-react';
+
+
+function getPasswordStrength(pwd) {
+  if (!pwd) return { score: 0, label: 'Chưa nhập', color: 'text-gray-400', barColor: 'bg-gray-200', percent: 'w-0' };
+  if (pwd.length < 6) return { score: 1, label: 'Quá ngắn (tối thiểu 6 ký tự)', color: 'text-rose-500', barColor: 'bg-rose-500', percent: 'w-1/4' };
+  let score = 1;
+  if (pwd.length >= 8) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[a-zA-Z]/.test(pwd)) score++;
+  if (/[^a-zA-Z0-9]/.test(pwd)) score++;
+  if (score <= 2) return { score: 2, label: 'Yếu', color: 'text-amber-600', barColor: 'bg-amber-500', percent: 'w-2/4' };
+  if (score <= 3) return { score: 3, label: 'Trung bình', color: 'text-blue-600', barColor: 'bg-blue-500', percent: 'w-3/4' };
+  return { score: 4, label: 'Mạnh', color: 'text-emerald-600', barColor: 'bg-emerald-600', percent: 'w-full' };
+}
 
 export default function StaffEditProfilePage() {
   const {
     staffList = [],
     saveStaffMember,
     toggleStaffStatus,
+    adminUpdateUserCredentials,
     showToast,
     currentRole,
     currentUser,
@@ -59,6 +79,19 @@ export default function StaffEditProfilePage() {
   const [showExitModal, setShowExitModal] = useState(false);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [validationError, setValidationError] = useState('');
+
+  // Admin Credential Management states
+  const [showChangeEmail, setShowChangeEmail] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [credentialFormError, setCredentialFormError] = useState('');
+  const [showAdminReauthModal, setShowAdminReauthModal] = useState(false);
+  const [isSubmittingCredentials, setIsSubmittingCredentials] = useState(false);
+  const [reauthErrorMessage, setReauthErrorMessage] = useState('');
 
   // Initial snapshot to calculate dirty status
   const initialSnapshotRef = useRef(null);
@@ -141,6 +174,97 @@ export default function StaffEditProfilePage() {
   const handleRemoveAvatar = () => {
     setAvatarUrl(null);
     showToast?.('Đã xóa ảnh đại diện.', 'info');
+  };
+
+
+  // Credential Management handlers (Admin only)
+  const handleRequestUpdateCredentials = () => {
+    if (!isAdmin) {
+      showToast?.('Từ chối quyền: Chỉ Quản trị viên (Admin) mới có quyền đổi email hoặc mật khẩu!', 'error');
+      return;
+    }
+
+    const cleanNewEmail = newEmail.trim().toLowerCase();
+    const cleanNewPassword = newPassword.trim();
+
+    if (!showChangeEmail && !showResetPassword) {
+      setCredentialFormError('Vui lòng chọn Đổi Email hoặc Đặt lại Mật khẩu!');
+      return;
+    }
+
+    if (showChangeEmail) {
+      if (!cleanNewEmail) {
+        setCredentialFormError('Vui lòng nhập địa chỉ Email mới!');
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanNewEmail)) {
+        setCredentialFormError('Định dạng Email mới không hợp lệ!');
+        return;
+      }
+      // Check duplicate
+      const dup = staffList.find(
+        (s) => s.id !== staff?.id && (s.email || '').toLowerCase().trim() === cleanNewEmail
+      );
+      if (dup) {
+        setCredentialFormError(`Email "${cleanNewEmail}" đã được sử dụng bởi ${dup.name}!`);
+        return;
+      }
+    }
+
+    if (showResetPassword) {
+      if (!cleanNewPassword) {
+        setCredentialFormError('Vui lòng nhập Mật khẩu mới!');
+        return;
+      }
+      if (cleanNewPassword.length < 6) {
+        setCredentialFormError('Mật khẩu mới phải có tối thiểu 6 ký tự!');
+        return;
+      }
+      if (cleanNewPassword !== confirmNewPassword.trim()) {
+        setCredentialFormError('Xác nhận mật khẩu mới không khớp!');
+        return;
+      }
+    }
+
+    setCredentialFormError('');
+    setReauthErrorMessage('');
+    setShowAdminReauthModal(true);
+  };
+
+  const handleConfirmAdminReauth = async (adminPassword) => {
+    if (!adminUpdateUserCredentials) {
+      setReauthErrorMessage('Tính năng cập nhật thông tin đăng nhập chưa sẵn sàng');
+      return;
+    }
+
+    setIsSubmittingCredentials(true);
+    setReauthErrorMessage('');
+
+    try {
+      const res = await adminUpdateUserCredentials({
+        targetUserId: staff?.id,
+        newEmail: showChangeEmail && newEmail.trim() ? newEmail.trim().toLowerCase() : null,
+        newPassword: showResetPassword && newPassword.trim() ? newPassword.trim() : null,
+        adminPassword
+      });
+
+      if (res && res.success) {
+        setShowAdminReauthModal(false);
+        setNewEmail('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setShowChangeEmail(false);
+        setShowResetPassword(false);
+        setCredentialFormError('');
+      } else {
+        setReauthErrorMessage(res?.message || 'Mật khẩu Quản trị viên không chính xác hoặc không đủ quyền!');
+      }
+    } catch (err) {
+      setReauthErrorMessage(err.message || 'Lỗi khi cập nhật thông tin đăng nhập');
+    } finally {
+      setIsSubmittingCredentials(false);
+    }
   };
 
   // Safeguards for Status Switch
@@ -558,10 +682,215 @@ export default function StaffEditProfilePage() {
               <Lock className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-2" />
             </div>
             <p className="text-[10px] text-gray-400 italic">
-              Email dùng để đăng nhập Supabase Auth; không thể thay đổi trực tiếp tại đây để bảo đảm an toàn phiên đăng nhập.
+              Email dùng để đăng nhập Supabase Auth.
             </p>
           </div>
         </div>
+
+        {/* CARD: THÔNG TIN ĐĂNG NHẬP & BẢO MẬT (CHỈ QUẢN TRỊ VIÊN) */}
+        {isAdmin && (
+          <div
+            data-testid="admin-credentials-card"
+            className="p-4 rounded-[20px] bg-white border border-gray-100/90 shadow-[0_6px_18px_rgba(20,55,35,0.06),0_2px_5px_rgba(20,55,35,0.03)] space-y-3.5"
+          >
+            <div className="flex items-center justify-between pb-1.5 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-[#214E34]/10 text-[#214E34] flex items-center justify-center">
+                  <KeyRound className="w-3.5 h-3.5" />
+                </div>
+                <h4 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                  Thông tin đăng nhập & Bảo mật
+                </h4>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EAF5ED] text-[#214E34] border border-[#214E34]/20 flex items-center gap-1">
+                <Shield className="w-2.5 h-2.5" />
+                <span>Chỉ Admin</span>
+              </span>
+            </div>
+
+            {/* Current Email Display */}
+            <div className="p-3 rounded-xl bg-gray-50/80 border border-gray-200/70 flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="text-[10.5px] text-gray-400 font-medium">Email đăng nhập hiện tại</div>
+                <div className="text-xs font-mono font-bold text-gray-900 truncate">
+                  {staff.email || profile.email || 'Chưa thiết lập'}
+                </div>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Auth SSOT
+              </span>
+            </div>
+
+            {/* Action toggles: Đổi Email / Đặt lại Mật khẩu */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                data-testid="toggle-change-email-btn"
+                onClick={() => {
+                  setShowChangeEmail(!showChangeEmail);
+                  if (credentialFormError) setCredentialFormError('');
+                }}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  showChangeEmail
+                    ? 'bg-[#EAF5ED] border-[#214E34] text-[#214E34] ring-2 ring-[#214E34]/15 shadow-2xs'
+                    : 'bg-gray-50 text-gray-700 border-gray-200/80 hover:bg-gray-100'
+                }`}
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>{showChangeEmail ? 'Đang đổi Email' : 'Đổi Email'}</span>
+              </button>
+
+              <button
+                type="button"
+                data-testid="toggle-reset-password-btn"
+                onClick={() => {
+                  setShowResetPassword(!showResetPassword);
+                  if (credentialFormError) setCredentialFormError('');
+                }}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  showResetPassword
+                    ? 'bg-[#EAF5ED] border-[#214E34] text-[#214E34] ring-2 ring-[#214E34]/15 shadow-2xs'
+                    : 'bg-gray-50 text-gray-700 border-gray-200/80 hover:bg-gray-100'
+                }`}
+              >
+                <Key className="w-3.5 h-3.5" />
+                <span>{showResetPassword ? 'Đang đặt MK' : 'Đặt lại Mật khẩu'}</span>
+              </button>
+            </div>
+
+            {/* Error in credential form */}
+            {credentialFormError && (
+              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                <span>{credentialFormError}</span>
+              </div>
+            )}
+
+            {/* Form Đổi Email */}
+            {showChangeEmail && (
+              <div className="p-3.5 rounded-2xl bg-[#F8FAF9] border border-[#214E34]/20 space-y-2.5 animate-fadeIn">
+                <label className="text-[11px] font-bold text-gray-700 flex items-center justify-between">
+                  <span>Địa chỉ Email mới</span>
+                  <span className="text-[10px] text-gray-400">Kiểm tra trùng lặp tự động</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => {
+                      setNewEmail(e.target.value);
+                      if (credentialFormError) setCredentialFormError('');
+                    }}
+                    placeholder="nhanvien_moi@gocpos.vn"
+                    data-testid="input-new-email"
+                    className="w-full h-10 pl-9 pr-3.5 bg-white border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-[#214E34] text-xs font-medium text-gray-900 shadow-2xs"
+                  />
+                  <Mail className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3" />
+                </div>
+              </div>
+            )}
+
+            {/* Form Đặt lại Mật khẩu */}
+            {showResetPassword && (
+              <div className="p-3.5 rounded-2xl bg-[#F8FAF9] border border-[#214E34]/20 space-y-2.5 animate-fadeIn">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-700 flex items-center justify-between">
+                    <span>Mật khẩu mới</span>
+                    <span className="text-[10px] text-gray-400">Tối thiểu 6 ký tự</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => {
+                        setNewPassword(e.target.value);
+                        if (credentialFormError) setCredentialFormError('');
+                      }}
+                      placeholder="Nhập mật khẩu mới..."
+                      data-testid="input-new-password"
+                      className="w-full h-10 pl-9 pr-10 bg-white border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-[#214E34] text-xs font-medium text-gray-900 shadow-2xs"
+                    />
+                    <Key className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3" />
+                    <button
+                      type="button"
+                      data-testid="toggle-show-new-password"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 transition-colors p-0.5 cursor-pointer"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  {/* Password strength meter */}
+                  {newPassword && (
+                    <div className="space-y-1 pt-1">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-gray-500 font-medium">Độ mạnh:</span>
+                        <span className={`font-bold ${getPasswordStrength(newPassword).color}`}>
+                          {getPasswordStrength(newPassword).label}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all duration-300 ${getPasswordStrength(newPassword).percent} ${getPasswordStrength(newPassword).barColor}`} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Confirm new password */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-700 flex items-center justify-between">
+                    <span>Xác nhận mật khẩu mới</span>
+                    {confirmNewPassword && (
+                      <span className={`text-[10px] font-bold ${newPassword === confirmNewPassword ? 'text-emerald-600' : 'text-rose-500'}`}>
+                        {newPassword === confirmNewPassword ? '✓ Khớp' : '✕ Chưa khớp'}
+                      </span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmNewPassword ? 'text' : 'password'}
+                      value={confirmNewPassword}
+                      onChange={(e) => {
+                        setConfirmNewPassword(e.target.value);
+                        if (credentialFormError) setCredentialFormError('');
+                      }}
+                      placeholder="Nhập lại mật khẩu mới..."
+                      data-testid="input-confirm-new-password"
+                      className="w-full h-10 pl-9 pr-10 bg-white border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-[#214E34] text-xs font-medium text-gray-900 shadow-2xs"
+                    />
+                    <Key className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-3" />
+                    <button
+                      type="button"
+                      data-testid="toggle-show-confirm-new-password"
+                      onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 transition-colors p-0.5 cursor-pointer"
+                    >
+                      {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Execute Credential Change Button */}
+            {(showChangeEmail || showResetPassword) && (
+              <button
+                type="button"
+                data-testid="btn-submit-credentials"
+                onClick={handleRequestUpdateCredentials}
+                className="w-full py-2.5 px-3 rounded-xl bg-[#214E34] hover:bg-[#1a3d28] text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Xác nhận cập nhật thông tin đăng nhập</span>
+              </button>
+            )}
+
+            <p className="text-[10px] text-gray-400 italic">
+              🔒 Thao tác thay đổi email hoặc mật khẩu yêu cầu xác thực lại mật khẩu của Quản trị viên (Admin Re-authentication) để đảm bảo an toàn.
+            </p>
+          </div>
+        )}
 
         {/* CARD 3: THÔNG TIN CÔNG VIỆC */}
         <div className="p-4 rounded-[20px] bg-white border border-gray-100/90 shadow-[0_6px_18px_rgba(20,55,35,0.06),0_2px_5px_rgba(20,55,35,0.03)] space-y-3">
@@ -767,6 +1096,25 @@ export default function StaffEditProfilePage() {
       />
 
       {/* Modal xác nhận tạm khóa tài khoản */}
+      <AdminReauthModal
+        isOpen={showAdminReauthModal}
+        onClose={() => {
+          setShowAdminReauthModal(false);
+          setReauthErrorMessage('');
+        }}
+        onConfirm={handleConfirmAdminReauth}
+        targetStaffName={staff?.name || 'nhân viên'}
+        actionDescription={
+          showChangeEmail && showResetPassword
+            ? 'đổi email đăng nhập và đặt lại mật khẩu'
+            : showChangeEmail
+            ? 'đổi email đăng nhập'
+            : 'đặt lại mật khẩu'
+        }
+        isSubmitting={isSubmittingCredentials}
+        errorMessage={reauthErrorMessage}
+      />
+
       <SuspendStaffConfirmModal
         isOpen={showSuspendModal}
         staff={staff}

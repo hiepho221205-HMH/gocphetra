@@ -68,6 +68,8 @@ import {
   adminChangeUserRoleRpc,
   adminToggleStaffStatusRpc,
   adminCreateStaffAccountRpc,
+  adminUpdateUserCredentialsRpc,
+  setClientSecurityRole,
   uploadStaffAvatarToStorage,
   fetchProfilesAndRoles,
   mapProfileFromDb,
@@ -262,6 +264,13 @@ export function PosProvider({ children }) {
     const saved = loadStorage(STORAGE_KEYS.ROLE, 'admin');
     return ['admin', 'manager', 'staff'].includes(saved) ? saved : 'admin';
   });
+
+  // Sync active client security role to Supabase guard
+  useEffect(() => {
+    if (typeof setClientSecurityRole === 'function') {
+      setClientSecurityRole(currentRole);
+    }
+  }, [currentRole]);
   const [currentUser, setCurrentUser] = useState(() => {
     if (isSupabaseConfigured && typeof window !== 'undefined') {
       return null;
@@ -3708,6 +3717,20 @@ export function PosProvider({ children }) {
       }
     }
 
+    // Permission Guard for creating new staff
+    if (!id && currentRole !== 'admin') {
+      showToast('Từ chối quyền: Chỉ Quản trị viên (Admin) mới có quyền tạo tài khoản nhân viên mới!', 'error');
+      return { success: false, error: 'Unauthorized', message: 'Chỉ Admin mới có quyền tạo tài khoản nhân viên' };
+    }
+    if (!id && role === 'admin') {
+      showToast('Không được cấp quyền Admin khi tạo mới nhân viên! Bổ nhiệm Admin phải thực hiện qua Phân quyền (RBAC).', 'error');
+      throw new Error('Không thể tạo tài khoản Admin trực tiếp từ form thêm nhân viên');
+    }
+    if (!id && password && password.length < 6) {
+      showToast('Mật khẩu đăng nhập phải có ít nhất 6 ký tự!', 'error');
+      throw new Error('Mật khẩu tối thiểu 6 ký tự');
+    }
+
     let effectiveRole = 'staff';
     if (currentRole === 'admin') {
       if (role === 'manager' || role === 'staff') {
@@ -3938,6 +3961,142 @@ export function PosProvider({ children }) {
     return { success: true, deletedStaffId: staffId, deletedStaffName: targetName };
   };
 
+  // =================== ADMIN CREDENTIAL MANAGEMENT ===================
+  const adminUpdateUserCredentials = async ({
+    targetUserId,
+    newEmail = null,
+    newPassword = null,
+    adminPassword = ''
+  }) => {
+    // 0. Permission Guard: ONLY Admin can update credentials!
+    if (currentRole !== 'admin') {
+      showToast('Từ chối quyền: Chỉ Quản trị viên (Admin) mới có quyền thay đổi thông tin đăng nhập!', 'error');
+      return { success: false, error: 'Unauthorized', message: 'Chỉ Admin mới có quyền thay đổi thông tin đăng nhập' };
+    }
+
+    if (!targetUserId) {
+      showToast('Thiếu mã tài khoản nhân viên cần cập nhật!', 'error');
+      return { success: false, message: 'Thiếu targetUserId' };
+    }
+
+    const cleanNewEmail = newEmail ? newEmail.trim().toLowerCase() : null;
+    const cleanNewPassword = newPassword ? newPassword.trim() : null;
+
+    if (!cleanNewEmail && !cleanNewPassword) {
+      showToast('Vui lòng nhập Email mới hoặc Mật khẩu mới cần cập nhật!', 'error');
+      return { success: false, message: 'Không có thông tin thay đổi' };
+    }
+
+    // Email validation
+    if (cleanNewEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanNewEmail)) {
+        showToast('Định dạng email mới không hợp lệ!', 'error');
+        return { success: false, message: 'Định dạng email không hợp lệ' };
+      }
+
+      // Check duplicates in staffList
+      const duplicate = staffList.find(
+        (s) => (s.id !== targetUserId && s.userId !== targetUserId && s.uid !== targetUserId) &&
+               (s.email || '').toLowerCase().trim() === cleanNewEmail
+      );
+      if (duplicate) {
+        showToast(`Email "${cleanNewEmail}" đã được sử dụng bởi ${duplicate.name}!`, 'error');
+        return { success: false, message: 'Email đã tồn tại' };
+      }
+    }
+
+    // Password validation
+    if (cleanNewPassword) {
+      if (cleanNewPassword.length < 6) {
+        showToast('Mật khẩu mới phải có tối thiểu 6 ký tự!', 'error');
+        return { success: false, message: 'Mật khẩu tối thiểu 6 ký tự' };
+      }
+    }
+
+    const targetStaff = staffList.find((s) => s.id === targetUserId || s.userId === targetUserId || s.uid === targetUserId);
+    const targetName = targetStaff?.name || targetUserId;
+
+    // 1. Supabase Cloud Sync via RPC
+    if (isSupabaseConfigured && supabase) {
+      const rpcRes = await adminUpdateUserCredentialsRpc({
+        targetUserId,
+        newEmail: cleanNewEmail,
+        newPassword: cleanNewPassword,
+        adminPassword
+      });
+
+      if (!rpcRes.success) {
+        const errMsg = rpcRes.error?.message || 'Không thể cập nhật thông tin đăng nhập trên hệ thống Auth';
+        showToast(errMsg, 'error');
+        return { success: false, error: rpcRes.error, message: errMsg };
+      }
+    }
+
+    // 2. Update local state
+    if (cleanNewEmail) {
+      setStaffList((prev) =>
+        prev.map((s) => {
+          if (s.id === targetUserId || s.userId === targetUserId || s.uid === targetUserId) {
+            return { ...s, email: cleanNewEmail, updatedAt: new Date().toISOString() };
+          }
+          return s;
+        })
+      );
+
+      setUserProfiles((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          if (key === targetUserId || next[key]?.id === targetUserId || next[key]?.userId === targetUserId) {
+            next[key] = { ...next[key], email: cleanNewEmail, updatedAt: new Date().toISOString() };
+          }
+        }
+        return next;
+      });
+
+      if (currentUser?.id === targetUserId || currentUser?.uid === targetUserId) {
+        setCurrentUser((prev) => ({ ...prev, email: cleanNewEmail }));
+      }
+    }
+
+    // 3. Audit Log tracking (NEVER log passwords!)
+    const newAuditLog = {
+      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      userId: currentUser?.uid || currentUser?.id || 'admin-local',
+      role: currentRole,
+      action: 'admin_credential_update',
+      resource: 'auth_credentials',
+      resourceId: targetUserId,
+      details: {
+        targetUserId,
+        targetName,
+        emailUpdated: Boolean(cleanNewEmail),
+        newEmail: cleanNewEmail || undefined,
+        passwordReset: Boolean(cleanNewPassword),
+        updatedBy: currentUser?.name || 'Quản trị viên',
+        timestamp: new Date().toISOString()
+      },
+      createdAt: new Date().toISOString()
+    };
+    setAuditLogs((prev) => [newAuditLog, ...prev]);
+
+    if (isSupabaseConfigured && supabase) {
+      cloudRecordAuditLog(newAuditLog).catch((e) => console.warn('Lỗi ghi cloudRecordAuditLog:', e));
+    }
+
+    let successMsg = `Đã cập nhật thông tin đăng nhập cho "${targetName}" thành công!`;
+    if (cleanNewEmail && cleanNewPassword) {
+      successMsg = `Đã cập nhật email mới (${cleanNewEmail}) và đổi mật khẩu cho "${targetName}"!`;
+    } else if (cleanNewEmail) {
+      successMsg = `Đã đổi email đăng nhập thành ${cleanNewEmail} cho "${targetName}"!`;
+    } else if (cleanNewPassword) {
+      successMsg = `Đã đặt lại mật khẩu mới cho "${targetName}" thành công!`;
+    }
+
+    showToast(successMsg, 'success');
+    return { success: true, targetUserId, email: cleanNewEmail };
+  };
+
   // =================== DATA CLEANUP ACTIONS (MILESTONE 3) ===================
   const cleanupCompletedOrders = async (orderIds = [], metadata = {}) => {
     // 0. Permission Guard: ONLY Admin can cleanup or delete order history!
@@ -4128,6 +4287,7 @@ export function PosProvider({ children }) {
     toggleStaffStatus,
     saveStaffMember,
     deleteStaff,
+    adminUpdateUserCredentials,
     cleanupCompletedOrders,
     // Auth V1 Context values
     session,

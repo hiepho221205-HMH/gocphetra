@@ -300,6 +300,21 @@ export default function ProfileEditSubpage({ onBack }) {
               🔒 <strong>Chính sách phân quyền:</strong> Vai trò được quản lý tập trung bởi Quản trị viên (Admin). Bạn không thể tự thay đổi vai trò hoặc cấp quyền cho tài khoản của mình.
             </p>
           </div>
+
+          {/* Chính sách thông tin đăng nhập & mật khẩu */}
+          <div className="pt-2 border-t border-gray-100">
+            <div className="p-3 rounded-xl bg-forest-50/70 border border-forest-200/60 text-[11px] text-forest-800 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold">
+                <Lock className="w-3.5 h-3.5 text-forest-700" />
+                <span>Bảo mật thông tin đăng nhập</span>
+              </div>
+              <p className="text-[10.5px] text-forest-700 leading-relaxed">
+                {currentRole === 'admin'
+                  ? 'Quản trị viên có toàn quyền thiết lập email và đặt lại mật khẩu cho nhân sự tại mục Quản lý Nhân viên.'
+                  : 'Email và mật khẩu đăng nhập do Quản trị viên (Admin) quản lý và chỉ định tập trung. Nhân viên và Cửa hàng trưởng không thể tự thay đổi thông tin này.'}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Footer Actions */}

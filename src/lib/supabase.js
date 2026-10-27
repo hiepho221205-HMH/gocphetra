@@ -23,6 +23,41 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
+// ============================================================================
+// SECURITY INTERCEPTOR: KHÓA BẢO MẬT SUPABASE AUTH UPDATEUSER CHO NON-ADMIN
+// ============================================================================
+let activeClientRole = 'staff';
+
+export function setClientSecurityRole(role) {
+  if (['admin', 'manager', 'staff'].includes(role)) {
+    activeClientRole = role;
+  }
+}
+
+export function getClientSecurityRole() {
+  return activeClientRole;
+}
+
+if (supabase?.auth?.updateUser) {
+  const _origUpdateUser = supabase.auth.updateUser.bind(supabase.auth);
+  supabase.auth.updateUser = async (attributes, options) => {
+    // Nếu có cố gắng sửa email hoặc password
+    if (attributes && (attributes.email !== undefined || attributes.password !== undefined)) {
+      if (activeClientRole !== 'admin') {
+        const securityError = new Error(
+          'Chính sách bảo mật GÓC POS: Manager và Staff không có quyền tự thay đổi email hoặc mật khẩu. Mọi thay đổi phải do Quản trị viên (Admin) thực hiện.'
+        );
+        console.warn('[SECURITY GUARD BLOCKED]: Non-admin attempted supabase.auth.updateUser()', {
+          role: activeClientRole,
+          attributes: Object.keys(attributes)
+        });
+        return { data: { user: null }, error: securityError };
+      }
+    }
+    return _origUpdateUser(attributes, options);
+  };
+}
+
 /**
  * Intelligent Schema Capability Detection:
  * Prevents redundant failing HTTP requests / 404 console errors when optional
@@ -1455,10 +1490,27 @@ export async function adminCreateStaffAccountRpc({
   notes = ''
 }) {
   if (!supabase) return { success: false, error: new Error('Supabase client not initialized') };
+
+  // Khóa bảo mật: Tuyệt đối không cho tạo quyền Admin qua form thêm nhân viên
+  if (role === 'admin') {
+    return {
+      success: false,
+      error: new Error('Khóa bảo mật: Không thể tạo trực tiếp tài khoản Quản trị viên (Admin) từ form này. Bổ nhiệm Quản trị viên chỉ thực hiện qua trang Phân quyền Tài khoản.')
+    };
+  }
+
+  const cleanPw = String(password || '').trim();
+  if (cleanPw.length < 6) {
+    return {
+      success: false,
+      error: new Error('Mật khẩu tài khoản phải chứa ít nhất 6 ký tự.')
+    };
+  }
+
   try {
     const { data, error } = await supabase.rpc('admin_create_staff_account', {
       p_email: email,
-      p_password: password,
+      p_password: cleanPw,
       p_name: name,
       p_role: role,
       p_phone: phone,
@@ -1472,6 +1524,34 @@ export async function adminCreateStaffAccountRpc({
     return { success: true, data };
   } catch (err) {
     console.warn('Lỗi adminCreateStaffAccountRpc (exception):', err?.message || err);
+    return { success: false, error: err };
+  }
+}
+
+export async function adminUpdateUserCredentialsRpc({
+  targetUserId,
+  newEmail = null,
+  newPassword = null,
+  adminPassword = null
+}) {
+  if (!supabase) return { success: false, error: new Error('Supabase client not initialized') };
+  if (!targetUserId) return { success: false, error: new Error('Thiếu targetUserId') };
+
+  try {
+    const { data, error } = await supabase.rpc('admin_update_user_credentials', {
+      p_target_user_id: targetUserId,
+      p_new_email: newEmail || null,
+      p_new_password: newPassword || null,
+      p_admin_password: adminPassword || null
+    });
+
+    if (error) {
+      console.warn('Lỗi adminUpdateUserCredentialsRpc:', error.message);
+      return { success: false, error };
+    }
+    return { success: true, data };
+  } catch (err) {
+    console.warn('Lỗi adminUpdateUserCredentialsRpc (exception):', err?.message || err);
     return { success: false, error: err };
   }
 }

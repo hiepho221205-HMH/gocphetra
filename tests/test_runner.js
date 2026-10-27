@@ -40,7 +40,8 @@ const testFiles = [
   path.join(__dirname, 'ast_undeclared_variables.test.js'),
   path.join(__dirname, 'menu_modal_layering.test.js'),
   path.join(__dirname, 'online_bill_export.test.js'),
-  path.join(__dirname, 'staff_profile_soft_3d.test.js')
+  path.join(__dirname, 'staff_profile_soft_3d.test.js'),
+  path.join(__dirname, 'admin_credential_management.test.js')
 ];
 
 console.log('\n============================================================');

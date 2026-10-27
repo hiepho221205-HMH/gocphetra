@@ -15,8 +15,25 @@ import {
   Lock,
   Check,
   X,
-  Loader2
+  Loader2,
+  Eye,
+  EyeOff,
+  Key
 } from 'lucide-react';
+
+
+function getPasswordStrength(pwd) {
+  if (!pwd) return { score: 0, label: 'Chưa nhập', color: 'text-gray-400', barColor: 'bg-gray-200', percent: 'w-0' };
+  if (pwd.length < 6) return { score: 1, label: 'Quá ngắn (tối thiểu 6 ký tự)', color: 'text-rose-500', barColor: 'bg-rose-500', percent: 'w-1/4' };
+  let score = 1;
+  if (pwd.length >= 8) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[a-zA-Z]/.test(pwd)) score++;
+  if (/[^a-zA-Z0-9]/.test(pwd)) score++;
+  if (score <= 2) return { score: 2, label: 'Yếu', color: 'text-amber-600', barColor: 'bg-amber-500', percent: 'w-2/4' };
+  if (score <= 3) return { score: 3, label: 'Trung bình', color: 'text-blue-600', barColor: 'bg-blue-500', percent: 'w-3/4' };
+  return { score: 4, label: 'Mạnh', color: 'text-emerald-600', barColor: 'bg-emerald-600', percent: 'w-full' };
+}
 
 export default function StaffCreatePage() {
   const {
@@ -46,6 +63,10 @@ export default function StaffCreatePage() {
   // Form states
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [formConfirmPassword, setFormConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formPhone, setFormPhone] = useState('');
   const [formRole, setFormRole] = useState('staff');
   const [formBranchId, setFormBranchId] = useState('main');
@@ -122,7 +143,8 @@ export default function StaffCreatePage() {
       formShiftName !== initialValuesRef.current.shiftName ||
       formStatus !== initialValuesRef.current.status ||
       formAvatarUrl !== initialValuesRef.current.avatarUrl ||
-      formNotes !== initialValuesRef.current.notes
+      formNotes !== initialValuesRef.current.notes ||
+      (!isEditMode && (formPassword !== '' || formConfirmPassword !== ''))
     )
   );
 
@@ -220,6 +242,31 @@ export default function StaffCreatePage() {
       }
     }
 
+    // Khi tạo mới: bắt buộc email hợp lệ và mật khẩu khởi tạo
+    if (!isEditMode) {
+      if (!cleanEmail) {
+        setFormError('Vui lòng nhập Email đăng nhập cho nhân viên mới');
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        setFormError('Định dạng email đăng nhập không hợp lệ!');
+        return;
+      }
+      if (!formPassword) {
+        setFormError('Vui lòng nhập mật khẩu khởi tạo cho tài khoản');
+        return;
+      }
+      if (formPassword.length < 6) {
+        setFormError('Mật khẩu đăng nhập phải có ít nhất 6 ký tự!');
+        return;
+      }
+      if (formPassword !== formConfirmPassword) {
+        setFormError('Mật khẩu xác nhận không khớp với mật khẩu đã nhập!');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setFormError('');
 
@@ -235,7 +282,8 @@ export default function StaffCreatePage() {
           shiftName: formShiftName,
           status: formStatus,
           avatarUrl: formAvatarUrl,
-          notes: formNotes.trim()
+          notes: formNotes.trim(),
+          password: formPassword || '123456'
         });
 
         if (result?.staff?.id && selectedFileRef.current && !editingStaff) {
@@ -368,28 +416,130 @@ export default function StaffCreatePage() {
             />
           </div>
 
-          {/* C. EMAIL VÀ NOTE "SẮP RA MẮT" */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-700 flex items-center gap-1">
-              <span>Địa chỉ Email</span>
+          {/* C. EMAIL ĐĂNG NHẬP */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <span>Email đăng nhập</span>
+                {!isEditMode && <span className="text-rose-500">*</span>}
+              </span>
+              <span className="text-[10px] text-gray-400 font-normal">Tài khoản Supabase Auth</span>
             </label>
             <input
               type="email"
+              required={!isEditMode}
               data-testid="staff-input-email"
               value={formEmail}
               onChange={(e) => setFormEmail(e.target.value)}
               placeholder="nhanvien@gocpos.vn"
-              className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 text-xs font-semibold text-gray-900"
+              className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 text-xs font-semibold text-gray-900 shadow-2xs"
             />
-
-            {/* Note rõ ràng về tính năng gửi lời mời qua email */}
-            <div className="p-2 rounded-xl bg-blue-50/80 border border-blue-200/60 text-[11px] text-blue-800 flex items-start gap-1.5 leading-snug">
-              <Info className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-              <span>
-                <strong>Tính năng sắp ra mắt:</strong> Hệ thống tự động gửi thư mời kích hoạt tài khoản qua email sẽ được cập nhật ở phiên bản tiếp theo. Bạn có thể nhập email ngay để lưu hồ sơ nhân sự.
-              </span>
-            </div>
+            <p className="text-[10px] text-gray-400">
+              Email dùng để định danh và đăng nhập vào ứng dụng GÓC POS.
+            </p>
           </div>
+
+          {/* D. MẬT KHẨU KHỞI TẠO (CHỈ HIỂN THỊ KHI TẠO MỚI) */}
+          {!isEditMode && (
+            <div className="p-3.5 rounded-2xl bg-[#F8FAF9] border border-[#214E34]/15 space-y-3 shadow-2xs">
+              <div className="flex items-center gap-2 pb-1 border-b border-gray-100">
+                <div className="w-5 h-5 rounded-lg bg-[#214E34]/10 text-[#214E34] flex items-center justify-center">
+                  <Key className="w-3 h-3" />
+                </div>
+                <h4 className="text-[11px] font-black text-gray-900 uppercase tracking-wide">
+                  Thông tin đăng nhập ban đầu
+                </h4>
+              </div>
+
+              {/* Mật khẩu */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <span>Mật khẩu khởi tạo</span>
+                    <span className="text-rose-500">*</span>
+                  </span>
+                  <span className="text-[10px] text-gray-400">Tối thiểu 6 ký tự</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    data-testid="staff-input-password"
+                    value={formPassword}
+                    onChange={(e) => setFormPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu cho nhân viên..."
+                    className="w-full h-10 pl-3 pr-10 bg-white border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 text-xs font-semibold text-gray-900"
+                  />
+                  <button
+                    type="button"
+                    data-testid="toggle-show-create-password"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 transition-colors p-0.5 cursor-pointer"
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {/* Password strength bar */}
+                {formPassword && (
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-gray-500 font-medium">Độ mạnh mật khẩu:</span>
+                      <span className={`font-bold ${getPasswordStrength(formPassword).color}`}>
+                        {getPasswordStrength(formPassword).label}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-300 ${getPasswordStrength(formPassword).percent} ${getPasswordStrength(formPassword).barColor}`} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Xác nhận mật khẩu */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-700 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <span>Xác nhận mật khẩu</span>
+                    <span className="text-rose-500">*</span>
+                  </span>
+                  {formConfirmPassword && (
+                    <span className={`text-[10px] font-bold ${formPassword === formConfirmPassword ? 'text-emerald-600' : 'text-rose-500'}`}>
+                      {formPassword === formConfirmPassword ? '✓ Khớp' : '✕ Chưa khớp'}
+                    </span>
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    data-testid="staff-input-confirm-password"
+                    value={formConfirmPassword}
+                    onChange={(e) => setFormConfirmPassword(e.target.value)}
+                    placeholder="Nhập lại mật khẩu để xác nhận..."
+                    className="w-full h-10 pl-3 pr-10 bg-white border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 text-xs font-semibold text-gray-900"
+                  />
+                  <button
+                    type="button"
+                    data-testid="toggle-show-create-confirm-password"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 transition-colors p-0.5 cursor-pointer"
+                    aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-2 rounded-xl bg-forest-50/70 border border-forest-200/60 text-[10.5px] text-forest-800 flex items-start gap-1.5 leading-snug">
+                <Shield className="w-3.5 h-3.5 text-forest-700 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Quản trị tập trung:</strong> Chỉ Quản trị viên (Admin) mới có quyền thiết lập và thay đổi thông tin đăng nhập của nhân sự.
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* D. SỐ ĐIỆN THOẠI */}
           <div className="space-y-1">
