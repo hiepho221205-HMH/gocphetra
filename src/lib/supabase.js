@@ -1562,10 +1562,18 @@ export async function adminUpdateUserCredentialsEdge({
 
       if (error) {
         console.warn('Lỗi invoke admin-manage-credentials:', error);
+        let userFriendlyMsg = error.message || 'Không thể cập nhật tài khoản qua Edge Function';
+        if (
+          userFriendlyMsg.includes('Failed to send a request to the Edge Function') ||
+          userFriendlyMsg.includes('FunctionsFetchError') ||
+          userFriendlyMsg.includes('Function not found')
+        ) {
+          userFriendlyMsg = 'Chưa thể kết nối tới máy chủ Edge Function (hàm admin-manage-credentials chưa được deploy trên Supabase Cloud). Vui lòng deploy Edge Function để kích hoạt tính năng.';
+        }
         return {
           success: false,
           error,
-          message: error.message || 'Không thể cập nhật tài khoản qua Edge Function'
+          message: userFriendlyMsg
         };
       }
 
