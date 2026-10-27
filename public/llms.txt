@@ -1,0 +1,9 @@
+# GÓC POS
+
+> Hệ thống POS Bán hàng & Vận hành Quán Cà phê & Trà GÓC POS.
+
+GÓC POS là ứng dụng web PWA nội bộ dành cho nhân viên quán cà phê và trà, hỗ trợ quản lý bàn, gọi món và đối soát ca làm việc.
+
+## Thông tin hệ thống
+
+- [Trang chủ POS](https://gocpos.vn/): Giao diện bán hàng và quản lý bàn dành cho thu ngân và quản lý

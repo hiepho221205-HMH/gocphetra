@@ -7,14 +7,18 @@ import path from 'path';
 
 const DIST_DIR = path.resolve('dist');
 const MIME_TYPES = {
-  '.html': 'text/html',
-  '.js': 'application/javascript',
-  '.css': 'text/css',
-  '.json': 'application/json',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2'
 };
 
 function startServer(port = 4173) {
@@ -24,26 +28,38 @@ function startServer(port = 4173) {
       if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
       const filePath = path.join(DIST_DIR, reqPath);
 
-      const targetPath = (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) ? filePath : path.join(DIST_DIR, 'index.html');
-      const ext = path.extname(targetPath);
-      const isAsset = reqPath.startsWith('/assets/');
-      const cacheControl = isAsset ? 'public, max-age=31536000, immutable' : 'no-cache';
-      const acceptsGzip = (req.headers['accept-encoding'] || '').includes('gzip');
-      const compressible = ['.html', '.js', '.css', '.json', '.svg'].includes(ext);
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        const ext = path.extname(filePath);
+        const isAsset = reqPath.startsWith('/assets/');
+        const cacheControl = isAsset ? 'public, max-age=31536000, immutable' : 'no-cache';
+        const acceptsGzip = (req.headers['accept-encoding'] || '').includes('gzip');
+        const compressible = ['.html', '.js', '.css', '.json', '.svg', '.txt', '.webmanifest'].includes(ext);
 
-      if (acceptsGzip && compressible) {
+        if (acceptsGzip && compressible) {
+          res.writeHead(200, {
+            'Content-Type': MIME_TYPES[ext] || 'text/plain; charset=utf-8',
+            'Content-Encoding': 'gzip',
+            'Cache-Control': cacheControl
+          });
+          fs.createReadStream(filePath).pipe(zlib.createGzip()).pipe(res);
+        } else {
+          res.writeHead(200, {
+            'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+            'Cache-Control': cacheControl
+          });
+          fs.createReadStream(filePath).pipe(res);
+        }
+      } else if (!path.extname(reqPath)) {
+        // SPA navigation fallback ONLY for extensionless routes
+        const indexPath = path.join(DIST_DIR, 'index.html');
         res.writeHead(200, {
-          'Content-Type': MIME_TYPES[ext] || 'text/plain',
-          'Content-Encoding': 'gzip',
-          'Cache-Control': cacheControl
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache'
         });
-        fs.createReadStream(targetPath).pipe(zlib.createGzip()).pipe(res);
+        fs.createReadStream(indexPath).pipe(res);
       } else {
-        res.writeHead(200, {
-          'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
-          'Cache-Control': cacheControl
-        });
-        fs.createReadStream(targetPath).pipe(res);
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('404 Not Found');
       }
     });
 
@@ -156,6 +172,9 @@ async function runLighthouseAudit() {
     console.log('\n⚠️ KEY AUDIT ISSUES TO ADDRESS (Mobile):');
     issues.forEach(iss => {
       console.log(`- [${iss.title}] (score: ${iss.score}) ${iss.displayValue ? '(' + iss.displayValue + ')' : ''}`);
+      if (['render-blocking-insight', 'render-blocking-resources', 'image-delivery-insight'].includes(iss.id)) {
+        console.log('   Details:', audits[iss.id]?.details?.items);
+      }
     });
 
     // Save report

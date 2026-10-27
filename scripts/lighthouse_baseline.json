@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-10-23T15:33:22.891Z",
+  "timestamp": "2026-10-27T16:38:38.896Z",
   "mobile": {
-    "performance": 96,
+    "performance": 92,
     "accessibility": 100,
     "bestPractices": 100,
     "seo": 100
   },
   "desktop": {
-    "performance": 98,
+    "performance": 100,
     "accessibility": 100,
     "bestPractices": 100,
     "seo": 100
@@ -16,58 +16,65 @@
     {
       "id": "first-contentful-paint",
       "title": "First Contentful Paint",
-      "score": 0.8,
-      "displayValue": "2.1 s",
+      "score": 0.7,
+      "displayValue": "2.4 s",
       "description": "First Contentful Paint marks the time at which the first text or image is painted. [Learn more about the First Contentful Paint metric](https://developer.chrome"
     },
     {
       "id": "largest-contentful-paint",
       "title": "Largest Contentful Paint",
-      "score": 0.93,
-      "displayValue": "2.3 s",
+      "score": 0.8,
+      "displayValue": "2.9 s",
       "description": "Largest Contentful Paint marks the time at which the largest text or image is painted. [Learn more about the Largest Contentful Paint metric](https://developer."
     },
     {
       "id": "speed-index",
       "title": "Speed Index",
-      "score": 0.99,
-      "displayValue": "2.1 s",
+      "score": 0.98,
+      "displayValue": "2.4 s",
       "description": "Speed Index shows how quickly the contents of a page are visibly populated. [Learn more about the Speed Index metric](https://developer.chrome.com/docs/lighthou"
+    },
+    {
+      "id": "max-potential-fid",
+      "title": "Max Potential First Input Delay",
+      "score": 0.99,
+      "displayValue": "80 ms",
+      "description": "The maximum potential First Input Delay that your users could experience is the duration of the longest task. [Learn more about the Maximum Potential First Inpu"
     },
     {
       "id": "interactive",
       "title": "Time to Interactive",
-      "score": 0.96,
-      "displayValue": "3.0 s",
+      "score": 0.91,
+      "displayValue": "3.6 s",
       "description": "Time to Interactive is the amount of time it takes for the page to become fully interactive. [Learn more about the Time to Interactive metric](https://developer"
     },
     {
       "id": "unused-css-rules",
       "title": "Reduce unused CSS",
       "score": 0,
-      "displayValue": "Est savings of 12 KiB",
+      "displayValue": "Est savings of 14 KiB",
       "description": "Reduce unused rules from stylesheets and defer CSS not used for above-the-fold content to decrease bytes consumed by network activity. [Learn how to reduce unus"
     },
     {
       "id": "unused-javascript",
       "title": "Reduce unused JavaScript",
       "score": 0,
-      "displayValue": "Est savings of 69 KiB",
+      "displayValue": "Est savings of 135 KiB",
       "description": "Reduce unused JavaScript and defer loading scripts until they are required to decrease bytes consumed by network activity. [Learn how to reduce unused JavaScrip"
     },
     {
-      "id": "llms-txt",
-      "title": "llms.txt does not follow recommendations",
+      "id": "forced-reflow-insight",
+      "title": "Forced reflow",
       "score": 0,
       "displayValue": "",
-      "description": "If your llms.txt file does not follow recommendations, large language models may not be able to understand how you want your website to be crawled or used for t"
+      "description": "A forced reflow occurs when JavaScript queries geometric properties (such as offsetWidth) after styles have been invalidated by a change to the DOM state. This "
     },
     {
-      "id": "ard-schema",
-      "title": "`ai-catalog.json` schema is invalid",
-      "score": 0,
-      "displayValue": "",
-      "description": "Valid `ai-catalog.json` manifests are required for autonomous AI agents and registries to discover and verify your resources. [Learn more about the ARD specific"
+      "id": "image-delivery-insight",
+      "title": "Improve image delivery",
+      "score": 0.5,
+      "displayValue": "Est savings of 6 KiB",
+      "description": "Reducing the download time of images can improve the perceived load time of the page and LCP. [Learn more about optimizing image size](https://developer.chrome."
     },
     {
       "id": "network-dependency-tree-insight",

@@ -538,17 +538,34 @@ export async function fetchAllCloudData() {
       supabase.from('menu_items').select('*'),
       supabase.from('toppings').select('*'),
       supabase.from('product_toppings').select('*'),
-      supabase.from('orders').select('*').order('created_at', { ascending: false }),
+      supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(250),
       supabase.from('settings').select('*')
     ];
 
+    let profilesIdx = -1;
+    let rolesIdx = -1;
+    let legacyStaffIdx = -1;
+    let storeSettingsIdx = -1;
+    let paymentsIdx = -1;
+
     if (schemaCapabilities.profiles !== false) {
-      queries.push(
-        supabase.from('profiles').select('*').order('created_at', { ascending: true }),
-        supabase.from('user_roles').select('*')
-      );
+      profilesIdx = queries.length;
+      queries.push(supabase.from('profiles').select('*').order('created_at', { ascending: true }));
+      rolesIdx = queries.length;
+      queries.push(supabase.from('user_roles').select('*'));
     } else if (schemaCapabilities.staff_profiles !== false) {
+      legacyStaffIdx = queries.length;
       queries.push(supabase.from('staff_profiles').select('*').order('created_at', { ascending: true }));
+    }
+
+    if (schemaCapabilities.store_settings === true) {
+      storeSettingsIdx = queries.length;
+      queries.push(supabase.from('store_settings').select('*').eq('store_id', 'default_store').maybeSingle());
+    }
+
+    if (schemaCapabilities.payments === true) {
+      paymentsIdx = queries.length;
+      queries.push(supabase.from('payments').select('*').order('paid_at', { ascending: false }).limit(300));
     }
 
     const results = await Promise.all(queries);
@@ -559,19 +576,18 @@ export async function fetchAllCloudData() {
     const prodToppingsRes = results[4];
     const ordersRes = results[5];
     const settingsRes = results[6];
-    let profilesRes = null;
-    let rolesRes = null;
-    let legacyStaffRes = null;
+    let profilesRes = profilesIdx >= 0 ? results[profilesIdx] : null;
+    let rolesRes = rolesIdx >= 0 ? results[rolesIdx] : null;
+    let legacyStaffRes = legacyStaffIdx >= 0 ? results[legacyStaffIdx] : null;
+    let storeRowRes = storeSettingsIdx >= 0 ? results[storeSettingsIdx] : null;
+    let paymentsRes = paymentsIdx >= 0 ? results[paymentsIdx] : null;
 
-    if (schemaCapabilities.profiles !== false) {
-      profilesRes = results[7] || null;
-      rolesRes = results[8] || null;
+    if (schemaCapabilities.profiles !== false && profilesRes) {
       if (profilesRes?.error && (profilesRes.error.code === 'PGRST205' || profilesRes.error.message?.includes('schema cache'))) {
         schemaCapabilities.profiles = false; persistCapability('profiles', false);
         schemaCapabilities.user_roles = false; persistCapability('user_roles', false);
       }
-    } else if (schemaCapabilities.staff_profiles !== false) {
-      legacyStaffRes = results[7] || null;
+    } else if (schemaCapabilities.staff_profiles !== false && legacyStaffRes) {
       if (legacyStaffRes?.error && (legacyStaffRes.error.code === 'PGRST205' || legacyStaffRes.error.message?.includes('schema cache'))) {
         schemaCapabilities.staff_profiles = false; persistCapability('staff_profiles', false);
       }
@@ -619,23 +635,13 @@ export async function fetchAllCloudData() {
       }
     }
 
-    if (schemaCapabilities.store_settings === true) {
-      try {
-        const { data: storeRow, error: storeErr } = await supabase
-          .from('store_settings')
-          .select('*')
-          .eq('store_id', 'default_store')
-          .maybeSingle();
-
-        if (storeErr && (storeErr.code === 'PGRST205' || storeErr.message?.includes('schema cache'))) {
-          schemaCapabilities.store_settings = false; persistCapability('store_settings', false);
-        } else if (storeRow) {
-          schemaCapabilities.store_settings = true; persistCapability('store_settings', true);
-          const mapped = mapStoreSettingsFromDb(storeRow);
-          settings = { ...(settings || {}), ...mapped };
-        }
-      } catch {
+    if (storeRowRes) {
+      if (storeRowRes.error && (storeRowRes.error.code === 'PGRST205' || storeRowRes.error.message?.includes('schema cache'))) {
         schemaCapabilities.store_settings = false; persistCapability('store_settings', false);
+      } else if (storeRowRes.data) {
+        schemaCapabilities.store_settings = true; persistCapability('store_settings', true);
+        const mapped = mapStoreSettingsFromDb(storeRowRes.data);
+        settings = { ...(settings || {}), ...mapped };
       }
     }
 
@@ -654,17 +660,12 @@ export async function fetchAllCloudData() {
     }
 
     let payments = [];
-    if (schemaCapabilities.payments === true) {
-      try {
-        const paymentsRes = await supabase.from('payments').select('*').order('paid_at', { ascending: false }).limit(500);
-        if (paymentsRes?.error && (paymentsRes.error.code === 'PGRST205' || paymentsRes.error.message?.includes('schema cache'))) {
-          schemaCapabilities.payments = false; persistCapability('payments', false);
-        } else if (paymentsRes && !paymentsRes.error && Array.isArray(paymentsRes.data)) {
-          schemaCapabilities.payments = true; persistCapability('payments', true);
-          payments = paymentsRes.data.map(mapPaymentFromDb);
-        }
-      } catch {
+    if (paymentsRes) {
+      if (paymentsRes.error && (paymentsRes.error.code === 'PGRST205' || paymentsRes.error.message?.includes('schema cache'))) {
         schemaCapabilities.payments = false; persistCapability('payments', false);
+      } else if (Array.isArray(paymentsRes.data)) {
+        schemaCapabilities.payments = true; persistCapability('payments', true);
+        payments = paymentsRes.data.map(mapPaymentFromDb);
       }
     }
 
@@ -1838,19 +1839,41 @@ export async function getCurrentSession() {
   }
 }
 
+// Profile cache to prevent redundant concurrent or rapid repeated requests
+const profileCache = new Map();
+const profileInFlight = new Map();
+
+export function invalidateProfileCache(userId) {
+  if (userId) {
+    profileCache.delete(userId);
+  } else {
+    profileCache.clear();
+  }
+}
+
 export async function fetchUserProfileAndRole(userId) {
   if (!supabase || !userId) return null;
   if (!schemaCapabilities.profiles && !schemaCapabilities.staff_profiles) return null;
 
-  try {
-    let profileData = null;
-    let roleData = null;
+  if (profileInFlight.has(userId)) {
+    return profileInFlight.get(userId);
+  }
 
-    if (schemaCapabilities.profiles === true) {
-      const [profileRes, roleRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        supabase.from('user_roles').select('*').eq('user_id', userId).maybeSingle()
-      ]);
+  const cached = profileCache.get(userId);
+  if (cached && (Date.now() - cached.timestamp < 15000)) {
+    return cached.data;
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      let profileData = null;
+      let roleData = null;
+
+      if (schemaCapabilities.profiles === true) {
+        const [profileRes, roleRes] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+          supabase.from('user_roles').select('*').eq('user_id', userId).maybeSingle()
+        ]);
 
       if (profileRes?.error && (profileRes.error.code === 'PGRST205' || profileRes.error.message?.includes('schema cache'))) {
         schemaCapabilities.profiles = false; persistCapability('profiles', false);
@@ -1863,7 +1886,7 @@ export async function fetchUserProfileAndRole(userId) {
 
     if (profileData) {
       schemaCapabilities.profiles = true; persistCapability('profiles', true);
-      return {
+      const mapped = {
         id: userId,
         email: profileData.email,
         name: profileData.name || 'Nhân viên',
@@ -1873,6 +1896,8 @@ export async function fetchUserProfileAndRole(userId) {
         phone: profileData.phone || '',
         branchId: profileData.branch_id || 'main'
       };
+      profileCache.set(userId, { data: mapped, timestamp: Date.now() });
+      return mapped;
     }
 
     if (schemaCapabilities.staff_profiles === true) {
@@ -1900,13 +1925,20 @@ export async function fetchUserProfileAndRole(userId) {
     }
 
     return null;
-  } catch (err) {
-    return null;
-  }
+    } catch (err) {
+      return null;
+    } finally {
+      profileInFlight.delete(userId);
+    }
+  })();
+
+  profileInFlight.set(userId, fetchPromise);
+  return fetchPromise;
 }
 
 export async function updateUserProfile(userId, updates = {}) {
   if (!supabase || !userId) return { success: false };
+  profileCache.delete(userId);
   try {
     const payload = {};
     if (updates.name !== undefined) payload.name = updates.name;

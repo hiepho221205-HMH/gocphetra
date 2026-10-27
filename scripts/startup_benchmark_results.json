@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-10-27T16:40:18.618Z",
+  "coldStartLoggedOut": {
+    "domContentLoadedMs": 94,
+    "interactiveMs": 222,
+    "supabaseRequests": 0,
+    "totalRequests": 10
+  },
+  "sessionRestoreLoggedIn": {
+    "domContentLoadedMs": 87,
+    "tablesReadyMs": 326,
+    "supabaseRequests": 13,
+    "uniqueQueries": [
+      "GET https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/tables",
+      "GET https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/categories",
+      "GET https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/menu_items",
+      "GET https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/toppings",
+      "GET https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/product_toppings",
+      "GET https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/orders",
+      "GET https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/settings",
+      "GET https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/profiles",
+      "GET https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/user_roles",
+      "POST https://nbuulvdfxnmfdicbisxq.supabase.co/rest/v1/settings"
+    ]
+  },
+  "networkSummary": {},
+  "tabSwitchMs": 260
+}

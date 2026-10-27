@@ -1,22 +1,68 @@
-import Dexie from 'dexie';
-
 /**
  * GÓC POS — IndexedDB Database (Dexie.js)
  * Enterprise Offline-First Storage & Outbox Queue
+ * Dynamically loaded to keep initial application bundle ultralight (0ms overhead on login/startup).
  */
-export const db = new Dexie('GocCoffeePosDB');
 
-db.version(1).stores({
-  tables: 'id, status, activeOrderId, updatedAt',
-  orders: 'id, tableId, status, businessDate, version, createdAt',
-  orderHistory: 'id, tableId, status, businessDate, finishedAt, paymentMethod',
-  payments: 'id, orderId, businessDate, paymentMethod, paidAt',
-  outboxQueue: '++id, actionType, orderId, payload, status, createdAt, idempotencyKey',
-  settings: 'id'
-});
+let _db = null;
+let _initPromise = null;
 
-db.version(2).stores({
-  dailyClosures: 'date, closedAt, totalRevenue, totalOrders, cashTotal, qrTotal'
+export async function getDb() {
+  if (_db) return _db;
+  if (!_initPromise) {
+    _initPromise = (async () => {
+      try {
+        const { default: Dexie } = await import('dexie');
+        const dbInstance = new Dexie('GocCoffeePosDB');
+        dbInstance.version(1).stores({
+          tables: 'id, status, activeOrderId, updatedAt',
+          orders: 'id, tableId, status, businessDate, version, createdAt',
+          orderHistory: 'id, tableId, status, businessDate, finishedAt, paymentMethod',
+          payments: 'id, orderId, businessDate, paymentMethod, paidAt',
+          outboxQueue: '++id, actionType, orderId, payload, status, createdAt, idempotencyKey',
+          settings: 'id'
+        });
+        dbInstance.version(2).stores({
+          dailyClosures: 'date, closedAt, totalRevenue, totalOrders, cashTotal, qrTotal'
+        });
+        _db = dbInstance;
+        return _db;
+      } catch (err) {
+        console.warn('[IndexedDB] Không thể khởi tạo Dexie:', err);
+        return null;
+      }
+    })();
+  }
+  return _initPromise;
+}
+
+/**
+ * Backward-compatible db Proxy for external calls
+ */
+export const db = new Proxy({}, {
+  get(target, prop) {
+    if (prop === 'table') {
+      return (name) => ({
+        count: async () => {
+          const instance = await getDb();
+          return instance ? instance.table(name).count() : 0;
+        },
+        bulkPut: async (records) => {
+          const instance = await getDb();
+          return instance ? instance.table(name).bulkPut(records) : null;
+        }
+      });
+    }
+    return new Proxy({}, {
+      get(subTarget, method) {
+        return async (...args) => {
+          const instance = await getDb();
+          if (!instance || !instance[prop]) return null;
+          return instance[prop][method](...args);
+        };
+      }
+    });
+  }
 });
 
 /**
@@ -26,7 +72,10 @@ db.version(2).stores({
 export async function migrateFromLocalStorage(STORAGE_KEYS) {
   if (typeof window === 'undefined' || !localStorage) return;
   try {
-    const tablesStore = db.table('tables');
+    const d = await getDb();
+    if (!d) return;
+
+    const tablesStore = d.table('tables');
     const tableCount = await tablesStore.count();
     if (tableCount === 0) {
       // 1. Tables
@@ -44,7 +93,7 @@ export async function migrateFromLocalStorage(STORAGE_KEYS) {
         const parsed = JSON.parse(savedOrders);
         const orderArr = Object.values(parsed || {});
         if (orderArr.length > 0) {
-          await db.orders.bulkPut(orderArr);
+          await d.orders.bulkPut(orderArr);
         }
       }
 
@@ -53,7 +102,7 @@ export async function migrateFromLocalStorage(STORAGE_KEYS) {
       if (savedHistory) {
         const parsed = JSON.parse(savedHistory);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          await db.orderHistory.bulkPut(parsed);
+          await d.orderHistory.bulkPut(parsed);
         }
       }
 
@@ -62,7 +111,7 @@ export async function migrateFromLocalStorage(STORAGE_KEYS) {
       if (savedPayments) {
         const parsed = JSON.parse(savedPayments);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          await db.payments.bulkPut(parsed);
+          await d.payments.bulkPut(parsed);
         }
       }
       console.log('[IndexedDB] Di chuyển dữ liệu ban đầu từ LocalStorage sang Dexie thành công!');
@@ -77,7 +126,9 @@ export async function migrateFromLocalStorage(STORAGE_KEYS) {
  */
 export async function dualWriteToIndexedDB(tableName, records) {
   try {
-    const store = db.table(tableName);
+    const d = await getDb();
+    if (!d) return;
+    const store = d.table(tableName);
     if (!store) return;
     if (Array.isArray(records)) {
       if (records.length > 0) {
@@ -100,7 +151,9 @@ export async function dualWriteToIndexedDB(tableName, records) {
  */
 export async function enqueueOutbox({ actionType, orderId, payload, idempotencyKey }) {
   try {
-    const id = await db.outboxQueue.add({
+    const d = await getDb();
+    if (!d) return null;
+    const id = await d.outboxQueue.add({
       actionType,
       orderId,
       payload,
@@ -120,7 +173,9 @@ export async function enqueueOutbox({ actionType, orderId, payload, idempotencyK
  */
 export async function getPendingOutbox() {
   try {
-    return await db.outboxQueue.where('status').equals('pending').sortBy('id');
+    const d = await getDb();
+    if (!d) return [];
+    return await d.outboxQueue.where('status').equals('pending').sortBy('id');
   } catch (err) {
     console.warn('[IndexedDB] Lỗi getPendingOutbox:', err);
     return [];
@@ -132,7 +187,9 @@ export async function getPendingOutbox() {
  */
 export async function getAllOutbox() {
   try {
-    return await db.outboxQueue.reverse().sortBy('id');
+    const d = await getDb();
+    if (!d) return [];
+    return await d.outboxQueue.reverse().sortBy('id');
   } catch (err) {
     console.warn('[IndexedDB] Lỗi getAllOutbox:', err);
     return [];
@@ -144,7 +201,9 @@ export async function getAllOutbox() {
  */
 export async function updateOutboxStatus(id, status, errorDetails = null) {
   try {
-    await db.outboxQueue.update(id, {
+    const d = await getDb();
+    if (!d) return;
+    await d.outboxQueue.update(id, {
       status,
       errorDetails,
       updatedAt: new Date().toISOString()
@@ -159,7 +218,9 @@ export async function updateOutboxStatus(id, status, errorDetails = null) {
  */
 export async function removeOutboxItem(id) {
   try {
-    await db.outboxQueue.delete(id);
+    const d = await getDb();
+    if (!d) return;
+    await d.outboxQueue.delete(id);
   } catch (err) {
     console.warn('[IndexedDB] Lỗi removeOutboxItem:', err);
   }
@@ -177,7 +238,9 @@ export async function removeOutboxItem(id) {
 export async function saveDailyClosure(closureData) {
   try {
     if (!closureData || !closureData.date) return;
-    await db.dailyClosures.put(closureData);
+    const d = await getDb();
+    if (!d) return;
+    await d.dailyClosures.put(closureData);
   } catch (err) {
     console.warn('[IndexedDB] Lỗi saveDailyClosure:', err);
   }
@@ -189,7 +252,9 @@ export async function saveDailyClosure(closureData) {
 export async function getDailyClosure(dateStr) {
   try {
     if (!dateStr) return null;
-    return await db.dailyClosures.get(dateStr);
+    const d = await getDb();
+    if (!d) return null;
+    return await d.dailyClosures.get(dateStr);
   } catch (err) {
     console.warn('[IndexedDB] Lỗi getDailyClosure:', err);
     return null;
@@ -201,7 +266,9 @@ export async function getDailyClosure(dateStr) {
  */
 export async function getAllDailyClosures() {
   try {
-    return await db.dailyClosures.reverse().sortBy('date');
+    const d = await getDb();
+    if (!d) return [];
+    return await d.dailyClosures.reverse().sortBy('date');
   } catch (err) {
     console.warn('[IndexedDB] Lỗi getAllDailyClosures:', err);
     return [];

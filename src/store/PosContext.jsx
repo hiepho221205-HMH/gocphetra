@@ -199,6 +199,54 @@ export { reconcileTablesAndOrders, rolloverPastUnpaidOrders };
 
 export { calculateDailySummary };
 
+/**
+ * Synchronously recovers cached Supabase session & user profile on initial evaluation.
+ * Eliminates blank screens and loading spinners on page launch / reopen.
+ */
+function getSynchronousCachedAuth() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return { session: null, user: null, authUser: null, role: null, hasToken: false };
+  }
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const item = localStorage.getItem(key);
+        if (item) {
+          const parsed = JSON.parse(item);
+          if (parsed && (parsed.access_token || parsed.user)) {
+            const user = parsed.user || null;
+            let role = null;
+            let profileObj = null;
+            if (user) {
+              const savedRole = loadStorage(STORAGE_KEYS.ROLE, null);
+              const savedProfiles = loadStorage(STORAGE_KEYS.USER_PROFILES, {});
+              const p = savedProfiles[user.id];
+              const emailLower = (user.email || '').toLowerCase();
+              const fallbackRole = emailLower.startsWith('admin') ? 'admin' : emailLower.startsWith('manager') ? 'manager' : 'staff';
+              role = p?.role || user.user_metadata?.role || (['admin', 'manager', 'staff'].includes(savedRole) ? savedRole : fallbackRole);
+              const defaultName = role === 'admin' ? 'Trần Mai' : role === 'manager' ? 'Nguyễn Văn Hùng' : 'Lê Hoàng Nam';
+              profileObj = {
+                id: user.id,
+                uid: user.id,
+                email: user.email,
+                name: p?.name || user.user_metadata?.name || defaultName,
+                role,
+                status: p?.status || 'active',
+                avatarUrl: p?.avatarUrl || null,
+                phone: p?.phone || user.user_metadata?.phone || '',
+                branchId: p?.branchId || 'main'
+              };
+            }
+            return { session: parsed, user: profileObj, authUser: user, role, hasToken: true };
+          }
+        }
+      }
+    }
+  } catch (_) {}
+  return { session: null, user: null, authUser: null, role: null, hasToken: false };
+}
+
 export function PosProvider({ children }) {
   // Compute initial reconciled state from storage/fallback + daily rollover catch-up
   const [initialState] = useState(() => {
@@ -236,11 +284,14 @@ export function PosProvider({ children }) {
     return loaded && Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_STAFF;
   });
 
+  // Synchronous recovery snapshot (0ms white screen / 0ms loading delay)
+  const [initialCachedAuth] = useState(() => getSynchronousCachedAuth());
+
   // Real Supabase Auth State (Auth V1)
-  const [session, setSession] = useState(null);
-  const [authUser, setAuthUser] = useState(null);
-  const [currentUserProfile, setCurrentUserProfile] = useState(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(Boolean(isSupabaseConfigured && typeof window !== 'undefined'));
+  const [session, setSession] = useState(() => initialCachedAuth.session);
+  const [authUser, setAuthUser] = useState(() => initialCachedAuth.authUser);
+  const [currentUserProfile, setCurrentUserProfile] = useState(() => initialCachedAuth.user);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [loginSuccessRole, setLoginSuccessRole] = useState(null);
 
@@ -258,6 +309,9 @@ export function PosProvider({ children }) {
 
   // RBAC 3-Tier State: 'admin' | 'manager' | 'staff'
   const [currentRole, setCurrentRole] = useState(() => {
+    if (initialCachedAuth.role) {
+      return initialCachedAuth.role;
+    }
     if (isSupabaseConfigured && typeof window !== 'undefined') {
       return null;
     }
@@ -272,6 +326,9 @@ export function PosProvider({ children }) {
     }
   }, [currentRole]);
   const [currentUser, setCurrentUser] = useState(() => {
+    if (initialCachedAuth.user) {
+      return initialCachedAuth.user;
+    }
     if (isSupabaseConfigured && typeof window !== 'undefined') {
       return null;
     }
@@ -643,12 +700,12 @@ export function PosProvider({ children }) {
     }
 
     let isMounted = true;
+    let initialAuthHandled = false;
 
-    // Check existing session
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+    const handleAuthSession = async (currSession, source) => {
       if (!isMounted) return;
-      if (currentSession?.user) {
-        const hydrated = await hydrateUserAndRole(currentSession.user, currentSession);
+      if (currSession?.user) {
+        const hydrated = await hydrateUserAndRole(currSession.user, currSession);
         try {
           const pendingRole = sessionStorage.getItem('goc_pos_welcome_role');
           if (pendingRole && hydrated?.role) {
@@ -656,7 +713,7 @@ export function PosProvider({ children }) {
           }
         } catch (_) {}
         try {
-          syncFromCloud(false, true);
+          syncFromCloud(false, false);
         } catch (_) {}
       } else {
         setSession(null);
@@ -666,6 +723,13 @@ export function PosProvider({ children }) {
         setCurrentUserProfile(null);
       }
       setIsAuthLoading(false);
+    };
+
+    // Check existing session
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      if (!isMounted || initialAuthHandled) return;
+      initialAuthHandled = true;
+      await handleAuthSession(currentSession, 'getSession');
     }).catch(() => {
       if (isMounted) setIsAuthLoading(false);
     });
@@ -673,19 +737,50 @@ export function PosProvider({ children }) {
     // Listen to Supabase Auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
-      if (newSession?.user) {
-        await hydrateUserAndRole(newSession.user, newSession);
-        try {
-          syncFromCloud(false, true);
-        } catch (_) {}
-      } else if (event === 'SIGNED_OUT' || !newSession) {
+
+      if (event === 'INITIAL_SESSION') {
+        if (initialAuthHandled) return;
+        initialAuthHandled = true;
+        await handleAuthSession(newSession, 'INITIAL_SESSION');
+        return;
+      }
+
+      if (event === 'TOKEN_REFRESHED') {
+        if (newSession) {
+          setSession(newSession);
+          if (newSession.user) setAuthUser(newSession.user);
+        }
+        return;
+      }
+
+      if (event === 'SIGNED_IN') {
+        if (initialAuthHandled) {
+          if (newSession) {
+            setSession(newSession);
+            if (newSession.user) setAuthUser(newSession.user);
+          }
+          return;
+        }
+        initialAuthHandled = true;
+        await handleAuthSession(newSession, 'SIGNED_IN');
+        return;
+      }
+
+      if (event === 'SIGNED_OUT' || !newSession) {
         setSession(null);
         setAuthUser(null);
         setCurrentUser(null);
         setCurrentRole(null);
         setCurrentUserProfile(null);
+        setIsAuthLoading(false);
+        return;
       }
-      setIsAuthLoading(false);
+
+      if (event === 'USER_UPDATED') {
+        if (newSession?.user) {
+          await hydrateUserAndRole(newSession.user, newSession);
+        }
+      }
     });
 
     return () => {
@@ -951,63 +1046,9 @@ export function PosProvider({ children }) {
 
     async function initSync() {
       if (!isSupabaseConfigured || !supabase) return;
-      const health = await checkSupabaseHealth();
-      if (!isMounted) return;
-      setCloudStatus((prev) => ({
-        ...prev,
-        ...health,
-        lastSyncTime: health.connected ? new Date() : prev.lastSyncTime
-      }));
-
-      if (health.connected && health.tablesExist) {
-        setIsSyncing(true);
-        const cloudData = await fetchAllCloudData();
-        if (isMounted && cloudData) {
-          if (cloudData.categories && cloudData.categories.length > 0) setCategories(cloudData.categories);
-          if (cloudData.menu && cloudData.menu.length > 0) setMenu(cloudData.menu);
-          if (cloudData.toppings && cloudData.toppings.length > 0) setToppings(cloudData.toppings);
-          if (cloudData.productToppings) setProductToppings(cloudData.productToppings);
-          if (cloudData.settings) setSettings(cloudData.settings);
-          await syncStaffWithCloud(cloudData?.staff || cloudData?.staffList || null);
-
-          if (cloudData.payments && cloudData.payments.length > 0) {
-            setPayments(cloudData.payments);
-          } else if (cloudData.orderHistory && cloudData.orderHistory.length > 0) {
-            const derivedPayments = cloudData.orderHistory
-              .filter((o) => o.status === 'completed' && Number(o.total) > 0)
-              .map((o) => ({
-                id: 'PAY_DERIVED_' + o.id,
-                orderId: o.id,
-                amount: Number(o.paidAmount || o.total) || 0,
-                paymentMethod: o.paymentMethod || 'cash',
-                paymentStatus: 'completed',
-                paidAt: o.finishedAt || o.paidAt || o.createdAt,
-                businessDate: o.businessDate || (o.createdAt ? getVietnamDateString(o.createdAt) : getVietnamTodayString()),
-                cashierId: o.cashier || 'Thu ngân'
-              }));
-            if (derivedPayments.length > 0) {
-              setPayments(derivedPayments);
-            }
-          }
-
-          const fetchedTables = cloudData.tables && cloudData.tables.length > 0 ? cloudData.tables : tables;
-          const fetchedOrders = cloudData.orders ? cloudData.orders : {};
-          const fetchedHistory = cloudData.orderHistory ? cloudData.orderHistory : [];
-          const reconciled = reconcileTablesAndOrders(fetchedTables, fetchedOrders, fetchedHistory);
-          const today = getVietnamTodayString();
-          const rolled = rolloverPastUnpaidOrders(reconciled.reconciledTables, reconciled.reconciledOrders, reconciled.reconciledHistory, today);
-          setTables(rolled.tables);
-          setOrders(rolled.orders);
-          setOrderHistory(rolled.orderHistory);
-
-          if (isSupabaseConfigured && supabase) {
-            rolloverDailyOrdersRpc(today).catch((e) => console.warn('Lỗi gọi rolloverDailyOrdersRpc khi khởi động:', e));
-          }
-
-          setCloudStatus((prev) => ({ ...prev, lastSyncTime: new Date() }));
-        }
-        setIsSyncing(false);
-      }
+      // Do not sync cloud database if user is not authenticated (sitting on login screen)
+      if (!session?.user && !initialCachedAuth?.hasToken) return;
+      await syncFromCloud(false, false);
     }
 
     initSync();

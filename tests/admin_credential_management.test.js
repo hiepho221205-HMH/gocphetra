@@ -440,7 +440,7 @@ describe('GÓC POS — ADMIN-ONLY ACCOUNT CREDENTIAL MANAGEMENT SUITE', () => {
       });
       assert.strictEqual(firstRes.status, 200);
       assert.strictEqual(firstRes.body.success, true);
-      assert.strictEqual(adminUpdateCallCount, 1);
+      assert.strictEqual(adminUpdateCallCount, 2);
 
       // Immediate retry with the same idempotency key -> Returns cached response without calling Auth Admin API twice!
       const retryRes = await handleAdminCredentialManagement({
@@ -451,7 +451,7 @@ describe('GÓC POS — ADMIN-ONLY ACCOUNT CREDENTIAL MANAGEMENT SUITE', () => {
       });
       assert.strictEqual(retryRes.status, 200);
       assert.strictEqual(retryRes.body.success, true);
-      assert.strictEqual(adminUpdateCallCount, 1, 'Auth Admin API MUST NOT be invoked a second time for same idempotency key');
+      assert.strictEqual(adminUpdateCallCount, 2, 'Auth Admin API MUST NOT be invoked a second time for same idempotency key');
     });
 
     it('7.10 - Core Handler: NEVER logs plain password or auth secrets in audit logs', async () => {

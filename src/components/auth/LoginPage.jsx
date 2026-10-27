@@ -98,9 +98,9 @@ export default function LoginPage() {
       {/* 1. Background Atmosphere: 3D Coffee Shop with Soft Blur */}
       <div className="fixed inset-0 z-0 pointer-events-none select-none">
         <picture>
-          <source type="image/webp" srcSet="/images/login/coffee-shop-bg.webp" />
+          <source type="image/webp" srcSet="./images/login/coffee-shop-bg.webp" />
           <img
-            src="/images/login/coffee-shop-bg.png"
+            src="./images/login/coffee-shop-bg.png"
             alt=""
             aria-hidden="true"
             className="w-full h-full object-cover object-center filter blur-[1px] scale-[1.02]"
@@ -126,15 +126,15 @@ export default function LoginPage() {
         {/* B. 3D Barista Character (Mobile Scaled & Positioned Cleanly) */}
         <div className="relative z-20 flex justify-center -mb-4 sm:-mb-5 pointer-events-none select-none">
           <picture className="inline-block">
-            <source type="image/webp" srcSet="/images/login/barista-3d.webp" />
+            <source type="image/webp" srcSet="./images/login/barista-3d.webp" />
             <img
-              src="/images/login/barista-3d.png"
+              src="./images/login/barista-3d.png"
               alt="3D Coffee Barista"
               className="w-32 sm:w-40 md:w-44 h-auto max-h-[135px] object-contain drop-shadow-md select-none"
               draggable={false}
               width={160}
               height={160}
-              fetchPriority="high"
+              fetchpriority="high"
             />
           </picture>
         </div>
@@ -147,7 +147,7 @@ export default function LoginPage() {
             <h2 className="text-lg sm:text-xl font-black text-[#1C412C] tracking-wide uppercase">
               LOGIN
             </h2>
-            <p className="text-[11px] sm:text-xs text-[#697A70] font-medium leading-relaxed">
+            <p className="text-[11px] sm:text-xs text-[#4F6255] font-medium leading-relaxed">
               Nhập tài khoản nhân viên được cấp để mở ca làm việc
             </p>
           </div>
@@ -278,7 +278,7 @@ export default function LoginPage() {
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200/70" />
               </div>
-              <span className="relative px-2 bg-white text-[9px] sm:text-[10px] font-bold text-[#7E8F84] uppercase tracking-wider">
+              <span className="relative px-2 bg-white text-[9px] sm:text-[10px] font-bold text-[#445549] uppercase tracking-wider">
                 TÀI KHOẢN MẪU THỬ NGHIỆM
               </span>
             </div>
@@ -286,7 +286,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => handleQuickFill('admin01@gocpos.vn', '123456')}
-                className="px-2 py-1.5 rounded-xl bg-[#E3EFFD] text-[#1E65CC] hover:bg-[#D5E7FC] text-[11px] sm:text-xs font-bold border border-[#C9E0FC] transition-colors cursor-pointer active:scale-95 shadow-2xs text-center truncate flex items-center justify-center gap-1"
+                className="px-2 py-1.5 rounded-xl bg-[#E3EFFD] text-[#1652A8] hover:bg-[#D5E7FC] text-[11px] sm:text-xs font-bold border border-[#B8D7FA] transition-colors cursor-pointer active:scale-95 shadow-2xs text-center truncate flex items-center justify-center gap-1"
               >
                 <span>👑</span>
                 <span>Admin</span>
@@ -294,7 +294,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => handleQuickFill('manager01@gocpos.vn', '123456')}
-                className="px-2 py-1.5 rounded-xl bg-[#E2F6EA] text-[#1A7C49] hover:bg-[#D4F1E0] text-[11px] sm:text-xs font-bold border border-[#C5EDD4] transition-colors cursor-pointer active:scale-95 shadow-2xs text-center truncate flex items-center justify-center gap-1"
+                className="px-2 py-1.5 rounded-xl bg-[#E2F6EA] text-[#13663B] hover:bg-[#D4F1E0] text-[11px] sm:text-xs font-bold border border-[#B3E7C6] transition-colors cursor-pointer active:scale-95 shadow-2xs text-center truncate flex items-center justify-center gap-1"
               >
                 <span>📋</span>
                 <span>Quản lý</span>
@@ -302,7 +302,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => handleQuickFill('staff01@gocpos.vn', '123456')}
-                className="px-2 py-1.5 rounded-xl bg-[#FEF1DF] text-[#BC670B] hover:bg-[#FDE7C9] text-[11px] sm:text-xs font-bold border border-[#FDE0BC] transition-colors cursor-pointer active:scale-95 shadow-2xs text-center truncate flex items-center justify-center gap-1"
+                className="px-2 py-1.5 rounded-xl bg-[#FEF1DF] text-[#8F4800] hover:bg-[#FDE7C9] text-[11px] sm:text-xs font-bold border border-[#F9D4A1] transition-colors cursor-pointer active:scale-95 shadow-2xs text-center truncate flex items-center justify-center gap-1"
               >
                 <span>☕</span>
                 <span>Thu ngân</span>
@@ -317,7 +317,7 @@ export default function LoginPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse"></span>
             <span>Bảo mật Supabase Auth • Phân quyền RBAC</span>
           </div>
-          <p className="text-[10px] text-[#55695D] font-medium">
+          <p className="text-[10px] text-[#3B4D41] font-medium">
             GÓC POS v1.0 • Chỉ dành cho nhân sự nội bộ quán
           </p>
         </div>
@@ -327,7 +327,7 @@ export default function LoginPage() {
       {showForgotModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white w-full max-w-sm rounded-3xl p-5 space-y-3.5 shadow-2xl text-center border border-gray-100">
-            <div className="w-12 h-12 rounded-2xl bg-[#E2F6EA] text-[#1A7C49] flex items-center justify-center mx-auto shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-[#E2F6EA] text-[#13663B] flex items-center justify-center mx-auto shadow-xs">
               <HelpCircle className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div>

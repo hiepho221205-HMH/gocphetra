@@ -233,7 +233,34 @@ serve(async (req) => {
       // best-effort
     }
 
-    // 8. Pha 1: Thực hiện cập nhật tài khoản qua Supabase Auth Admin API
+    // 8. Pha 1: Thực hiện cập nhật tài khoản qua Supabase Auth Admin API (2 bước an toàn)
+    // Bước 8.1: Nạp Nonce ủy quyền vào raw_app_meta_data của target user trước
+    // (Bước này chỉ cập nhật app_metadata, không đổi email hay password nên bypass trigger an toàn)
+    const nonceMetadataPayload = {
+      app_metadata: {
+        ...existingAppMetadata,
+        admin_nonce: nonce
+      }
+    };
+
+    const { error: nonceMetaErr } = await supabaseAdmin.auth.admin.updateUserById(
+      targetUserId,
+      nonceMetadataPayload
+    );
+
+    if (nonceMetaErr) {
+      if (idempotencyKey) {
+        await supabaseAdmin.from("security_idempotency_keys").update({ status: "failed" }).eq("key", idempotencyKey);
+      }
+      return new Response(
+        JSON.stringify({ success: false, error: "AUTH_NONCE_STAMP_FAILED", message: nonceMetaErr.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Bước 8.2: Áp dụng mật khẩu mới và/hoặc email mới
+    // Trigger trg_guard_auth_user_credentials_update trên auth.users sẽ đọc admin_nonce vừa nạp ở Bước 8.1,
+    // xác thực với security_admin_credential_nonces và tiêu thụ ('consumed') nguyên tử!
     const authUpdatePayload: Record<string, any> = {
       app_metadata: {
         ...existingAppMetadata,

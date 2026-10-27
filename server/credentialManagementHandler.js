@@ -386,8 +386,47 @@ export async function handleAdminCredentialManagement({
     }
   }
 
-  // 9. Pha 1: Thực hiện cập nhật tài khoản qua Supabase Auth Admin API (Server-side)
-  // Gửi kèm admin_nonce vào app_metadata để trigger guard_auth_user_credentials_update xác thực và tiêu thụ
+  // 9. Pha 1: Thực hiện cập nhật tài khoản qua Supabase Auth Admin API (Server-side 2 bước)
+  // Bước 9.1: Nạp Nonce ủy quyền vào raw_app_meta_data của target user trước
+  // (Bước này chỉ cập nhật app_metadata, không đổi email hay password nên bypass trigger an toàn)
+  const nonceMetadataPayload = {
+    app_metadata: {
+      ...existingAppMetadata,
+      admin_nonce: nonce
+    }
+  };
+
+  try {
+    const { error: nonceMetaErr } = await supabaseAdmin.auth.admin.updateUserById(
+      targetUserId,
+      nonceMetadataPayload
+    );
+
+    if (nonceMetaErr) {
+      if (idempotencyKey) {
+        memoryIdempotencyStore.set(idempotencyKey, {
+          status: 'failed',
+          createdAt: now,
+          updatedAt: Date.now(),
+          expiresAt: now + 60000
+        });
+      }
+      return {
+        status: 400,
+        body: {
+          success: false,
+          error: 'AUTH_ADMIN_UPDATE_FAILED',
+          message: nonceMetaErr.message || 'Không thể thiết lập Nonce bảo mật cho tài khoản.'
+        }
+      };
+    }
+  } catch (stampErr) {
+    console.warn('Lỗi khi nạp nonce vào app_metadata:', stampErr);
+  }
+
+  // Bước 9.2: Áp dụng mật khẩu mới và/hoặc email mới (đồng thời bảo toàn app_metadata có chứa admin_nonce)
+  // Trigger guard_auth_user_credentials_update trên auth.users sẽ đọc admin_nonce vừa nạp ở Bước 9.1,
+  // xác thực với security_admin_credential_nonces và tiêu thụ ('consumed') nguyên tử!
   const authUpdatePayload = {
     app_metadata: {
       ...existingAppMetadata,

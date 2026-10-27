@@ -21,7 +21,7 @@ const MenuManagementView = lazy(() => import('./components/menu/MenuManagementVi
 const OrderHistoryView = lazy(() => import('./components/orders/OrderHistoryView'));
 const ReportsView = lazy(() => import('./components/reports/ReportsView'));
 const SettingsView = lazy(() => import('./components/settings/SettingsView'));
-const LoginPage = lazy(() => import('./components/auth/LoginPage'));
+import LoginPage from './components/auth/LoginPage';
 import AccountSuspendedBannerModal from './components/auth/AccountSuspendedBannerModal';
 const LoginSuccessView = lazy(() => import('./components/auth/LoginSuccessView'));
 

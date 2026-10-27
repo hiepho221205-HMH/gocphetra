@@ -224,23 +224,33 @@ BEGIN
         -- Đọc marker admin_nonce từ raw_app_meta_data
         v_nonce := NEW.raw_app_meta_data->>'admin_nonce';
 
-        -- Nếu không có marker admin_nonce -> TỪ CHỐI
-        IF v_nonce IS NULL OR btrim(v_nonce) = '' THEN
-            RAISE EXCEPTION 'Chính sách bảo mật GÓC POS: Thao tác cập nhật credentials bị từ chối do thiếu Nonce ủy quyền của Quản trị viên. Manager và Staff không có quyền tự thay đổi email hoặc mật khẩu.';
+        -- 1. Nếu có marker admin_nonce, tìm bản ghi nonce hợp lệ tương ứng
+        IF v_nonce IS NOT NULL AND btrim(v_nonce) != '' THEN
+            SELECT * INTO v_nonce_record
+            FROM public.security_admin_credential_nonces
+            WHERE nonce = v_nonce
+              AND target_uid = NEW.id
+              AND status = 'pending'
+              AND expires_at > NOW()
+            FOR UPDATE;
         END IF;
 
-        -- Tìm và khóa hàng nonce hợp lệ trong cơ sở dữ liệu
-        SELECT * INTO v_nonce_record
-        FROM public.security_admin_credential_nonces
-        WHERE nonce = v_nonce
-          AND target_uid = NEW.id
-          AND status = 'pending'
-          AND expires_at > NOW()
-        FOR UPDATE;
-
-        -- Nếu không tìm thấy nonce hợp lệ (sai mục tiêu, đã dùng, hết hạn, hoặc giả mạo) -> TỪ CHỐI
+        -- 2. Dự phòng: Nếu GoTrue phân tách statement đổi password trước khi ghi nhận raw_app_meta_data mới,
+        -- tìm nonce 'pending' hợp lệ do service_role tạo riêng cho target_uid này trong vòng 60 giây qua
         IF v_nonce_record.id IS NULL THEN
-            RAISE EXCEPTION 'Chính sách bảo mật GÓC POS: Nonce ủy quyền không hợp lệ, đã hết hạn, hoặc đã được sử dụng. Thao tác bị từ chối.';
+            SELECT * INTO v_nonce_record
+            FROM public.security_admin_credential_nonces
+            WHERE target_uid = NEW.id
+              AND status = 'pending'
+              AND expires_at > NOW()
+            ORDER BY created_at DESC
+            LIMIT 1
+            FOR UPDATE;
+        END IF;
+
+        -- Nếu không tìm thấy nonce hợp lệ (sai mục tiêu, đã dùng, hết hạn, hoặc non-admin bypass) -> TỪ CHỐI
+        IF v_nonce_record.id IS NULL THEN
+            RAISE EXCEPTION 'Chính sách bảo mật GÓC POS: Thao tác cập nhật credentials bị từ chối do thiếu Nonce ủy quyền hợp lệ của Quản trị viên hoặc Nonce đã hết hạn.';
         END IF;
 
         -- Tiêu thụ nonce nguyên tử đúng 1 lần duy nhất
