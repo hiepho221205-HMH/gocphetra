@@ -1548,9 +1548,15 @@ export async function adminUpdateUserCredentialsEdge({
   const key = idempotencyKey || `idemp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
   try {
-    // 1. Gọi Supabase Edge Function bảo mật
+    // 1. Lấy token xác thực từ phiên đăng nhập hiện tại
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const invokeHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+    // 2. Gọi Supabase Edge Function bảo mật
     if (supabase.functions && typeof supabase.functions.invoke === 'function') {
       const { data, error } = await supabase.functions.invoke('admin-manage-credentials', {
+        headers: invokeHeaders,
         body: {
           targetUserId,
           newEmail: cleanNewEmail,
@@ -1562,18 +1568,41 @@ export async function adminUpdateUserCredentialsEdge({
 
       if (error) {
         console.warn('Lỗi invoke admin-manage-credentials:', error);
-        let userFriendlyMsg = error.message || 'Không thể cập nhật tài khoản qua Edge Function';
+
+        // Bóc tách nội dung phản hồi chi tiết từ Edge Function Response (error.context)
+        let errorBody = null;
+        if (error.context && typeof error.context.json === 'function') {
+          try {
+            errorBody = await error.context.json();
+          } catch {
+            try {
+              errorBody = await error.context.text();
+            } catch {}
+          }
+        }
+
+        let userFriendlyMsg =
+          (typeof errorBody === 'object' && (errorBody?.message || errorBody?.error)) ||
+          (typeof errorBody === 'string' && errorBody) ||
+          error.message ||
+          'Không thể cập nhật tài khoản qua Edge Function';
+
         if (
           userFriendlyMsg.includes('Failed to send a request to the Edge Function') ||
           userFriendlyMsg.includes('FunctionsFetchError') ||
           userFriendlyMsg.includes('Function not found')
         ) {
           userFriendlyMsg = 'Chưa thể kết nối tới máy chủ Edge Function (hàm admin-manage-credentials chưa được deploy trên Supabase Cloud). Vui lòng deploy Edge Function để kích hoạt tính năng.';
+        } else if (userFriendlyMsg.includes('Edge Function returned a non-2xx status code')) {
+          userFriendlyMsg = 'Edge Function báo lỗi xử lý. Vui lòng kiểm tra lại mật khẩu Admin hoặc đảm bảo file SQL Migration (20261027120000) đã được chạy trên Supabase Dashboard.';
         }
+
         return {
           success: false,
           error,
-          message: userFriendlyMsg
+          message: userFriendlyMsg,
+          remainingAttempts: errorBody?.remainingAttempts,
+          retryAfterSeconds: errorBody?.retryAfterSeconds
         };
       }
 
