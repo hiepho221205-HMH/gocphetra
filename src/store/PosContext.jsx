@@ -2100,7 +2100,6 @@ export function PosProvider({ children }) {
 
     const existingIndex = order.items.findIndex(
       (it) =>
-        !it.is_printed &&
         it.productId === itemConfig.productId &&
         it.size === itemConfig.size &&
         (it.notes || '').trim() === (itemConfig.notes || '').trim()
@@ -2113,6 +2112,7 @@ export function PosProvider({ children }) {
       updatedItems[existingIndex] = {
         ...cur,
         quantity: newQty,
+        printed_quantity: Math.max(0, Number(cur.printed_quantity) || 0),
         lineTotal: cur.unitPrice * newQty
       };
     } else {
@@ -2122,8 +2122,8 @@ export function PosProvider({ children }) {
         cartItemId,
         unitPrice,
         quantity,
+        printed_quantity: 0,
         lineTotal,
-        is_printed: false,
         addedAt: new Date().toISOString()
       });
     }
@@ -2153,6 +2153,7 @@ export function PosProvider({ children }) {
           return {
             ...it,
             quantity: newQty,
+            printed_quantity: Math.min(Math.max(0, Number(it.printed_quantity) || 0), newQty),
             lineTotal: it.unitPrice * newQty
           };
         }
@@ -2382,7 +2383,7 @@ export function PosProvider({ children }) {
 
       const normalizedItems = (items || []).map((it) => ({
         ...it,
-        is_printed: Boolean(it.is_printed)
+        printed_quantity: Math.max(0, Number(it.printed_quantity) || 0)
       }));
 
       const updatedOrder = recalculateOrder({
@@ -2467,7 +2468,7 @@ export function PosProvider({ children }) {
     }
   };
 
-  // Ghi nhận in phiếu chế biến: Cập nhật is_printed trên items, kitchenSentItems và lưu record vào preparation_tickets
+  // Ghi nhận in phiếu chế biến: Cập nhật printed_quantity = quantity, kitchenSentItems và lưu record vào preparation_tickets
   const recordKitchenTicketPrint = async (orderId, ticketModel, newSentItems = [], printedItemIds = []) => {
     try {
       const order = orders[orderId];
@@ -2485,11 +2486,11 @@ export function PosProvider({ children }) {
       const updatedItems = (order.items || []).map((it) => {
         const itemId = it.cartItemId || it.id;
         const isMatched = printedIdsSet.size === 0 || printedIdsSet.has(itemId);
-        if (isMatched && !it.is_printed) {
+        if (isMatched) {
           return {
             ...it,
-            is_printed: true,
-            printed_at: it.printed_at || nowIso
+            printed_quantity: Number(it.quantity) || 0,
+            printed_at: nowIso
           };
         }
         return it;
@@ -2513,8 +2514,12 @@ export function PosProvider({ children }) {
         console.warn('Sync storage error:', e);
       }
 
-      // Upsert order to cloud
-      cloudUpsertOrder(updatedOrder).catch((e) => console.warn('cloudUpsertOrder error:', e));
+      // Upsert order to cloud synchronously
+      try {
+        await cloudUpsertOrder(updatedOrder);
+      } catch (e) {
+        console.warn('cloudUpsertOrder error:', e);
+      }
 
       // Broadcast order_sync to other connected devices
       if (realtimeChannelRef.current) {

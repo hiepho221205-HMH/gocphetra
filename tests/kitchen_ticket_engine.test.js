@@ -10,6 +10,7 @@ import {
   generateItemSignature,
   normalizeToppingsList,
   computeKitchenItemsDiff,
+  computeKitchenItemsToPrint,
   mergeSentItems,
   buildKitchenTicketModel,
   DEFAULT_KITCHEN_TICKET_SETTINGS
@@ -279,5 +280,77 @@ test('Kitchen Ticket Engine — Ticket Model Strict Isolation & ESC/POS Bytes', 
     assert.ok(textRound2.includes('[MÓN GỌI THÊM]'), 'Additional round ticket must include [MÓN GỌI THÊM]');
     assert.ok(textRound2.includes('Trà đào cam sả'), 'Must include new item');
     assert.ok(!textRound2.includes('Cà phê muối'), 'Must NOT include old item already printed in Round 1');
+  });
+});
+
+test('Kitchen Ticket Engine — Delta Quantity (printed_quantity) Computation', async (t) => {
+  await t.test('Round 1: Initial order with printed_quantity=0 calculates exact qtyToPrint', () => {
+    const items = [
+      { id: '1', name: 'Cà phê muối', quantity: 2, printed_quantity: 0 },
+      { id: '2', name: 'Trà sen vàng', quantity: 1, printed_quantity: 0 }
+    ];
+
+    const result = computeKitchenItemsToPrint(items);
+    assert.equal(result.hasChanges, true);
+    assert.equal(result.totalQtyToPrint, 3);
+    assert.equal(result.itemsToPrint.length, 2);
+    assert.equal(result.itemsToPrint[0].qtyToPrint, 2);
+    assert.equal(result.itemsToPrint[0].isAdditional, false);
+    assert.equal(result.itemsToPrint[1].qtyToPrint, 1);
+  });
+
+  await t.test('All items already printed (printed_quantity === quantity) returns hasChanges: false', () => {
+    const items = [
+      { id: '1', name: 'Cà phê muối', quantity: 2, printed_quantity: 2 },
+      { id: '2', name: 'Trà sen vàng', quantity: 1, printed_quantity: 1 }
+    ];
+
+    const result = computeKitchenItemsToPrint(items);
+    assert.equal(result.hasChanges, false);
+    assert.equal(result.totalQtyToPrint, 0);
+    assert.equal(result.itemsToPrint.length, 0);
+  });
+
+  await t.test('Round 2: Incrementing existing item quantity from 2 to 3 only prints delta of 1', () => {
+    const items = [
+      { id: '1', name: 'Cà phê muối', quantity: 3, printed_quantity: 2 },
+      { id: '2', name: 'Trà sen vàng', quantity: 1, printed_quantity: 1 }
+    ];
+
+    const result = computeKitchenItemsToPrint(items);
+    assert.equal(result.hasChanges, true);
+    assert.equal(result.totalQtyToPrint, 1);
+    assert.equal(result.itemsToPrint.length, 1);
+    assert.equal(result.itemsToPrint[0].name, 'Cà phê muối');
+    assert.equal(result.itemsToPrint[0].qtyToPrint, 1);
+    assert.equal(result.itemsToPrint[0].quantity, 1);
+    assert.equal(result.itemsToPrint[0].isAdditional, true);
+  });
+
+  await t.test('Round 2: Calling a brand new item plus incrementing existing item', () => {
+    const items = [
+      { id: '1', name: 'Cà phê muối', quantity: 4, printed_quantity: 2 }, // +2
+      { id: '2', name: 'Trà đào cam sả', quantity: 2, printed_quantity: 0 } // +2 brand new
+    ];
+
+    const result = computeKitchenItemsToPrint(items);
+    assert.equal(result.hasChanges, true);
+    assert.equal(result.totalQtyToPrint, 4);
+    assert.equal(result.itemsToPrint.length, 2);
+    assert.equal(result.itemsToPrint[0].qtyToPrint, 2);
+    assert.equal(result.itemsToPrint[0].isAdditional, true);
+    assert.equal(result.itemsToPrint[1].qtyToPrint, 2);
+    assert.equal(result.itemsToPrint[1].isAdditional, false);
+  });
+
+  await t.test('Reduced quantity (quantity < printed_quantity) is excluded from print', () => {
+    const items = [
+      { id: '1', name: 'Cà phê muối', quantity: 1, printed_quantity: 2 }
+    ];
+
+    const result = computeKitchenItemsToPrint(items);
+    assert.equal(result.hasChanges, false);
+    assert.equal(result.totalQtyToPrint, 0);
+    assert.equal(result.itemsToPrint.length, 0);
   });
 });

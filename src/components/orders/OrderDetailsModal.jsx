@@ -22,6 +22,7 @@ import SaveOrderPrintPromptModal from '../ordering/SaveOrderPrintPromptModal';
 import PreparationTicketTemplate from '../printing/PreparationTicketTemplate';
 import {
   computeKitchenItemsDiff,
+  computeKitchenItemsToPrint,
   buildKitchenTicketModel,
   mergeSentItems,
   DEFAULT_KITCHEN_TICKET_SETTINGS
@@ -184,22 +185,18 @@ export default function OrderDetailsModal({
 
         const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
         if (kitchenSettings.enabled !== false) {
-          const unprintedItems = (items || []).filter(
-            (it) => !it.is_printed && (Number(it.quantity) || 0) > 0
-          );
-          const unprintedCount = unprintedItems.reduce(
-            (sum, it) => sum + (Number(it.quantity) || 1),
-            0
-          );
+          const { itemsToPrint, totalQtyToPrint, hasChanges } = computeKitchenItemsToPrint(items);
 
-          if (unprintedCount > 0 && kitchenSettings.promptOnSave !== false) {
-            const hasPreviousPrints = (items || []).some((it) => it.is_printed);
+          if (hasChanges && kitchenSettings.promptOnSave !== false) {
+            const hasPreviousPrints = (items || []).some(
+              (it) => (Number(it.printed_quantity) || 0) > 0
+            );
             setPrintPromptState({
               isOpen: true,
               order: res.order,
               table: res.table || table,
-              unprintedItems,
-              unprintedCount,
+              itemsToPrint,
+              totalQtyToPrint,
               isAdditionalOrder: hasPreviousPrints
             });
             setIsSubmitting(false);
@@ -220,13 +217,13 @@ export default function OrderDetailsModal({
 
   const handleConfirmKitchenPrint = async (options = {}) => {
     if (!printPromptState?.order) return;
-    const { order: savedOrder, table: savedTable, unprintedItems = [] } = printPromptState;
+    const { order: savedOrder, table: savedTable, itemsToPrint = [] } = printPromptState;
     const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
 
     const ticketModel = buildKitchenTicketModel({
       order: savedOrder,
       table: savedTable || table,
-      diffItems: unprintedItems,
+      diffItems: itemsToPrint,
       settings,
       currentUser,
       printMode: kitchenSettings.printMode || 'diff'
@@ -246,8 +243,8 @@ export default function OrderDetailsModal({
     });
 
     if (printResult?.success) {
-      const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, unprintedItems);
-      const printedCartItemIds = unprintedItems.map((it) => it.cartItemId || it.id);
+      const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, itemsToPrint);
+      const printedCartItemIds = itemsToPrint.map((it) => it.cartItemId || it.id);
       if (recordKitchenTicketPrint) {
         await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems, printedCartItemIds);
       }
@@ -403,15 +400,29 @@ export default function OrderDetailsModal({
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-[#214E34] shrink-0">
                       {item.sizeName || item.size}
                     </span>
-                    {item.is_printed ? (
-                      <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 shrink-0">
-                        Đã gửi bếp
-                      </span>
-                    ) : (
-                      <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60 shrink-0">
-                        Món mới
-                      </span>
-                    )}
+                    {(() => {
+                      const qty = Number(item.quantity) || 0;
+                      const printedQty = Number(item.printed_quantity) || 0;
+                      if (printedQty >= qty && qty > 0) {
+                        return (
+                          <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 shrink-0">
+                            Đã gửi bếp
+                          </span>
+                        );
+                      }
+                      if (printedQty > 0 && qty > printedQty) {
+                        return (
+                          <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 shrink-0">
+                            Gửi thêm +{qty - printedQty}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60 shrink-0">
+                          Món mới
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   {/* Toppings list */}
@@ -595,7 +606,7 @@ export default function OrderDetailsModal({
         <SaveOrderPrintPromptModal
           isOpen={printPromptState.isOpen}
           tableName={table?.name || printPromptState.order?.tableName}
-          itemCount={printPromptState.unprintedCount || 0}
+          itemCount={printPromptState.totalQtyToPrint || 0}
           isAdditional={Boolean(printPromptState.isAdditionalOrder)}
           onConfirmPrint={handleConfirmKitchenPrint}
           onDismiss={handleDismissKitchenPrint}

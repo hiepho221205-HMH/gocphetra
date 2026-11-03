@@ -9,6 +9,7 @@ import SaveOrderPrintPromptModal from './SaveOrderPrintPromptModal';
 import PreparationTicketTemplate from '../printing/PreparationTicketTemplate';
 import {
   computeKitchenItemsDiff,
+  computeKitchenItemsToPrint,
   buildKitchenTicketModel,
   mergeSentItems,
   DEFAULT_KITCHEN_TICKET_SETTINGS
@@ -62,7 +63,8 @@ function fastCloneCartItems(items) {
   if (!Array.isArray(items)) return [];
   return items.map((it) => ({
     ...it,
-    is_printed: Boolean(it.is_printed),
+    quantity: Number(it.quantity) || 1,
+    printed_quantity: Math.max(0, Number(it.printed_quantity) || 0),
     toppings: Array.isArray(it.toppings) ? it.toppings.map((tp) => ({ ...tp })) : []
   }));
 }
@@ -188,7 +190,6 @@ export default function OrderView({ table, onBack, onGoToBill }) {
   const handleAddToCart = (itemConfig) => {
     const existingIndex = cartItems.findIndex(
       (it) =>
-        !it.is_printed &&
         it.productId === itemConfig.productId &&
         it.size === itemConfig.size &&
         JSON.stringify(it.toppings || []) === JSON.stringify(itemConfig.toppings || []) &&
@@ -196,7 +197,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     );
 
     if (existingIndex >= 0) {
-      // Tăng số lượng cho món chưa gửi bếp
+      // Tự động cộng dồn số lượng vào món cùng loại (giữ nguyên printed_quantity để tính delta chính xác)
       setCartItems((prev) => {
         const copy = [...prev];
         const cur = copy[existingIndex];
@@ -204,19 +205,20 @@ export default function OrderView({ table, onBack, onGoToBill }) {
         copy[existingIndex] = {
           ...cur,
           quantity: newQty,
+          printed_quantity: Math.max(0, Number(cur.printed_quantity) || 0),
           lineTotal: cur.unitPrice * newQty
         };
         return copy;
       });
     } else {
-      // Thêm dòng mới (cho món mới hoặc món gọi thêm khi món cũ đã in chế biến)
+      // Thêm dòng món mới
       const cartItemId = 'draft-' + Date.now() + Math.random().toString(36).substr(2, 4);
       setCartItems((prev) => [
         ...prev,
         {
           ...itemConfig,
           cartItemId,
-          is_printed: false,
+          printed_quantity: 0,
           addedAt: new Date().toISOString()
         }
       ]);
@@ -254,24 +256,20 @@ export default function OrderView({ table, onBack, onGoToBill }) {
 
         const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
         if (kitchenSettings.enabled !== false) {
-          // Lọc danh sách món chưa in chế biến (is_printed === false)
-          const unprintedItems = (itemsToSave || []).filter(
-            (it) => !it.is_printed && (Number(it.quantity) || 0) > 0
-          );
-          const unprintedCount = unprintedItems.reduce(
-            (sum, it) => sum + (Number(it.quantity) || 1),
-            0
-          );
+          // Tính toán phần chênh lệch cần in chế biến (quantity - printed_quantity)
+          const { itemsToPrint, totalQtyToPrint, hasChanges } = computeKitchenItemsToPrint(itemsToSave);
 
-          // Chỉ bật popup in nếu có món mới chưa in
-          if (unprintedCount > 0 && kitchenSettings.promptOnSave !== false) {
-            const hasPreviousPrints = (itemsToSave || []).some((it) => it.is_printed);
+          // Chỉ bật popup in nếu có món mới cần làm (totalQtyToPrint > 0)
+          if (hasChanges && kitchenSettings.promptOnSave !== false) {
+            const hasPreviousPrints = (itemsToSave || []).some(
+              (it) => (Number(it.printed_quantity) || 0) > 0
+            );
             setPrintPromptState({
               isOpen: true,
               order: result.order,
               table: result.table || table,
-              unprintedItems,
-              unprintedCount,
+              itemsToPrint,
+              totalQtyToPrint,
               isAdditionalOrder: hasPreviousPrints
             });
             setIsSaving(false);
@@ -302,13 +300,13 @@ export default function OrderView({ table, onBack, onGoToBill }) {
 
   const handleConfirmKitchenPrint = async (options = {}) => {
     if (!printPromptState?.order) return;
-    const { order: savedOrder, table: savedTable, unprintedItems = [] } = printPromptState;
+    const { order: savedOrder, table: savedTable, itemsToPrint = [] } = printPromptState;
     const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
 
     const ticketModel = buildKitchenTicketModel({
       order: savedOrder,
       table: savedTable || table,
-      diffItems: unprintedItems,
+      diffItems: itemsToPrint,
       settings,
       currentUser,
       printMode: kitchenSettings.printMode || 'diff'
@@ -329,8 +327,8 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     });
 
     if (printResult?.success) {
-      const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, unprintedItems);
-      const printedCartItemIds = unprintedItems.map((it) => it.cartItemId || it.id);
+      const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, itemsToPrint);
+      const printedCartItemIds = itemsToPrint.map((it) => it.cartItemId || it.id);
       if (recordKitchenTicketPrint) {
         await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems, printedCartItemIds);
       }
@@ -809,7 +807,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
         <SaveOrderPrintPromptModal
           isOpen={printPromptState.isOpen}
           tableName={table?.name || printPromptState.order?.tableName}
-          itemCount={printPromptState.unprintedCount || 0}
+          itemCount={printPromptState.totalQtyToPrint || 0}
           isAdditional={Boolean(printPromptState.isAdditionalOrder)}
           onConfirmPrint={handleConfirmKitchenPrint}
           onDismiss={handleDismissKitchenPrint}

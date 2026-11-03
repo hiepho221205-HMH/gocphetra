@@ -47,6 +47,44 @@ export function generateItemSignature(item) {
 }
 
 /**
+ * Calculates preparation ticket items based on delta quantity (quantity - printed_quantity).
+ * Pure delta math: eliminates race conditions and handles accumulated items deterministically.
+ * 
+ * @param {Array} items - Order items with `quantity` and `printed_quantity`
+ * @returns {{ itemsToPrint: Array, totalQtyToPrint: number, hasChanges: boolean }}
+ */
+export function computeKitchenItemsToPrint(items = []) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { itemsToPrint: [], totalQtyToPrint: 0, hasChanges: false };
+  }
+
+  const itemsToPrint = items
+    .map((item) => {
+      const qty = Number(item.quantity) || 0;
+      const printedQty = Math.max(0, Number(item.printed_quantity) || 0);
+      const qtyToPrint = Math.max(0, qty - printedQty);
+
+      return {
+        ...item,
+        quantity: qtyToPrint, // Count to prepare on this ticket
+        totalOrderQuantity: qty,
+        printed_quantity: printedQty,
+        qtyToPrint,
+        isAdditional: printedQty > 0
+      };
+    })
+    .filter((item) => item.qtyToPrint > 0);
+
+  const totalQtyToPrint = itemsToPrint.reduce((sum, it) => sum + it.qtyToPrint, 0);
+
+  return {
+    itemsToPrint,
+    totalQtyToPrint,
+    hasChanges: itemsToPrint.length > 0
+  };
+}
+
+/**
  * Computes difference between currently saved items and items already sent to the bar/kitchen.
  * 
  * Rules:
@@ -192,22 +230,30 @@ export function buildKitchenTicketModel({
 
   // Check if order already has prior printed items
   const hasPreviousPrints =
-    Boolean(order?.items?.some((it) => it.is_printed)) ||
-    (Array.isArray(order?.kitchenSentItems) && order.kitchenSentItems.length > 0);
+    Boolean(order?.items?.some((it) => (Number(it.printed_quantity) || 0) > 0 || it.is_printed)) ||
+    (Array.isArray(order?.kitchenSentItems) && order.kitchenSentItems.length > 0) ||
+    (diffItems || []).some((it) => it.isAdditional);
 
   const isAdditionalOrder = hasPreviousPrints;
 
   // Format clean item rows
   const formattedItems = (diffItems || []).map((it, idx) => {
     const cleanToppings = normalizeToppingsList(it.toppings);
+    const itemQty = Number(it.qtyToPrint || it.quantity) || 1;
+    const isItemAdditional = Boolean(
+      it.isAdditional ||
+      (Number(it.printed_quantity) || 0) > 0 ||
+      isAdditionalOrder
+    );
+
     return {
       index: idx + 1,
       id: it.id || it.productId || `item-${idx}`,
       cartItemId: it.cartItemId || it.id,
       name: it.name || it.productName || 'Món không tên',
       size: (it.size || '').trim(),
-      quantity: Number(it.quantity) || 1,
-      isAdditional: Boolean(it.isAdditional || isAdditionalOrder),
+      quantity: itemQty,
+      isAdditional: isItemAdditional,
       toppings: cleanToppings,
       notes: (it.notes || it.note || '').trim()
     };
