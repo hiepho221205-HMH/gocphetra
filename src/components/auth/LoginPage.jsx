@@ -79,12 +79,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickFill = (roleEmail, rolePass) => {
-    triggerHaptic('light');
-    setEmail(roleEmail);
-    setPassword(rolePass);
-  };
-
   return (
     <main
       id="main-content"
@@ -140,7 +134,7 @@ export default function LoginPage() {
         </div>
 
         {/* C. Soft Clay 3D Login Card */}
-        <div className="relative z-10 w-full login-card-3d bg-white p-4 sm:p-6 pt-5 sm:pt-6 space-y-3.5 shadow-xl">
+        <div className="relative z-10 w-full login-card-3d bg-white p-5 sm:p-6 pt-5 sm:pt-6 pb-5 sm:pb-6 space-y-4 shadow-xl">
           
           {/* Card Title & Subtitle */}
           <div className="text-center space-y-0.5">
@@ -195,7 +189,7 @@ export default function LoginPage() {
                   data-testid="login-email-input"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin01@gocpos.vn"
+                  placeholder="nhanvien@gocpos.vn"
                   autoComplete="email"
                   disabled={isSubmitting || lockoutTimer > 0}
                   className="w-full pl-9 pr-3 py-2.5 login-input-3d text-[#1F2A24] text-xs sm:text-sm font-medium placeholder:text-[#95A59C]"
@@ -254,7 +248,7 @@ export default function LoginPage() {
               type="submit"
               data-testid="login-submit-button"
               disabled={isSubmitting || lockoutTimer > 0 || !email || !password}
-              className="w-full mt-1.5 py-3 rounded-full bg-gradient-to-r from-[#2B6641] to-[#1E4C30] hover:from-[#245737] hover:to-[#173B25] active:scale-[0.98] text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 touch-target"
+              className="w-full mt-2.5 py-3 rounded-full bg-gradient-to-r from-[#2B6641] to-[#1E4C30] hover:from-[#245737] hover:to-[#173B25] active:scale-[0.98] text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 touch-target"
             >
               {isSubmitting ? (
                 <>
@@ -271,44 +265,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Quick-fill Pills for testing / demo (Compact Mobile Grid) */}
-          <div className="pt-1.5">
-            <div className="relative flex items-center justify-center mb-2">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200/70" />
-              </div>
-              <span className="relative px-2 bg-white text-[9px] sm:text-[10px] font-bold text-[#445549] uppercase tracking-wider">
-                TÀI KHOẢN MẪU THỬ NGHIỆM
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickFill('admin01@gocpos.vn', '123456')}
-                className="px-2 py-1.5 rounded-xl bg-[#E3EFFD] text-[#1652A8] hover:bg-[#D5E7FC] text-[11px] sm:text-xs font-bold border border-[#B8D7FA] transition-colors cursor-pointer active:scale-95 shadow-2xs text-center truncate flex items-center justify-center gap-1"
-              >
-                <span>👑</span>
-                <span>Admin</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('manager01@gocpos.vn', '123456')}
-                className="px-2 py-1.5 rounded-xl bg-[#E2F6EA] text-[#13663B] hover:bg-[#D4F1E0] text-[11px] sm:text-xs font-bold border border-[#B3E7C6] transition-colors cursor-pointer active:scale-95 shadow-2xs text-center truncate flex items-center justify-center gap-1"
-              >
-                <span>📋</span>
-                <span>Quản lý</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill('staff01@gocpos.vn', '123456')}
-                className="px-2 py-1.5 rounded-xl bg-[#FEF1DF] text-[#8F4800] hover:bg-[#FDE7C9] text-[11px] sm:text-xs font-bold border border-[#F9D4A1] transition-colors cursor-pointer active:scale-95 shadow-2xs text-center truncate flex items-center justify-center gap-1"
-              >
-                <span>☕</span>
-                <span>Thu ngân</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* D. Footer Security Badges */}

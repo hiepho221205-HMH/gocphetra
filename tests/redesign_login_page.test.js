@@ -71,11 +71,9 @@ test('TASK: REDESIGN LOGIN PAGE — GÓC POS', async (t) => {
     assert.ok(loginPageSrc.includes('disabled={isSubmitting'), 'Must prevent double submission');
   });
 
-  await t.test('7. Demo Accounts & Chips: Admin, Quản lý, Thu ngân chips', () => {
-    assert.ok(loginPageSrc.includes('TÀI KHOẢN MẪU THỬ NGHIỆM'), 'Must retain demo accounts section header');
-    assert.ok(loginPageSrc.includes('Admin'), 'Must retain Admin chip');
-    assert.ok(loginPageSrc.includes('Quản lý'), 'Must retain Quản lý chip');
-    assert.ok(loginPageSrc.includes('Thu ngân'), 'Must retain Thu ngân chip');
+  await t.test('7. Production Readiness: Demo Accounts & Quick-fill removed for security', () => {
+    assert.equal(loginPageSrc.includes('TÀI KHOẢN MẪU THỬ NGHIỆM'), false, 'Must remove demo accounts section header');
+    assert.equal(loginPageSrc.includes('handleQuickFill'), false, 'Must remove handleQuickFill helper');
   });
 
   await t.test('8. Footer: Security credentials and version notice', () => {
