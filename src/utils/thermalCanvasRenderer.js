@@ -412,7 +412,7 @@ export async function renderKitchenTicketToCanvas(ticketModel, options = {}) {
 
   let y = padding;
   y += is80 ? 34 : 28; // PHIẾU CHẾ BIẾN
-  if (ticketModel.printMode === 'diff') y += is80 ? 24 : 20;
+  if (ticketModel.isAdditionalOrder) y += is80 ? 24 : 20;
   y += 16; // Separator
 
   if (ticketModel.tableName) {
@@ -481,7 +481,7 @@ export async function renderKitchenTicketToCanvas(ticketModel, options = {}) {
   ctx.fillText('PHIẾU CHẾ BIẾN', width / 2, curY + (is80 ? 24 : 18));
   curY += is80 ? 32 : 26;
 
-  if (ticketModel.printMode === 'diff') {
+  if (ticketModel.isAdditionalOrder) {
     ctx.font = fontSmall;
     ctx.fillText('MÓN GỌI THÊM', width / 2, curY + (is80 ? 18 : 14));
     curY += is80 ? 24 : 20;

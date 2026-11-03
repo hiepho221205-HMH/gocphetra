@@ -93,6 +93,10 @@ import {
   fetchStoreSettingsFromCloud,
   upsertStoreSettingsToCloud
 } from '../lib/supabase';
+import {
+  isSameOrderItem,
+  consolidateOrderItems
+} from '../utils/kitchenTicketEngine';
 import { createReceiptSnapshotRecord } from '../utils/receiptEngine';
 import { formatVND } from '../utils/currency';
 import {
@@ -2098,12 +2102,7 @@ export function PosProvider({ children }) {
     const quantity = itemConfig.quantity || 1;
     const lineTotal = unitPrice * quantity;
 
-    const existingIndex = order.items.findIndex(
-      (it) =>
-        it.productId === itemConfig.productId &&
-        it.size === itemConfig.size &&
-        (it.notes || '').trim() === (itemConfig.notes || '').trim()
-    );
+    const existingIndex = order.items.findIndex((it) => isSameOrderItem(it, itemConfig));
 
     let updatedItems = [...order.items];
     if (existingIndex >= 0) {
@@ -2119,6 +2118,7 @@ export function PosProvider({ children }) {
       const cartItemId = 'item-' + Date.now() + Math.random().toString(36).substr(2, 4);
       updatedItems.push({
         ...itemConfig,
+        productId: itemConfig.productId || itemConfig.id,
         cartItemId,
         unitPrice,
         quantity,
@@ -2381,8 +2381,9 @@ export function PosProvider({ children }) {
         };
       }
 
-      const normalizedItems = (items || []).map((it) => ({
+      const normalizedItems = consolidateOrderItems(items).map((it) => ({
         ...it,
+        productId: it.productId || it.id,
         printed_quantity: Math.max(0, Number(it.printed_quantity) || 0)
       }));
 
@@ -2471,21 +2472,24 @@ export function PosProvider({ children }) {
   // Ghi nhận in phiếu chế biến: Cập nhật printed_quantity = quantity, kitchenSentItems và lưu record vào preparation_tickets
   const recordKitchenTicketPrint = async (orderId, ticketModel, newSentItems = [], printedItemIds = []) => {
     try {
-      const order = orders[orderId];
+      const order = orders[orderId] || loadStorage(STORAGE_KEYS.ORDERS, {})[orderId];
       if (!order) return { success: false, message: 'Đơn hàng không tồn tại' };
 
       // Identify printed IDs from arguments or ticketModel.items
       const printedIdsSet = new Set(
         (printedItemIds && printedItemIds.length > 0
           ? printedItemIds
-          : (ticketModel.items || []).map((it) => it.cartItemId || it.id)
+          : (ticketModel?.items || []).map((it) => it.cartItemId || it.id || it.productId)
         ).filter(Boolean)
       );
 
       const nowIso = new Date().toISOString();
       const updatedItems = (order.items || []).map((it) => {
-        const itemId = it.cartItemId || it.id;
-        const isMatched = printedIdsSet.size === 0 || printedIdsSet.has(itemId);
+        const isMatched =
+          printedIdsSet.size === 0 ||
+          (it.cartItemId && printedIdsSet.has(it.cartItemId)) ||
+          (it.id && printedIdsSet.has(it.id)) ||
+          (it.productId && printedIdsSet.has(it.productId));
         if (isMatched) {
           return {
             ...it,
@@ -2502,7 +2506,17 @@ export function PosProvider({ children }) {
         kitchenSentItems: newSentItems
       };
 
-      setOrders((prev) => ({ ...prev, [orderId]: updatedOrder }));
+      setOrders((prev) => {
+        const latest = prev[orderId] || updatedOrder;
+        return {
+          ...prev,
+          [orderId]: {
+            ...latest,
+            items: updatedItems,
+            kitchenSentItems: newSentItems
+          }
+        };
+      });
 
       // Dual write to storage
       try {

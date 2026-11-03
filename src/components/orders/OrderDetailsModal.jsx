@@ -21,7 +21,7 @@ import { triggerHaptic } from '../../utils/haptics';
 import SaveOrderPrintPromptModal from '../ordering/SaveOrderPrintPromptModal';
 import PreparationTicketTemplate from '../printing/PreparationTicketTemplate';
 import {
-  computeKitchenItemsDiff,
+  isSameOrderItem,
   computeKitchenItemsToPrint,
   buildKitchenTicketModel,
   mergeSentItems,
@@ -64,7 +64,9 @@ export default function OrderDetailsModal({
           : [];
       const normalized = sourceItems.map((it, idx) => ({
         ...it,
-        cartItemId: it.cartItemId || it.id || `item-${idx}-${it.name || 'dish'}`
+        productId: it.productId || it.id,
+        cartItemId: it.cartItemId || it.id || `item-${idx}-${it.name || 'dish'}`,
+        printed_quantity: Math.max(0, Number(it.printed_quantity) || 0)
       }));
       setItems(JSON.parse(JSON.stringify(normalized)));
       setIsSubmitting(false);
@@ -124,6 +126,7 @@ export default function OrderDetailsModal({
             return {
               ...it,
               quantity: newQty,
+              printed_quantity: Math.min(Math.max(0, Number(it.printed_quantity) || 0), newQty),
               lineTotal: it.unitPrice * newQty
             };
           }
@@ -244,7 +247,7 @@ export default function OrderDetailsModal({
 
     if (printResult?.success) {
       const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, itemsToPrint);
-      const printedCartItemIds = itemsToPrint.map((it) => it.cartItemId || it.id);
+      const printedCartItemIds = itemsToPrint.map((it) => it.cartItemId || it.id || it.productId);
       if (recordKitchenTicketPrint) {
         await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems, printedCartItemIds);
       }

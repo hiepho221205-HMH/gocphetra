@@ -9,6 +9,8 @@ import assert from 'node:assert/strict';
 import {
   generateItemSignature,
   normalizeToppingsList,
+  isSameOrderItem,
+  consolidateOrderItems,
   computeKitchenItemsDiff,
   computeKitchenItemsToPrint,
   mergeSentItems,
@@ -352,5 +354,102 @@ test('Kitchen Ticket Engine — Delta Quantity (printed_quantity) Computation', 
     assert.equal(result.hasChanges, false);
     assert.equal(result.totalQtyToPrint, 0);
     assert.equal(result.itemsToPrint.length, 0);
+  });
+
+  await t.test('User scenario: Initial "Cà phê sữa đá x2" then adding 1 more prints ONLY delta "x1", not all previous or zero', () => {
+    // 1. Ban đầu trong bàn có cà phê sữa đá x2 (đã in chế biến đợt 1)
+    const initialOrderItems = [
+      {
+        id: 'prod-cf02',
+        productId: 'prod-cf02',
+        name: 'Cà phê sữa đá',
+        size: 'Std',
+        toppings: [],
+        notes: '',
+        quantity: 2,
+        printed_quantity: 2
+      }
+    ];
+
+    // Kiểm tra đợt 1 đã in xong: không in lại
+    const checkRound1 = computeKitchenItemsToPrint(initialOrderItems);
+    assert.equal(checkRound1.hasChanges, false, 'Không in lại món cũ khi chưa có thay đổi');
+    assert.equal(checkRound1.totalQtyToPrint, 0);
+
+    // 2. Thêm 1 cà phê sữa đá trùng món cũ -> quantity tăng lên 3, printed_quantity vẫn là 2
+    const round2MergedItems = [
+      {
+        ...initialOrderItems[0],
+        quantity: 3,
+        printed_quantity: 2
+      }
+    ];
+
+    const round2Result = computeKitchenItemsToPrint(round2MergedItems);
+    assert.equal(round2Result.hasChanges, true, 'Phải in khi có món gọi thêm');
+    assert.equal(round2Result.totalQtyToPrint, 1, 'Chỉ in đúng số lượng mới thêm (1 ly)');
+    assert.equal(round2Result.itemsToPrint.length, 1);
+    assert.equal(round2Result.itemsToPrint[0].name, 'Cà phê sữa đá');
+    assert.equal(round2Result.itemsToPrint[0].qtyToPrint, 1);
+    assert.equal(round2Result.itemsToPrint[0].quantity, 1, 'Số lượng trên phiếu chế biến đúng bằng 1');
+    assert.equal(round2Result.itemsToPrint[0].totalOrderQuantity, 3, 'Tổng số lượng đơn giữ nguyên 3');
+    assert.equal(round2Result.itemsToPrint[0].isAdditional, true, 'Đánh dấu món gọi thêm');
+
+    // Tạo model in và kiểm tra ESC/POS bytes
+    const ticketModel = buildKitchenTicketModel({
+      order: { id: 'ORD-TEST', tableName: 'Bàn 02' },
+      diffItems: round2Result.itemsToPrint
+    });
+    assert.equal(ticketModel.totalQuantity, 1);
+    assert.equal(ticketModel.isAdditionalOrder, true);
+
+    const bytes = buildKitchenTicketThermalBytes(ticketModel);
+    const textOutput = new TextDecoder('utf-8').decode(bytes);
+    assert.ok(textOutput.includes('Cà phê sữa đá'), 'Phiếu in có tên món');
+    assert.ok(textOutput.includes('x 1'), 'Phiếu in chế biến chỉ in x 1');
+    assert.ok(!textOutput.includes('x 3'), 'Tuyệt đối KHÔNG in tổng số lượng 3 của toàn bộ món cũ');
+    assert.ok(!textOutput.includes('x 2'), 'Tuyệt đối KHÔNG in số lượng 2 cũ');
+
+    // 3. Giả lập in thành công: printed_quantity được cập nhật lên 3
+    const afterPrintItems = [
+      {
+        ...round2MergedItems[0],
+        printed_quantity: 3
+      }
+    ];
+    const checkAfterPrint = computeKitchenItemsToPrint(afterPrintItems);
+    assert.equal(checkAfterPrint.hasChanges, false, 'Sau khi in xong không in lặp lại');
+    assert.equal(checkAfterPrint.totalQtyToPrint, 0);
+  });
+
+  await t.test('Handling duplicate lines across separate items array rows via consolidateOrderItems', () => {
+    // Trường hợp món bị phân làm 2 dòng (dòng 1 đã in x2, dòng 2 mới thêm x1)
+    const separateRows = [
+      { id: 'cf', productId: 'cf', name: 'Cà phê sữa đá', size: 'Std', quantity: 2, printed_quantity: 2 },
+      { id: 'cf', productId: 'cf', name: 'Cà phê sữa đá', size: 'Std', quantity: 1, printed_quantity: 0 }
+    ];
+
+    const consolidated = consolidateOrderItems(separateRows);
+    assert.equal(consolidated.length, 1);
+    assert.equal(consolidated[0].quantity, 3);
+    assert.equal(consolidated[0].printed_quantity, 2);
+
+    const result = computeKitchenItemsToPrint(separateRows);
+    assert.equal(result.hasChanges, true);
+    assert.equal(result.totalQtyToPrint, 1);
+    assert.equal(result.itemsToPrint.length, 1);
+    assert.equal(result.itemsToPrint[0].qtyToPrint, 1);
+  });
+
+  await t.test('isSameOrderItem matches items with identical config and distinguishes variations', () => {
+    const itemA = { productId: 'cf', name: 'Cà phê sữa đá', size: 'Std', notes: '', toppings: ['Trân châu'] };
+    const itemB = { id: 'cf', name: 'Cà phê sữa đá', size: 'std', note: '', toppings: [{ name: 'Trân châu' }] };
+    assert.equal(isSameOrderItem(itemA, itemB), true, 'Phải nhận diện cùng món dù khác cấu trúc id/productId hoặc hoa/thường');
+
+    const itemDiffSize = { ...itemA, size: 'L' };
+    assert.equal(isSameOrderItem(itemA, itemDiffSize), false, 'Khác size là 2 dòng riêng');
+
+    const itemDiffNote = { ...itemA, notes: 'Ít đường' };
+    assert.equal(isSameOrderItem(itemA, itemDiffNote), false, 'Khác ghi chú là 2 dòng riêng');
   });
 });

@@ -8,7 +8,7 @@ import ViewOrderIconButton from '../common/ViewOrderIconButton';
 import SaveOrderPrintPromptModal from './SaveOrderPrintPromptModal';
 import PreparationTicketTemplate from '../printing/PreparationTicketTemplate';
 import {
-  computeKitchenItemsDiff,
+  isSameOrderItem,
   computeKitchenItemsToPrint,
   buildKitchenTicketModel,
   mergeSentItems,
@@ -63,6 +63,7 @@ function fastCloneCartItems(items) {
   if (!Array.isArray(items)) return [];
   return items.map((it) => ({
     ...it,
+    productId: it.productId || it.id,
     quantity: Number(it.quantity) || 1,
     printed_quantity: Math.max(0, Number(it.printed_quantity) || 0),
     toppings: Array.isArray(it.toppings) ? it.toppings.map((tp) => ({ ...tp })) : []
@@ -188,13 +189,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
 
   // ================= CART ACTIONS =================
   const handleAddToCart = (itemConfig) => {
-    const existingIndex = cartItems.findIndex(
-      (it) =>
-        it.productId === itemConfig.productId &&
-        it.size === itemConfig.size &&
-        JSON.stringify(it.toppings || []) === JSON.stringify(itemConfig.toppings || []) &&
-        (it.notes || '').trim() === (itemConfig.notes || '').trim()
-    );
+    const existingIndex = cartItems.findIndex((it) => isSameOrderItem(it, itemConfig));
 
     if (existingIndex >= 0) {
       // Tự động cộng dồn số lượng vào món cùng loại (giữ nguyên printed_quantity để tính delta chính xác)
@@ -217,6 +212,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
         ...prev,
         {
           ...itemConfig,
+          productId: itemConfig.productId || itemConfig.id,
           cartItemId,
           printed_quantity: 0,
           addedAt: new Date().toISOString()
@@ -328,7 +324,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
 
     if (printResult?.success) {
       const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, itemsToPrint);
-      const printedCartItemIds = itemsToPrint.map((it) => it.cartItemId || it.id);
+      const printedCartItemIds = itemsToPrint.map((it) => it.cartItemId || it.id || it.productId);
       if (recordKitchenTicketPrint) {
         await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems, printedCartItemIds);
       }

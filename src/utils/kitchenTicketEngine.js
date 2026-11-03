@@ -35,6 +35,75 @@ export function normalizeToppingsList(toppings) {
 }
 
 /**
+ * Checks whether two order items refer to the exact same dish configuration
+ * (matching product identity, size, notes, and toppings deterministically).
+ */
+export function isSameOrderItem(itemA, itemB) {
+  if (!itemA || !itemB) return false;
+
+  // 1. Match Product Identifier (productId or id or normalized name)
+  const idA = (itemA.productId || itemA.id || '').trim();
+  const idB = (itemB.productId || itemB.id || '').trim();
+  const nameA = (itemA.name || itemA.productName || '').trim().toLowerCase();
+  const nameB = (itemB.name || itemB.productName || '').trim().toLowerCase();
+
+  const idMatches = Boolean(idA && idB && idA === idB);
+  const nameMatches = Boolean(nameA && nameB && nameA === nameB);
+
+  // Must match on product identity
+  if (!idMatches && !nameMatches) {
+    return false;
+  }
+
+  // 2. Match Size (case-insensitive, default to 'Std' if empty)
+  const sizeA = (itemA.size || itemA.sizeName || 'Std').trim().toUpperCase();
+  const sizeB = (itemB.size || itemB.sizeName || 'Std').trim().toUpperCase();
+  if (sizeA !== sizeB) {
+    return false;
+  }
+
+  // 3. Match Notes/Ghi chú (case-insensitive, trimmed)
+  const notesA = (itemA.notes || itemA.note || '').trim().toLowerCase();
+  const notesB = (itemB.notes || itemB.note || '').trim().toLowerCase();
+  if (notesA !== notesB) {
+    return false;
+  }
+
+  // 4. Match Toppings (deterministic sorted list comparison)
+  const topsA = normalizeToppingsList(itemA.toppings).join('|');
+  const topsB = normalizeToppingsList(itemB.toppings).join('|');
+  return topsA === topsB;
+}
+
+/**
+ * Consolidates an array of order items by merging duplicate configurations,
+ * accumulating total quantity, preserving printed_quantity, and re-calculating line totals.
+ */
+export function consolidateOrderItems(items = []) {
+  if (!Array.isArray(items)) return [];
+  const consolidated = [];
+
+  for (const it of items) {
+    const existing = consolidated.find((c) => isSameOrderItem(c, it));
+    if (existing) {
+      existing.quantity = (Number(existing.quantity) || 0) + (Number(it.quantity) || 0);
+      existing.printed_quantity = (Number(existing.printed_quantity) || 0) + Math.max(0, Number(it.printed_quantity) || 0);
+      existing.lineTotal = (Number(existing.unitPrice) || 0) * existing.quantity;
+    } else {
+      consolidated.push({
+        ...it,
+        productId: it.productId || it.id,
+        quantity: Number(it.quantity) || 1,
+        printed_quantity: Math.max(0, Number(it.printed_quantity) || 0),
+        toppings: Array.isArray(it.toppings) ? [...it.toppings] : []
+      });
+    }
+  }
+
+  return consolidated;
+}
+
+/**
  * Creates a unique signature for an item based on its ID/name, size, toppings and special notes.
  */
 export function generateItemSignature(item) {
@@ -58,7 +127,10 @@ export function computeKitchenItemsToPrint(items = []) {
     return { itemsToPrint: [], totalQtyToPrint: 0, hasChanges: false };
   }
 
-  const itemsToPrint = items
+  // First consolidate duplicate item lines if any exist
+  const consolidated = consolidateOrderItems(items);
+
+  const itemsToPrint = consolidated
     .map((item) => {
       const qty = Number(item.quantity) || 0;
       const printedQty = Math.max(0, Number(item.printed_quantity) || 0);
