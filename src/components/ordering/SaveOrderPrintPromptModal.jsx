@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Printer, Bluetooth, ChefHat, Loader2 } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
 import { getBluetoothPrinterStatus, isBluetoothSupported } from '../../utils/bluetoothPrinter';
@@ -17,10 +18,15 @@ export default function SaveOrderPrintPromptModal({
   useEffect(() => {
     if (isOpen) {
       setBtStatus(getBluetoothPrinterStatus());
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const handlePrint = async (method = 'bluetooth') => {
     triggerHaptic('medium');
@@ -44,8 +50,8 @@ export default function SaveOrderPrintPromptModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
         className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden transform animate-in zoom-in-95 duration-200"
         role="dialog"
@@ -157,6 +163,7 @@ export default function SaveOrderPrintPromptModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

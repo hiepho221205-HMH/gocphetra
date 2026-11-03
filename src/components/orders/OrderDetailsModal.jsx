@@ -176,6 +176,7 @@ export default function OrderDetailsModal({
 
     try {
       if (onSave) {
+        onClose();
         await onSave(table, items);
       } else {
         const res = await saveOrderForTable(table.id, items);
@@ -301,7 +302,7 @@ export default function OrderDetailsModal({
   return createPortal(
     <>
       <AnimatePresence>
-        {isOpen && table && (
+        {isOpen && table && !printPromptState?.isOpen && (
           <motion.div
             key="order-details-backdrop"
             role="dialog"
