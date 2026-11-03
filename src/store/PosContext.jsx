@@ -2100,6 +2100,7 @@ export function PosProvider({ children }) {
 
     const existingIndex = order.items.findIndex(
       (it) =>
+        !it.is_printed &&
         it.productId === itemConfig.productId &&
         it.size === itemConfig.size &&
         (it.notes || '').trim() === (itemConfig.notes || '').trim()
@@ -2121,7 +2122,9 @@ export function PosProvider({ children }) {
         cartItemId,
         unitPrice,
         quantity,
-        lineTotal
+        lineTotal,
+        is_printed: false,
+        addedAt: new Date().toISOString()
       });
     }
 
@@ -2377,9 +2380,14 @@ export function PosProvider({ children }) {
         };
       }
 
+      const normalizedItems = (items || []).map((it) => ({
+        ...it,
+        is_printed: Boolean(it.is_printed)
+      }));
+
       const updatedOrder = recalculateOrder({
         ...existingOrder,
-        items: items,
+        items: normalizedItems,
         version: nextVersion
       });
 
@@ -2459,14 +2467,37 @@ export function PosProvider({ children }) {
     }
   };
 
-  // Ghi nhận in phiếu chế biến: Cập nhật kitchenSentItems và lưu record vào preparation_tickets
-  const recordKitchenTicketPrint = async (orderId, ticketModel, newSentItems) => {
+  // Ghi nhận in phiếu chế biến: Cập nhật is_printed trên items, kitchenSentItems và lưu record vào preparation_tickets
+  const recordKitchenTicketPrint = async (orderId, ticketModel, newSentItems = [], printedItemIds = []) => {
     try {
       const order = orders[orderId];
       if (!order) return { success: false, message: 'Đơn hàng không tồn tại' };
 
+      // Identify printed IDs from arguments or ticketModel.items
+      const printedIdsSet = new Set(
+        (printedItemIds && printedItemIds.length > 0
+          ? printedItemIds
+          : (ticketModel.items || []).map((it) => it.cartItemId || it.id)
+        ).filter(Boolean)
+      );
+
+      const nowIso = new Date().toISOString();
+      const updatedItems = (order.items || []).map((it) => {
+        const itemId = it.cartItemId || it.id;
+        const isMatched = printedIdsSet.size === 0 || printedIdsSet.has(itemId);
+        if (isMatched && !it.is_printed) {
+          return {
+            ...it,
+            is_printed: true,
+            printed_at: it.printed_at || nowIso
+          };
+        }
+        return it;
+      });
+
       const updatedOrder = {
         ...order,
+        items: updatedItems,
         kitchenSentItems: newSentItems
       };
 
@@ -2485,6 +2516,20 @@ export function PosProvider({ children }) {
       // Upsert order to cloud
       cloudUpsertOrder(updatedOrder).catch((e) => console.warn('cloudUpsertOrder error:', e));
 
+      // Broadcast order_sync to other connected devices
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'order_sync',
+          payload: {
+            order: updatedOrder,
+            senderId: currentUser?.id || currentUser?.uid || 'staff',
+            senderInstance: clientInstanceIdRef.current,
+            timestamp: Date.now()
+          }
+        }).catch((e) => console.warn('Broadcast order_sync error:', e));
+      }
+
       // Record preparation ticket
       const ticketRecord = {
         id: ticketModel.ticketId || `TKT-${Date.now()}`,
@@ -2496,10 +2541,10 @@ export function PosProvider({ children }) {
         items: ticketModel.items || [],
         item_count: ticketModel.totalQuantity || 0,
         print_mode: ticketModel.printMode || 'diff',
-        printed_at: ticketModel.printedAt || new Date().toISOString(),
+        printed_at: ticketModel.printedAt || nowIso,
         printed_by: ticketModel.printedBy || 'Thu ngân',
         printer_type: 'thermal',
-        created_at: new Date().toISOString()
+        created_at: nowIso
       };
 
       savePreparationTicketToCloud(ticketRecord).catch((e) => console.warn('savePreparationTicketToCloud error:', e));

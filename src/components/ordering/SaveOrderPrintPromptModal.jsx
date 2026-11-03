@@ -7,6 +7,7 @@ export default function SaveOrderPrintPromptModal({
   isOpen,
   tableName = '',
   itemCount = 0,
+  isAdditional = false,
   onConfirmPrint,
   onDismiss
 }) {
@@ -69,10 +70,15 @@ export default function SaveOrderPrintPromptModal({
           </p>
 
           {(tableName || itemCount > 0) && (
-            <div className="mt-3 py-2 px-3 bg-amber-50/80 border border-amber-200/60 rounded-xl inline-flex items-center gap-2 text-xs font-bold text-amber-900">
+            <div className="mt-3 py-2 px-3 bg-amber-50/80 border border-amber-200/60 rounded-xl inline-flex items-center gap-2 text-xs font-bold text-amber-900 flex-wrap justify-center">
               {tableName && <span>Bàn: <strong className="font-black text-forest-950">{tableName}</strong></span>}
               {tableName && itemCount > 0 && <span className="text-amber-300">•</span>}
-              {itemCount > 0 && <span>{itemCount} món cần chế biến</span>}
+              {itemCount > 0 && <span>{itemCount} món {isAdditional ? 'mới ' : ''}cần chế biến</span>}
+              {isAdditional && (
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-amber-200/80 text-amber-950 uppercase tracking-tight">
+                  Gọi thêm
+                </span>
+              )}
             </div>
           )}
 

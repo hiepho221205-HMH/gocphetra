@@ -190,16 +190,24 @@ export function buildKitchenTicketModel({
 
   const tableName = table?.name || order.tableName || (order.tableId ? `Bàn ${order.tableId}` : 'Mang về');
 
+  // Check if order already has prior printed items
+  const hasPreviousPrints =
+    Boolean(order?.items?.some((it) => it.is_printed)) ||
+    (Array.isArray(order?.kitchenSentItems) && order.kitchenSentItems.length > 0);
+
+  const isAdditionalOrder = hasPreviousPrints;
+
   // Format clean item rows
   const formattedItems = (diffItems || []).map((it, idx) => {
     const cleanToppings = normalizeToppingsList(it.toppings);
     return {
       index: idx + 1,
       id: it.id || it.productId || `item-${idx}`,
+      cartItemId: it.cartItemId || it.id,
       name: it.name || it.productName || 'Món không tên',
       size: (it.size || '').trim(),
       quantity: Number(it.quantity) || 1,
-      isAdditional: Boolean(it.isAdditional),
+      isAdditional: Boolean(it.isAdditional || isAdditionalOrder),
       toppings: cleanToppings,
       notes: (it.notes || it.note || '').trim()
     };
@@ -218,6 +226,8 @@ export function buildKitchenTicketModel({
     printedAtDisplay: formatVietnamDateTime(now),
     printedBy: currentUser?.name || currentUser?.displayName || 'Thu ngân',
     printMode,
+    isAdditionalOrder,
+    hasPreviousPrints,
     paperWidth,
     items: formattedItems,
     totalQuantity,

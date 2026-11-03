@@ -249,4 +249,35 @@ test('Kitchen Ticket Engine — Ticket Model Strict Isolation & ESC/POS Bytes', 
     assert.equal(fallbackCalled, true);
     assert.ok(toastMsg.includes('Trình duyệt không hỗ trợ Web Bluetooth'));
   });
+
+  await t.test('Multi-round ordering: detects previous prints and tags ticket with isAdditionalOrder', () => {
+    const round1Order = {
+      id: 'ORD-101',
+      tableName: 'Bàn 01',
+      items: [
+        { cartItemId: 'it-1', name: 'Cà phê muối', quantity: 2, size: 'L', is_printed: true }
+      ]
+    };
+
+    // Round 2 items added
+    const round2Diff = [
+      { cartItemId: 'it-2', name: 'Trà đào cam sả', quantity: 1, size: 'M', is_printed: false }
+    ];
+
+    const modelRound2 = buildKitchenTicketModel({
+      order: round1Order,
+      diffItems: round2Diff
+    });
+
+    assert.equal(modelRound2.isAdditionalOrder, true);
+    assert.equal(modelRound2.items.length, 1);
+    assert.equal(modelRound2.items[0].isAdditional, true);
+    assert.equal(modelRound2.totalQuantity, 1);
+
+    const bytesRound2 = buildKitchenTicketThermalBytes(modelRound2);
+    const textRound2 = new TextDecoder().decode(bytesRound2);
+    assert.ok(textRound2.includes('[MÓN GỌI THÊM]'), 'Additional round ticket must include [MÓN GỌI THÊM]');
+    assert.ok(textRound2.includes('Trà đào cam sả'), 'Must include new item');
+    assert.ok(!textRound2.includes('Cà phê muối'), 'Must NOT include old item already printed in Round 1');
+  });
 });

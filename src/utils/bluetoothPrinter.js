@@ -719,6 +719,9 @@ export function buildKitchenTicketThermalBytes(ticketModel, options = {}) {
   addLine('PHIẾU CHẾ BIẾN');
   addBytes(ESC_POS.NORMAL_SIZE);
   addBytes(ESC_POS.BOLD_OFF);
+  if (ticketModel.isAdditionalOrder) {
+    addLine('[MÓN GỌI THÊM]');
+  }
   addLine(sep('='));
 
   // 3. Highlighted Table Name (Big, bold font for kitchen visibility)
