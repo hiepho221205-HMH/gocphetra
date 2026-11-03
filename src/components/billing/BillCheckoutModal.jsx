@@ -13,7 +13,6 @@ import {
   Banknote,
   QrCode,
   Percent,
-  PlusCircle,
   Sparkles,
   ArrowLeft
 } from 'lucide-react';
@@ -255,23 +254,6 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
 
         {/* Scrollable Bill Content */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-xs">
-          {/* Action: Thêm món bổ sung */}
-          <div className="flex items-center justify-between p-3 rounded-[16px] bg-emerald-50/80 border border-emerald-200/60 shadow-xs">
-            <div className="text-[11px] text-[#214E34] font-bold">Khách muốn gọi thêm món?</div>
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                onClose();
-                onGoBackToOrder(table);
-              }}
-              className="touch-target px-3 h-8 clay-pill-btn text-[#214E34] font-black text-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>Thêm món</span>
-            </button>
-          </div>
-
           {/* Items Summary */}
           <div className="space-y-2 border-b border-gray-100 pb-3">
             <div className="flex items-center justify-between font-extrabold text-gray-400 uppercase text-[10px] tracking-wider">
