@@ -6,6 +6,7 @@
 import { formatVND } from './currency.js';
 import { formatVietnamDisplayDate } from './dateTime.js';
 import { wrapText } from './receiptEngine.js';
+import { formatItemSize } from './kitchenTicketEngine.js';
 import {
   buildReceiptGraphicThermalBytes,
   buildKitchenTicketGraphicThermalBytes
@@ -368,7 +369,8 @@ export function buildReceipt57mmBytes(order, settings = {}, options = {}) {
   // 4. Items List (Clean 2-line layout without table headers)
   const items = order.items || [];
   items.forEach((it) => {
-    const itemTitle = `${it.name || 'Món'}${it.size ? ` (${it.size})` : ''}`;
+    const displaySize = formatItemSize(it.size || it.sizeName);
+    const itemTitle = `${it.name || 'Món'}${displaySize ? ` (${displaySize})` : ''}`;
     const qty = it.quantity || 1;
     const lineTotal = Number(it.lineTotal || (Number(it.price || it.basePrice || 0) * qty));
     const effectiveUnitPrice = qty > 0 ? Math.round(lineTotal / qty) : Number(it.price || 0);
@@ -607,7 +609,8 @@ export function buildReceiptThermalBytes(model, options = {}) {
   const items = model.items || [];
 
   items.forEach((it) => {
-    const itemTitle = `${it.name || 'Món'}${it.size ? ` (${it.size})` : ''}`;
+    const displaySize = formatItemSize(it.size || it.sizeName);
+    const itemTitle = `${it.name || 'Món'}${displaySize ? ` (${displaySize})` : ''}`;
     const qty = it.quantity || 1;
     const rawUnitPrice = it.unitPriceFormatted || `${(it.effectiveUnitPrice || it.price || 0).toLocaleString('vi-VN')}đ`;
     const rawLineTotal = it.lineTotalFormatted || `${(it.lineTotal || 0).toLocaleString('vi-VN')}đ`;
@@ -758,7 +761,8 @@ export function buildKitchenTicketThermalBytes(ticketModel, options = {}) {
     items.forEach((it, idx) => {
       const idxNum = it.index || idx + 1;
       const extraTag = it.isAdditional ? ' [MÓN THÊM]' : '';
-      const sizeTag = it.size ? ` (${it.size})` : '';
+      const displaySize = formatItemSize(it.size || it.sizeName);
+      const sizeTag = displaySize ? ` (${displaySize})` : '';
 
       addBytes(ESC_POS.BOLD_ON);
       addLine(`${idxNum}. ${it.name}${sizeTag}${extraTag}`);

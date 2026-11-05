@@ -8,6 +8,7 @@
  */
 
 import { imageToEscPosRasterBytes } from './thermalLogoProcessor.js';
+import { formatItemSize } from './kitchenTicketEngine.js';
 
 // Standard 203 DPI dot densities
 export const CANVAS_WIDTH_58MM = 384; // 8 dots/mm * 48mm printable
@@ -131,7 +132,8 @@ export async function renderReceiptToCanvas(model, options = {}) {
   const items = model.items || [];
   mctx.font = fontBold;
   items.forEach((it) => {
-    const itemTitle = `${it.name || 'Món'}${it.size ? ` (${it.size})` : ''}`;
+    const displaySize = formatItemSize(it.size || it.sizeName);
+    const itemTitle = `${it.name || 'Món'}${displaySize ? ` (${displaySize})` : ''}`;
     const titleLines = wrapCanvasText(mctx, itemTitle, contentWidth);
     y += titleLines.length * (is80 ? 24 : 20);
 
@@ -287,7 +289,8 @@ export async function renderReceiptToCanvas(model, options = {}) {
 
   // 5. Items List
   items.forEach((it) => {
-    const itemTitle = `${it.name || 'Món'}${it.size ? ` (${it.size})` : ''}`;
+    const displaySize = formatItemSize(it.size || it.sizeName);
+    const itemTitle = `${it.name || 'Món'}${displaySize ? ` (${displaySize})` : ''}`;
     const qty = it.quantity || 1;
     const unitPriceStr = it.unitPriceFormatted || `${(it.effectiveUnitPrice || it.price || 0).toLocaleString('vi-VN')}đ`;
     const lineTotalStr = it.lineTotalFormatted || `${(it.lineTotal || 0).toLocaleString('vi-VN')}đ`;
@@ -426,7 +429,8 @@ export async function renderKitchenTicketToCanvas(ticketModel, options = {}) {
   const items = ticketModel.items || [];
   mctx.font = fontBold;
   items.forEach((it) => {
-    const itemTitle = `${it.name || 'Món'}${it.size ? ` (${it.size})` : ''}`;
+    const displaySize = formatItemSize(it.size || it.sizeName);
+    const itemTitle = `${it.name || 'Món'}${displaySize ? ` (${displaySize})` : ''}`;
     const lines = wrapCanvasText(mctx, itemTitle, contentWidth - 60);
     y += lines.length * (is80 ? 26 : 22);
 
@@ -523,7 +527,8 @@ export async function renderKitchenTicketToCanvas(ticketModel, options = {}) {
 
   // 4. Items List
   items.forEach((it) => {
-    const itemTitle = `${it.name || 'Món'}${it.size ? ` (${it.size})` : ''}`;
+    const displaySize = formatItemSize(it.size || it.sizeName);
+    const itemTitle = `${it.name || 'Món'}${displaySize ? ` (${displaySize})` : ''}`;
     const qtyText = `x ${it.quantity}`;
 
     ctx.font = fontBold;

@@ -6,6 +6,7 @@
 
 import { formatVND } from './currency.js';
 import { formatVietnamDisplayDate, getVietnamTodayString } from './dateTime.js';
+import { formatItemSize } from './kitchenTicketEngine.js';
 
 export const PAPER_WIDTHS = {
   K58: '58mm',
@@ -240,7 +241,7 @@ export function buildReceiptModel({
 
     return {
       name: it.name || 'Món',
-      size: it.size && it.size !== 'Std' && it.size !== 'Mặc định' ? it.size : '',
+      size: formatItemSize(it.size || it.sizeName || ''),
       quantity: qty,
       price: Number(it.price || it.basePrice || it.unitPrice || 0),
       effectiveUnitPrice,

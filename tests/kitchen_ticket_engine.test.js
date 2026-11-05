@@ -15,6 +15,7 @@ import {
   computeKitchenItemsToPrint,
   mergeSentItems,
   buildKitchenTicketModel,
+  formatItemSize,
   DEFAULT_KITCHEN_TICKET_SETTINGS
 } from '../src/utils/kitchenTicketEngine.js';
 import {
@@ -487,5 +488,81 @@ test('Kitchen Ticket Engine — Delta Quantity (printed_quantity) Computation', 
 
     const itemDiffNote = { ...itemA, notes: 'Ít đường' };
     assert.equal(isSameOrderItem(itemA, itemDiffNote), false, 'Khác ghi chú là 2 dòng riêng');
+  });
+});
+
+test('Kitchen Ticket Engine — Size Formatting (Suppress Std/Mặc định, Keep Explicit Sizes)', async (t) => {
+  await t.test('formatItemSize returns empty string for standard/default size labels', () => {
+    assert.equal(formatItemSize('Std'), '');
+    assert.equal(formatItemSize('std'), '');
+    assert.equal(formatItemSize('(Std)'), '');
+    assert.equal(formatItemSize('Standard'), '');
+    assert.equal(formatItemSize('(Standard)'), '');
+    assert.equal(formatItemSize('Mặc định'), '');
+    assert.equal(formatItemSize('(Mặc định)'), '');
+    assert.equal(formatItemSize('mac dinh'), '');
+    assert.equal(formatItemSize('default'), '');
+    assert.equal(formatItemSize('Default'), '');
+    assert.equal(formatItemSize(''), '');
+    assert.equal(formatItemSize(null), '');
+    assert.equal(formatItemSize(undefined), '');
+  });
+
+  await t.test('formatItemSize preserves explicit size labels', () => {
+    assert.equal(formatItemSize('S'), 'S');
+    assert.equal(formatItemSize('M'), 'M');
+    assert.equal(formatItemSize('(M)'), 'M');
+    assert.equal(formatItemSize('L'), 'L');
+    assert.equal(formatItemSize('XL'), 'XL');
+    assert.equal(formatItemSize('Ly lớn'), 'Ly lớn');
+  });
+
+  await t.test('buildKitchenTicketModel strips standard size from model and retains explicit size', () => {
+    const diffItems = [
+      { id: 'it-1', name: 'Nước dừa', size: 'Std', quantity: 2 },
+      { id: 'it-2', name: 'Espresso nóng', size: 'Mặc định', quantity: 1 },
+      { id: 'it-3', name: 'Trà đào cam sả', size: 'M', quantity: 1 }
+    ];
+
+    const model = buildKitchenTicketModel({
+      order: { id: 'ORD-936241', tableName: 'Bàn 01' },
+      table: { id: 'tbl-1', name: 'Bàn 01' },
+      diffItems
+    });
+
+    assert.equal(model.items[0].name, 'Nước dừa');
+    assert.equal(model.items[0].size, '', 'Nước dừa (Std) phải được chuẩn hóa thành size rỗng');
+    assert.equal(model.items[0].rawSize, 'Std');
+
+    assert.equal(model.items[1].name, 'Espresso nóng');
+    assert.equal(model.items[1].size, '', 'Espresso nóng (Mặc định) phải được chuẩn hóa thành size rỗng');
+    assert.equal(model.items[1].rawSize, 'Mặc định');
+
+    assert.equal(model.items[2].name, 'Trà đào cam sả');
+    assert.equal(model.items[2].size, 'M', 'Trà đào cam sả size M phải được giữ nguyên');
+  });
+
+  await t.test('buildKitchenTicketThermalBytes prints clean item names without (Std) on thermal tickets', () => {
+    const diffItems = [
+      { id: 'it-1', name: 'Nước dừa', size: 'Std', quantity: 2 },
+      { id: 'it-2', name: 'Trà đào cam sả', size: 'M', quantity: 1 }
+    ];
+
+    const model = buildKitchenTicketModel({
+      order: { id: 'ORD-936241', tableName: 'Bàn 01' },
+      table: { id: 'tbl-1', name: 'Bàn 01' },
+      diffItems
+    });
+
+    const bytes = buildKitchenTicketThermalBytes(model);
+    const textOutput = new TextDecoder('utf-8').decode(bytes);
+
+    // Must contain clean 'Nước dừa' and must NOT contain 'Nước dừa (Std)' or 'Nước dừa (Mặc định)'
+    assert.ok(textOutput.includes('Nước dừa'), 'Ticket must include Nước dừa');
+    assert.ok(!textOutput.includes('Nước dừa (Std)'), 'Ticket must NOT contain Nước dừa (Std)');
+    assert.ok(!textOutput.includes('Nước dừa (Mặc định)'), 'Ticket must NOT contain Nước dừa (Mặc định)');
+
+    // Must preserve 'Trà đào cam sả (M)'
+    assert.ok(textOutput.includes('Trà đào cam sả (M)'), 'Ticket must include Trà đào cam sả (M)');
   });
 });

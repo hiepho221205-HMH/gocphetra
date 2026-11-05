@@ -20,6 +20,34 @@ export const DEFAULT_KITCHEN_TICKET_SETTINGS = {
 };
 
 /**
+ * Normalizes size for display and printing.
+ * Hides default/standard sizes such as 'Std', 'Standard', 'Mặc định', 'Mac dinh', 'Default'.
+ * Preserves specific sizes like 'S', 'M', 'L', 'XL', etc.
+ *
+ * @param {string|null|undefined} size
+ * @returns {string}
+ */
+export function formatItemSize(size) {
+  if (!size) return '';
+  const trimmed = String(size).trim();
+  if (!trimmed) return '';
+  // Unwrap surrounding parentheses if any: e.g. "(Std)" -> "Std", "(M)" -> "M"
+  const unwrapped = trimmed.replace(/^\((.+)\)$/, '$1').trim();
+  const lower = unwrapped.toLowerCase();
+
+  if (
+    lower === 'std' ||
+    lower === 'standard' ||
+    lower === 'mặc định' ||
+    lower === 'mac dinh' ||
+    lower === 'default'
+  ) {
+    return '';
+  }
+  return unwrapped;
+}
+
+/**
  * Normalizes toppings to a sorted array of clean names/IDs for deterministic comparison
  */
 export function normalizeToppingsList(toppings) {
@@ -55,9 +83,9 @@ export function isSameOrderItem(itemA, itemB) {
     return false;
   }
 
-  // 2. Match Size (case-insensitive, default to 'Std' if empty)
-  const sizeA = (itemA.size || itemA.sizeName || 'Std').trim().toUpperCase();
-  const sizeB = (itemB.size || itemB.sizeName || 'Std').trim().toUpperCase();
+  // 2. Match Size (case-insensitive, normalize standard sizes to '')
+  const sizeA = formatItemSize(itemA.size || itemA.sizeName || '').toUpperCase();
+  const sizeB = formatItemSize(itemB.size || itemB.sizeName || '').toUpperCase();
   if (sizeA !== sizeB) {
     return false;
   }
@@ -109,7 +137,7 @@ export function consolidateOrderItems(items = []) {
 export function generateItemSignature(item) {
   if (!item) return '';
   const idOrName = (item.productId || item.id || item.name || '').trim();
-  const size = (item.size || '').trim().toUpperCase();
+  const size = formatItemSize(item.size || item.sizeName || '').toUpperCase();
   const toppingsStr = normalizeToppingsList(item.toppings).join('|');
   const notes = (item.notes || item.note || '').trim().toLowerCase();
   return `${idOrName}::${size}::${toppingsStr}::${notes}`;
@@ -320,12 +348,15 @@ export function buildKitchenTicketModel({
       isAdditionalOrder
     );
 
+    const displaySize = formatItemSize(it.size || it.sizeName || '');
+
     return {
       index: idx + 1,
       id: it.id || it.productId || `item-${idx}`,
       cartItemId: it.cartItemId || it.id,
       name: it.name || it.productName || 'Món không tên',
-      size: (it.size || '').trim(),
+      size: displaySize,
+      rawSize: (it.size || '').trim(),
       quantity: itemQty,
       isAdditional: isItemAdditional,
       toppings: cleanToppings,

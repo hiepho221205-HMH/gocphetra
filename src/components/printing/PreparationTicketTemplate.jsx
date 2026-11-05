@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatItemSize } from '../../utils/kitchenTicketEngine';
 
 /**
  * GÓC POS — PreparationTicketTemplate
@@ -89,7 +90,7 @@ export default function PreparationTicketTemplate({ ticketModel }) {
               <div className="flex items-start justify-between font-bold text-xs">
                 <span className="leading-snug break-words pr-2">
                   {it.index || idx + 1}. {it.name}
-                  {it.size ? ` (${it.size})` : ''}
+                  {formatItemSize(it.size || it.sizeName) ? ` (${formatItemSize(it.size || it.sizeName)})` : ''}
                   {it.isAdditional ? ' [THÊM]' : ''}
                 </span>
                 <span className="text-sm font-black whitespace-nowrap pl-1">
