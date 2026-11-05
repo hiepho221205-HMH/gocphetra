@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Printer, Bluetooth, ChefHat, Loader2 } from 'lucide-react';
+import { Printer, Bluetooth, ChefHat, Loader2, Receipt } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
 import { getBluetoothPrinterStatus, isBluetoothSupported } from '../../utils/bluetoothPrinter';
 
@@ -8,11 +8,13 @@ export default function SaveOrderPrintPromptModal({
   isOpen,
   tableName = '',
   itemCount = 0,
+  totalItemCount = 0,
   isAdditional = false,
   onConfirmPrint,
   onDismiss
 }) {
   const [isPrinting, setIsPrinting] = useState(false);
+  const [printingScope, setPrintingScope] = useState('new'); // 'new' | 'all'
   const [btStatus, setBtStatus] = useState(() => getBluetoothPrinterStatus());
 
   useEffect(() => {
@@ -28,12 +30,13 @@ export default function SaveOrderPrintPromptModal({
 
   if (!isOpen || typeof document === 'undefined') return null;
 
-  const handlePrint = async (method = 'bluetooth') => {
+  const handlePrint = async (method = 'bluetooth', scope = 'new') => {
     triggerHaptic('medium');
     setIsPrinting(true);
+    setPrintingScope(scope);
     try {
       if (onConfirmPrint) {
-        await onConfirmPrint({ method });
+        await onConfirmPrint({ method, scope });
       }
     } catch (err) {
       console.warn('Lỗi khi in phiếu chế biến:', err);
@@ -114,11 +117,11 @@ export default function SaveOrderPrintPromptModal({
           {/* Primary Action: Bluetooth Print & Pair (like bill) */}
           <button
             type="button"
-            onClick={() => handlePrint('bluetooth')}
+            onClick={() => handlePrint('bluetooth', 'new')}
             disabled={isPrinting}
             className="w-full min-h-[46px] py-3 px-4 rounded-2xl bg-forest-900 hover:bg-forest-950 active:scale-[0.98] text-white font-extrabold text-sm shadow-md shadow-forest-900/15 flex items-center justify-center gap-2 transition-all disabled:opacity-60 cursor-pointer"
           >
-            {isPrinting ? (
+            {isPrinting && printingScope === 'new' ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />
                 <span>{btStatus.isConnected ? 'Đang gửi lệnh in...' : 'Đang kết nối & in...'}</span>
@@ -127,22 +130,51 @@ export default function SaveOrderPrintPromptModal({
               <>
                 <Bluetooth className={`w-4 h-4 ${btStatus.isConnected ? 'text-emerald-400' : 'text-blue-200'}`} />
                 <span>
-                  {btStatus.isConnected ? 'Có, in Bluetooth' : 'Có, ghép & in Bluetooth'}
+                  {isAdditional
+                    ? `Có, in món mới thêm (${itemCount} món)`
+                    : btStatus.isConnected
+                    ? 'Có, in Bluetooth'
+                    : 'Có, ghép & in Bluetooth'}
                 </span>
               </>
             ) : (
               <>
                 <Printer className="w-4 h-4 text-emerald-300" />
-                <span>Có, in phiếu</span>
+                <span>{isAdditional ? `Có, in món mới thêm (${itemCount} món)` : 'Có, in phiếu'}</span>
               </>
             )}
           </button>
+
+          {/* Secondary Action: In toàn bộ các món (chỉ hiển thị từ đợt 2 trở đi khi isAdditional = true) */}
+          {isAdditional && (
+            <button
+              type="button"
+              onClick={() => handlePrint('bluetooth', 'all')}
+              disabled={isPrinting}
+              className="w-full min-h-[46px] py-2.5 px-4 rounded-2xl bg-white hover:bg-emerald-50 active:scale-[0.98] text-forest-900 border-2 border-forest-800 font-extrabold text-xs sm:text-sm shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-60 cursor-pointer"
+              title="Kết nối Bluetooth và in toàn bộ tất cả các món đang có trong bàn"
+            >
+              {isPrinting && printingScope === 'all' ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-forest-800" />
+                  <span>Đang in toàn bộ các món...</span>
+                </>
+              ) : (
+                <>
+                  <Receipt className="w-4 h-4 text-forest-800 stroke-[2.2]" />
+                  <span>
+                    In toàn bộ các món {totalItemCount > 0 ? `(${totalItemCount} món)` : ''}
+                  </span>
+                </>
+              )}
+            </button>
+          )}
 
           {/* Optional System Print / PDF Fallback */}
           {btStatus.isSupported && (
             <button
               type="button"
-              onClick={() => handlePrint('browser')}
+              onClick={() => handlePrint('browser', 'new')}
               disabled={isPrinting}
               className="w-full min-h-[38px] py-2 px-3 rounded-2xl bg-gray-100/90 hover:bg-gray-200 active:scale-[0.98] text-gray-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
               title="In qua hộp thoại máy in trình duyệt hoặc lưu PDF"

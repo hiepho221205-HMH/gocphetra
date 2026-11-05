@@ -33,11 +33,15 @@ export default function PreparationTicketTemplate({ ticketModel }) {
         <h2 className="text-sm font-black tracking-wider uppercase">
           PHIẾU CHẾ BIẾN
         </h2>
-        {ticketModel.isAdditionalOrder && (
+        {ticketModel.ticketTag ? (
+          <span className="text-[10px] font-bold tracking-tight inline-block px-1.5 py-0.5 mt-0.5 bg-black text-white rounded-xs">
+            {ticketModel.ticketTag}
+          </span>
+        ) : ticketModel.isAdditionalOrder ? (
           <span className="text-[10px] font-bold tracking-tight inline-block px-1.5 py-0.5 mt-0.5 bg-black text-white rounded-xs">
             MÓN GỌI THÊM
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* 2. Extra Large Table Name */}

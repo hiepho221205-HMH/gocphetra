@@ -287,7 +287,8 @@ export function buildKitchenTicketModel({
   settings = {},
   currentUser = null,
   ticketNumber = null,
-  printMode = 'diff'
+  printMode = 'diff',
+  ticketTag = null
 }) {
   const kitchenSettings = {
     ...DEFAULT_KITCHEN_TICKET_SETTINGS,
@@ -307,6 +308,7 @@ export function buildKitchenTicketModel({
     (diffItems || []).some((it) => it.isAdditional);
 
   const isAdditionalOrder = hasPreviousPrints;
+  const computedTag = ticketTag || (printMode === 'all' && hasPreviousPrints ? 'TOÀN BỘ CÁC MÓN' : (isAdditionalOrder ? 'MÓN GỌI THÊM' : null));
 
   // Format clean item rows
   const formattedItems = (diffItems || []).map((it, idx) => {
@@ -346,6 +348,7 @@ export function buildKitchenTicketModel({
     printMode,
     isAdditionalOrder,
     hasPreviousPrints,
+    ticketTag: computedTag,
     paperWidth,
     items: formattedItems,
     totalQuantity,

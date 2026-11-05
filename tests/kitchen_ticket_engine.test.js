@@ -283,6 +283,42 @@ test('Kitchen Ticket Engine — Ticket Model Strict Isolation & ESC/POS Bytes', 
     assert.ok(textRound2.includes('Trà đào cam sả'), 'Must include new item');
     assert.ok(!textRound2.includes('Cà phê muối'), 'Must NOT include old item already printed in Round 1');
   });
+
+  await t.test('Print ALL items mode: prints all items from table with [TOÀN BỘ CÁC MÓN] header tag', () => {
+    const tableOrder = {
+      id: 'ORD-101',
+      tableName: 'Bàn 12',
+      items: [
+        { cartItemId: 'it-1', name: 'Cà phê muối', quantity: 2, size: 'L', printed_quantity: 2 },
+        { cartItemId: 'it-2', name: 'Trà đào cam sả', quantity: 1, size: 'M', printed_quantity: 0 }
+      ]
+    };
+
+    const allItems = tableOrder.items.map((it) => ({
+      ...it,
+      qtyToPrint: it.quantity,
+      quantity: it.quantity
+    }));
+
+    const modelAll = buildKitchenTicketModel({
+      order: tableOrder,
+      diffItems: allItems,
+      printMode: 'all',
+      ticketTag: 'TOÀN BỘ CÁC MÓN'
+    });
+
+    assert.equal(modelAll.ticketTag, 'TOÀN BỘ CÁC MÓN');
+    assert.equal(modelAll.items.length, 2);
+    assert.equal(modelAll.totalQuantity, 3);
+
+    const bytesAll = buildKitchenTicketThermalBytes(modelAll);
+    const textAll = new TextDecoder().decode(bytesAll);
+    assert.ok(textAll.includes('[TOÀN BỘ CÁC MÓN]'), 'Thermal bytes must include [TOÀN BỘ CÁC MÓN]');
+    assert.ok(textAll.includes('Cà phê muối'), 'Must include item 1');
+    assert.ok(textAll.includes('x 2'), 'Must include full qty for item 1');
+    assert.ok(textAll.includes('Trà đào cam sả'), 'Must include item 2');
+    assert.ok(textAll.includes('x 1'), 'Must include full qty for item 2');
+  });
 });
 
 test('Kitchen Ticket Engine — Delta Quantity (printed_quantity) Computation', async (t) => {

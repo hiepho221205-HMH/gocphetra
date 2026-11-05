@@ -260,12 +260,17 @@ export default function OrderView({ table, onBack, onGoToBill }) {
             const hasPreviousPrints = (itemsToSave || []).some(
               (it) => (Number(it.printed_quantity) || 0) > 0
             );
+            const totalTableItemCount = (itemsToSave || []).reduce(
+              (sum, it) => sum + (Number(it.quantity) || 1),
+              0
+            );
             setPrintPromptState({
               isOpen: true,
               order: result.order,
               table: result.table || table,
               itemsToPrint,
               totalQtyToPrint,
+              totalItemCount: totalTableItemCount,
               isAdditionalOrder: hasPreviousPrints
             });
             setIsSaving(false);
@@ -298,14 +303,26 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     if (!printPromptState?.order) return;
     const { order: savedOrder, table: savedTable, itemsToPrint = [] } = printPromptState;
     const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
+    const isPrintAll = options.scope === 'all';
+
+    // Nếu chọn in toàn bộ các món -> lấy toàn bộ món trong đơn với đầy đủ số lượng
+    const itemsForTicket = isPrintAll
+      ? (savedOrder.items || []).map((it) => ({
+          ...it,
+          qtyToPrint: Number(it.quantity) || 1,
+          quantity: Number(it.quantity) || 1,
+          isAdditional: false
+        }))
+      : itemsToPrint;
 
     const ticketModel = buildKitchenTicketModel({
       order: savedOrder,
       table: savedTable || table,
-      diffItems: itemsToPrint,
+      diffItems: itemsForTicket,
       settings,
       currentUser,
-      printMode: kitchenSettings.printMode || 'diff'
+      printMode: isPrintAll ? 'all' : (kitchenSettings.printMode || 'diff'),
+      ticketTag: isPrintAll ? 'TOÀN BỘ CÁC MÓN' : (printPromptState.isAdditionalOrder ? 'MÓN GỌI THÊM' : null)
     });
 
     const { executeKitchenTicketPrint } = await import('../../utils/bluetoothPrinter');
@@ -323,10 +340,19 @@ export default function OrderView({ table, onBack, onGoToBill }) {
     });
 
     if (printResult?.success) {
-      const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, itemsToPrint);
-      const printedCartItemIds = itemsToPrint.map((it) => it.cartItemId || it.id || it.productId);
-      if (recordKitchenTicketPrint) {
-        await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems, printedCartItemIds);
+      if (isPrintAll) {
+        // Đánh dấu in toàn bộ các món trong đơn
+        const allSentItems = savedOrder.items || [];
+        const allCartItemIds = (savedOrder.items || []).map((it) => it.cartItemId || it.id || it.productId);
+        if (recordKitchenTicketPrint) {
+          await recordKitchenTicketPrint(savedOrder.id, ticketModel, allSentItems, allCartItemIds);
+        }
+      } else {
+        const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, itemsToPrint);
+        const printedCartItemIds = itemsToPrint.map((it) => it.cartItemId || it.id || it.productId);
+        if (recordKitchenTicketPrint) {
+          await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems, printedCartItemIds);
+        }
       }
       setPrintPromptState(null);
       onBack();
@@ -804,6 +830,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
           isOpen={printPromptState.isOpen}
           tableName={table?.name || printPromptState.order?.tableName}
           itemCount={printPromptState.totalQtyToPrint || 0}
+          totalItemCount={printPromptState.totalItemCount || 0}
           isAdditional={Boolean(printPromptState.isAdditionalOrder)}
           onConfirmPrint={handleConfirmKitchenPrint}
           onDismiss={handleDismissKitchenPrint}

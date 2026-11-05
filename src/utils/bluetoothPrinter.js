@@ -719,7 +719,9 @@ export function buildKitchenTicketThermalBytes(ticketModel, options = {}) {
   addLine('PHIẾU CHẾ BIẾN');
   addBytes(ESC_POS.NORMAL_SIZE);
   addBytes(ESC_POS.BOLD_OFF);
-  if (ticketModel.isAdditionalOrder) {
+  if (ticketModel.ticketTag) {
+    addLine(`[${ticketModel.ticketTag}]`);
+  } else if (ticketModel.isAdditionalOrder) {
     addLine('[MÓN GỌI THÊM]');
   }
   addLine(sep('='));
