@@ -155,18 +155,6 @@ export default function OnlineBillModal({
       aria-labelledby="online-bill-title"
       className="fixed inset-0 z-[9500] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden animate-fadeIn select-none"
     >
-      {/* Modal Keyframes for Ambient Pastel Glow */}
-      <style>{`
-        @keyframes modal-aurora-spin {
-          0% { transform: translate(-50%, -50%) rotate(0deg); }
-          100% { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-        @keyframes modal-aurora-rev {
-          0% { transform: translate(-50%, -50%) rotate(0deg); }
-          100% { transform: translate(-50%, -50%) rotate(-360deg); }
-        }
-      `}</style>
-
       <div className="clay-card rounded-[28px] w-full max-w-[420px] h-full max-h-[min(94dvh,820px)] flex flex-col p-0 overflow-hidden shadow-2xl bg-white animate-slideUp border border-gray-100">
         {/* ================= MODAL HEADER ================= */}
         <div className="shrink-0 px-5 py-3.5 bg-gradient-to-r from-[#214E34] to-[#2E6744] text-white flex items-center justify-between shadow-xs z-20">
@@ -198,16 +186,8 @@ export default function OnlineBillModal({
 
         {/* ================= SCROLLABLE BILL PREVIEW (PASTEL GLOW) ================= */}
         <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-touch-contain p-4 sm:p-5 bg-gradient-to-br from-[#ffe8f3] via-[#edf6fc] to-[#d9f3ff] overflow-x-hidden no-scrollbar">
-          {/* Animated Ambient Aurora Glow Background Layers */}
-          <div
-            className="absolute top-1/2 left-1/2 w-[180%] h-[180%] rounded-full bg-[conic-gradient(from_0deg,#ff9aa2,#ffb7b2,#ffdac1,#e2f0cb,#a2e4ff,#c9afff,#ffb7b2,#ff9aa2)] blur-[50px] opacity-70 pointer-events-none"
-            style={{ animation: 'modal-aurora-spin 16s linear infinite' }}
-          />
-          <div
-            className="absolute top-1/2 left-1/2 w-[150%] h-[150%] rounded-full bg-[conic-gradient(from_180deg,#c9afff,#a2e4ff,#e2f0cb,#ffdac1,#ffb7b2,#c9afff)] blur-[55px] opacity-55 pointer-events-none"
-            style={{ animation: 'modal-aurora-rev 22s linear infinite' }}
-          />
-          <div className="absolute inset-0 bg-radial from-white/30 via-transparent to-black/5 pointer-events-none" />
+          {/* Static Ambient Pastel Glow Layer (0% GPU Overhead, No Overdraw) */}
+          <div className="absolute inset-0 bg-radial from-white/35 via-transparent to-black/5 pointer-events-none" />
 
           {/* Centered White Card with 30px Border Radius & Subtle Shadow */}
           <div

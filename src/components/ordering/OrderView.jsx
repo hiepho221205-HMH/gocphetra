@@ -562,7 +562,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
                 return (
                   <div
                     key={item.id}
-                    className={`clay-card p-3 transition-all duration-200 flex items-center justify-between gap-3 ${
+                    className={`clay-card p-3 transition-colors duration-150 flex items-center justify-between gap-3 ${
                       inStock
                         ? 'hover:border-emerald-300'
                         : 'border-rose-200 bg-rose-50/20 opacity-60'

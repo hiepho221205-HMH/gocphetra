@@ -64,16 +64,18 @@
 
 .clay-card-interactive {
   cursor: pointer;
-  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms ease, border-color 180ms ease;
+  transition: box-shadow 180ms ease, border-color 180ms ease;
 }
-.clay-card-interactive:hover {
-  box-shadow: 
-    0 18px 36px -6px rgba(160, 175, 200, 0.22),
-    0 6px 14px -2px rgba(160, 175, 200, 0.1),
-    inset 0 2px 2px 0 rgba(255, 255, 255, 1),
-    inset 0 -2px 4px 0 rgba(190, 200, 215, 0.14);
+@media (hover: hover) and (pointer: fine) {
+  .clay-card-interactive:hover {
+    box-shadow: 
+      0 18px 36px -6px rgba(160, 175, 200, 0.22),
+      0 6px 14px -2px rgba(160, 175, 200, 0.1),
+      inset 0 2px 2px 0 rgba(255, 255, 255, 1),
+      inset 0 -2px 4px 0 rgba(190, 200, 215, 0.14);
+  }
 }
-.clay-card-interactive:active {
+.clay-card-interactive:not([style*="transform"]):active {
   transform: scale(0.975);
   box-shadow: 
     0 4px 12px -2px rgba(160, 175, 200, 0.14),
@@ -371,7 +373,7 @@
 }
 
 .animate-fadeIn {
-  animation: fadeIn 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes scaleCheck {
@@ -390,12 +392,104 @@
 }
 
 .animate-scale-check {
-  animation: scaleCheck 380ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: scaleCheck 340ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Hardware-Accelerated Fast Keyframe Animations (Snappy & Subtle for POS 120-200ms) */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-4px);
+  }
+  40%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scaleUp {
+  animation: scaleUp 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-bounceIn {
+  animation: bounceIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-shake {
+  animation: shake 300ms cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+}
+
+/* Fallback for animate-in */
+.animate-in {
+  animation: fadeIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-fadeIn,
-  .animate-scale-check {
+  .animate-scale-check,
+  .animate-slideUp,
+  .animate-slideInRight,
+  .animate-scaleUp,
+  .animate-bounceIn,
+  .animate-shake,
+  .animate-in {
     animation: none !important;
   }
 }

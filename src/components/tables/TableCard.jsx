@@ -119,8 +119,8 @@ const TableCard = React.memo(function TableCard({
 
           {/* Badge trạng thái chuẩn 3D Clay: TRỐNG, CÓ KHÁCH hoặc ĐANG TÍNH TIỀN */}
           {isLocked ? (
-            <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-500 text-white ring-2 ring-white shadow-sm flex items-center gap-1 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+            <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-500 text-white ring-2 ring-white shadow-sm flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               ĐANG TÍNH TIỀN
             </span>
           ) : (

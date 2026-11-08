@@ -109,7 +109,7 @@ export default function TableGrid({
           transition={spring.press}
           onClick={() => handleStatusChange('all')}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleStatusChange('all')}
-          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-all duration-200 select-none ${
+          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-[box-shadow,border-color,background-color] duration-150 select-none ${
             selectedStatus === 'all'
               ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#F5F7F4] shadow-lg scale-[1.03] bg-blue-50/40 border-blue-200'
               : 'opacity-85 hover:opacity-100 hover:shadow-md'
@@ -136,7 +136,7 @@ export default function TableGrid({
           transition={spring.press}
           onClick={() => handleStatusChange('occupied')}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleStatusChange('occupied')}
-          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-all duration-200 select-none ${
+          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-[box-shadow,border-color,background-color] duration-150 select-none ${
             selectedStatus === 'occupied'
               ? 'ring-2 ring-emerald-600 ring-offset-2 ring-offset-[#F5F7F4] shadow-lg scale-[1.03] bg-emerald-50/40 border-emerald-300'
               : 'opacity-85 hover:opacity-100 hover:shadow-md'
@@ -168,7 +168,7 @@ export default function TableGrid({
           transition={spring.press}
           onClick={() => handleStatusChange('empty')}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleStatusChange('empty')}
-          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-all duration-200 select-none ${
+          className={`clay-card p-2.5 sm:p-3 text-center flex flex-col items-center justify-between cursor-pointer transition-[box-shadow,border-color,background-color] duration-150 select-none ${
             selectedStatus === 'empty'
               ? 'ring-2 ring-gray-700 ring-offset-2 ring-offset-[#F5F7F4] shadow-lg scale-[1.03] bg-white border-gray-400'
               : 'opacity-85 hover:opacity-100 hover:shadow-md'

@@ -16,7 +16,7 @@ export default function AccessDeniedView({ onBack, requiredRole = 'Quản lý (M
       data-testid="access-denied-view"
       className="p-5 flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4 animate-fadeIn"
     >
-      <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-600 border border-rose-200/80 flex items-center justify-center shadow-lg shadow-rose-900/10 animate-bounce">
+      <div className="w-16 h-16 rounded-3xl bg-rose-50 text-rose-600 border border-rose-200/80 flex items-center justify-center shadow-lg shadow-rose-900/10">
         <Lock className="w-8 h-8 stroke-[2.2]" />
       </div>
 
