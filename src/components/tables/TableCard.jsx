@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { usePos } from '../../store/PosContext';
 import { Utensils, Receipt, Trash2 } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
@@ -11,7 +11,8 @@ const TableCard = React.memo(function TableCard({
   table,
   onOpenOrder,
   onOpenBill,
-  onViewOrderDetails
+  onViewOrderDetails,
+  onHighlightTable
 }) {
   const {
     orders,
@@ -27,6 +28,21 @@ const TableCard = React.memo(function TableCard({
   const shouldReduceMotion = useReducedMotion();
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // 3s Long-press detection state for empty tables
+  const holdTimerRef = useRef(null);
+  const startPosRef = useRef({ x: 0, y: 0 });
+  const hasTriggeredHoldRef = useRef(false);
+  const [isHolding, setIsHolding] = useState(false);
+
+  // Cleanup hold timer on unmount
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+      }
+    };
+  }, []);
 
   const activeLock = isTableBillingLocked ? isTableBillingLocked(table) : null;
   const isLocked = Boolean(activeLock);
@@ -47,7 +63,60 @@ const TableCard = React.memo(function TableCard({
     ? { ...table, status: 'occupied', activeOrderId: activeOrder.id }
     : { ...table, status: 'empty', activeOrderId: null };
 
+  // =========================================================================
+  // 3S LONG-PRESS HANDLERS (CHỈ ÁP DỤNG CHO BÀN TRỐNG THEO QUY TẮC CẨN TRỌNG)
+  // =========================================================================
+  const handlePointerDown = (e) => {
+    // Tuyệt đối không cho phép nhấn giữ trên bàn đang có khách hoặc đang tính tiền
+    if (isOccupied || isLocked) return;
+
+    // Chỉ bắt chuột trái (button === 0) hoặc touch
+    if (e.button !== undefined && e.button !== 0) return;
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    startPosRef.current = { x: clientX, y: clientY };
+    hasTriggeredHoldRef.current = false;
+    setIsHolding(true);
+
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+    }
+
+    holdTimerRef.current = setTimeout(() => {
+      hasTriggeredHoldRef.current = true;
+      setIsHolding(false);
+      triggerHaptic('medium');
+      onHighlightTable?.(resolvedTable);
+    }, 3000); // Đủ 3 giây
+  };
+
+  const handlePointerUpOrCancel = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    setIsHolding(false);
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isHolding) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = Math.abs(clientX - startPosRef.current.x);
+    const dy = Math.abs(clientY - startPosRef.current.y);
+    // Nếu người dùng cuộn trang hoặc di chuyển ngón tay > 10px thì hủy nhấn giữ
+    if (dx > 10 || dy > 10) {
+      handlePointerUpOrCancel();
+    }
+  };
+
   const handleCardClick = () => {
+    // Nếu vừa kích hoạt long-press 3s thì không chạy sự kiện click thông thường
+    if (hasTriggeredHoldRef.current) {
+      hasTriggeredHoldRef.current = false;
+      return;
+    }
     triggerHaptic('light');
     if (isOccupied && onViewOrderDetails) {
       onViewOrderDetails(resolvedTable, activeOrder);
@@ -58,6 +127,10 @@ const TableCard = React.memo(function TableCard({
 
   const handleOrderClick = (e) => {
     e.stopPropagation();
+    if (hasTriggeredHoldRef.current) {
+      hasTriggeredHoldRef.current = false;
+      return;
+    }
     triggerHaptic('light');
     onOpenOrder(resolvedTable);
   };
@@ -101,16 +174,35 @@ const TableCard = React.memo(function TableCard({
     <>
       <motion.div
         onClick={handleCardClick}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUpOrCancel}
+        onPointerLeave={handlePointerUpOrCancel}
+        onPointerCancel={handlePointerUpOrCancel}
+        onPointerMove={handlePointerMove}
+        onTouchStart={handlePointerDown}
+        onTouchEnd={handlePointerUpOrCancel}
+        onTouchCancel={handlePointerUpOrCancel}
+        onTouchMove={handlePointerMove}
         data-table-id={table.id}
         data-testid={`table-card-${table.id}`}
         whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
         transition={spring.press}
-        className={`clay-card clay-card-interactive card-contain p-3.5 flex flex-col justify-between select-none cursor-pointer h-[152px] ${
+        className={`clay-card clay-card-interactive card-contain p-3.5 flex flex-col justify-between select-none cursor-pointer h-[152px] relative transition-transform duration-200 ${
+          isHolding ? 'scale-[0.97] ring-2 ring-emerald-500/80 shadow-lg' : ''
+        } ${
           isOccupied
             ? 'border-emerald-500/30 hover:border-emerald-600/60 shadow-[0_14px_30px_-4px_rgba(16,185,129,0.18),inset_0_2px_2px_rgba(255,255,255,1)]'
             : 'hover:border-[#214E34]/30'
         }`}
       >
+        {/* Phản hồi trực quan trong 3 giây nhấn giữ */}
+        {isHolding && (
+          <div className="absolute inset-0 rounded-[24px] pointer-events-none overflow-hidden z-20">
+            <div className="absolute inset-0 bg-emerald-500/10 animate-pulse" />
+            <div className="absolute inset-0 rounded-[24px] border-2 border-emerald-500 shadow-[inset_0_0_12px_rgba(16,185,129,0.35)]" />
+          </div>
+        )}
+
         {/* 1. Header thẻ: Tên bàn (Bàn 01, Bàn 02...) & Badge trạng thái 3D Clay */}
         <div className="flex items-center justify-between">
           <span className="font-black text-base text-[#214E34] tracking-tight leading-none">
