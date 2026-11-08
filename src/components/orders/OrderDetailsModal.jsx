@@ -14,7 +14,8 @@ import {
   Clock,
   User,
   AlertTriangle,
-  Printer
+  Printer,
+  Loader2
 } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
 import { formatShortDate } from '../../utils/dateTime';
@@ -729,8 +730,17 @@ export default function OrderDetailsModal({
                   aria-label="In phiếu chế biến cho bếp"
                   className="touch-target min-h-[44px] px-3 py-2 rounded-[16px] text-xs font-black text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  <Printer className="w-4 h-4 shrink-0" />
-                  <span className="truncate">In phiếu bếp</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                      <span className="truncate">Đang in...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="w-4 h-4 shrink-0" />
+                      <span className="truncate">In phiếu bếp</span>
+                    </>
+                  )}
                 </motion.button>
 
                 {/* Nút 2: Thêm món */}

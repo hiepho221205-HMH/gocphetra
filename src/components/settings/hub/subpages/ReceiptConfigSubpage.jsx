@@ -7,12 +7,14 @@ import {
   CheckCircle2,
   Image as ImageIcon,
   Trash2,
-  Sparkles
+  Sparkles,
+  Share2
 } from 'lucide-react';
 import { processThermalLogo, validateLogoFile } from '../../../../utils/thermalLogoProcessor';
 import ReceiptPrintView from '../../../billing/ReceiptPrintView';
 import { triggerHaptic } from '../../../../utils/haptics';
 import UnsavedChangesModal from '../UnsavedChangesModal';
+import { isAutoReleaseEnabled, setAutoReleaseEnabled } from '../../../../utils/bluetoothPrinter';
 
 /**
  * ReceiptConfigSubpage - Subpage 2: Hóa đơn & In ấn
@@ -32,6 +34,10 @@ export default function ReceiptConfigSubpage({
     settings?.thermalPrintMode || (settings?.printNoAccents === false ? 'graphic_accents' : 'text_no_accents')
   );
   const [receiptFooter, setReceiptFooter] = useState(settings?.receiptFooter || 'Cảm ơn quý khách và hẹn gặp lại!');
+  const [autoReleasePrinter, setAutoReleasePrinter] = useState(() => {
+    if (settings?.autoReleasePrinter !== undefined) return settings.autoReleasePrinter;
+    return isAutoReleaseEnabled();
+  });
   const [receiptSettings, setReceiptSettings] = useState(settings?.receiptSettings || {
     showLogo: true,
     showStoreName: true,
@@ -64,10 +70,12 @@ export default function ReceiptConfigSubpage({
     receiptFooter: settings?.receiptFooter || 'Cảm ơn quý khách và hẹn gặp lại!',
     receiptSettings: JSON.stringify(settings?.receiptSettings || {}),
     logoOriginalUrl: settings?.logoOriginalUrl || '/default-logo.png',
-    logoThermalUrl: settings?.logoThermalUrl || '/default-logo.png'
+    logoThermalUrl: settings?.logoThermalUrl || '/default-logo.png',
+    autoReleasePrinter: settings?.autoReleasePrinter !== undefined ? settings.autoReleasePrinter : isAutoReleaseEnabled()
   });
 
   const isDirty =
+    autoReleasePrinter !== initialRef.current.autoReleasePrinter ||
     paperWidth !== initialRef.current.paperWidth ||
     thermalPrintMode !== initialRef.current.thermalPrintMode ||
     receiptFooter !== initialRef.current.receiptFooter ||
@@ -118,6 +126,7 @@ export default function ReceiptConfigSubpage({
     triggerHaptic('medium');
 
     try {
+
       showToast?.('Đang phân tích & tối ưu logo cho máy in nhiệt...', 'info');
       const processed = await processThermalLogo(file);
 
@@ -126,6 +135,7 @@ export default function ReceiptConfigSubpage({
 
       if (uploadStoreLogo) {
         try {
+
           const origUpload = await uploadStoreLogo(file, 'original');
           if (origUpload?.publicUrl) {
             setLogoOriginalUrl(origUpload.publicUrl);
@@ -164,10 +174,13 @@ export default function ReceiptConfigSubpage({
     setIsSubmitting(true);
 
     try {
+      setAutoReleaseEnabled(autoReleasePrinter);
+
       await updateSettings?.({
         receiptPaperWidth: paperWidth,
         thermalPrintMode,
         printNoAccents: thermalPrintMode === 'text_no_accents',
+        autoReleasePrinter,
         receiptSettings,
         receiptFooter: receiptFooter.trim(),
         logoOriginalUrl,
@@ -178,6 +191,7 @@ export default function ReceiptConfigSubpage({
       initialRef.current = {
         paperWidth,
         thermalPrintMode,
+        autoReleasePrinter,
         receiptFooter: receiptFooter.trim(),
         receiptSettings: JSON.stringify(receiptSettings),
         logoOriginalUrl,
@@ -366,6 +380,50 @@ export default function ReceiptConfigSubpage({
                 Render toàn bộ hóa đơn dạng đồ họa 1-bit ESC/POS. Có dấu tiếng Việt sắc nét, in mất ~2-3 giây.
               </p>
             </button>
+          </div>
+        </div>
+
+        {/* Card 2.5: Chia sẻ máy in nhiều thiết bị */}
+        <div className="clay-card p-4 sm:p-5 rounded-[24px] bg-white border border-white/95 shadow-xs space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+                <Share2 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-extrabold text-xs text-forest-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>Chia sẻ máy in nhiều thiết bị</span>
+                  <span className="text-[9.5px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200/60 lowercase font-mono">
+                    auto-release
+                  </span>
+                </h3>
+                <p className="text-[10px] text-gray-500 mt-0.5">
+                  Tự động nhả kết nối Bluetooth sau khi in (1.0s) để nhiều điện thoại/máy tính cùng in chung.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoReleasePrinter}
+              onClick={() => {
+                triggerHaptic('light');
+                setAutoReleasePrinter((prev) => !prev);
+              }}
+              className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${
+                autoReleasePrinter ? 'bg-[#214E34]' : 'bg-gray-200'
+              }`}
+              title={autoReleasePrinter ? 'Đang bật chế độ chia sẻ' : 'Đang tắt chế độ chia sẻ (chiếm giữ kết nối)'}
+            >
+              <div
+                className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                  autoReleasePrinter ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          <div className="p-2.5 rounded-xl bg-gray-50/80 border border-gray-100 text-[10.5px] text-gray-600 leading-relaxed">
+            <span className="font-semibold text-forest-900">Cơ chế hoạt động:</span> Máy in Bluetooth nhiệt chỉ chấp nhận 1 thiết bị kết nối tại 1 thời điểm. Khi bật tính năng này, sau khi in xong hóa đơn, máy sẽ tự động nhả sóng để nhân viên khác có thể kết nối in ngay lập tức mà không bị báo lỗi bận.
           </div>
         </div>
 

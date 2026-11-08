@@ -17,7 +17,8 @@ import {
   isBluetoothSupported,
   connectBluetoothPrinter,
   getBluetoothPrinterStatus,
-  printReceiptThermal
+  printReceiptThermal,
+  retryLastPrintTask
 } from '../../utils/bluetoothPrinter';
 import { buildReceiptModel } from '../../utils/receiptEngine';
 import { processThermalLogo } from '../../utils/thermalLogoProcessor';
@@ -133,9 +134,25 @@ export default function ReceiptPrintView({
         logoRasterBytes: logoRaster
       });
 
+      showToast?.('In hóa đơn thành công!', 'success');
     } catch (err) {
       console.warn('Bluetooth print failed:', err);
-      showToast?.(err.message || 'Không thể in qua Bluetooth. Thử in qua trình duyệt!', 'error');
+      if (showToast) {
+        showToast(
+          `Lỗi in hóa đơn: ${err.message || 'Mất kết nối máy in'}.`,
+          'error',
+          {
+            action: {
+              label: 'Thử in lại',
+              onClick: () => {
+                retryLastPrintTask()
+                  .then(() => showToast('Đã in lại hóa đơn thành công!', 'success'))
+                  .catch((reErr) => showToast(`Thử in lại thất bại: ${reErr.message}`, 'error'));
+              }
+            }
+          }
+        );
+      }
     } finally {
       setIsPrintingBt(false);
       setBtStatus(getBluetoothPrinterStatus());

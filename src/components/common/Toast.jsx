@@ -24,15 +24,30 @@ export default function Toast() {
                 : 'bg-gray-900/90 text-white border-gray-700/30'
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
               {isSuccess && <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />}
               {isError && <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />}
               {!isSuccess && !isError && <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />}
               <span className="leading-snug">{toast.message}</span>
             </div>
+            {toast.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    toast.action.onClick?.();
+                  } finally {
+                    removeToast(toast.id);
+                  }
+                }}
+                className="ml-2 px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg font-bold text-xs shrink-0 cursor-pointer transition-transform active:scale-95"
+              >
+                {toast.action.label || 'Thử lại'}
+              </button>
+            )}
             <button
               onClick={() => removeToast(toast.id)}
-              className="ml-2 text-white/70 hover:text-white p-1 rounded-md"
+              className="ml-2 text-white/70 hover:text-white p-1 rounded-md cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { usePos } from '../../store/PosContext';
 import { User } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
+import BluetoothStatusBadge from './BluetoothStatusBadge';
 
 const TAB_CONFIG = {
   tables: {
@@ -76,7 +77,9 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
           </p>
         </div>
 
-        {/* Right: Circular 48px Avatar with Mint Border (#D4E8DB) */}
+        {/* Right: Bluetooth Status Badge & Circular Avatar */}
+        <div className="flex items-center gap-2 shrink-0">
+          <BluetoothStatusBadge />
         <button
           type="button"
           onClick={handleAvatarClick}
@@ -105,6 +108,7 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
             className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#009E78] rounded-full border-2 border-white shadow-xs"
           />
         </button>
+        </div>
       </div>
     </header>
   );

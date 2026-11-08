@@ -1413,13 +1413,15 @@ export function PosProvider({ children }) {
     };
   }, []);
 
-  // Toast Helper
-  const showToast = (message, type = 'success') => {
+  // Toast Helper supporting optional action buttons & custom duration
+  const showToast = (message, type = 'success', options = {}) => {
     const id = Date.now() + Math.random().toString();
-    setToasts((prev) => [...prev, { id, message, type }]);
+    const action = options?.action || null;
+    const duration = options?.duration || (action ? 7000 : 3500);
+    setToasts((prev) => [...prev, { id, message, type, action }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    }, duration);
   };
 
   const removeToast = (id) => {
