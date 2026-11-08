@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Clock,
   User,
-  AlertTriangle
+  AlertTriangle,
+  Printer
 } from 'lucide-react';
 import { formatVND } from '../../utils/currency';
 import { formatShortDate } from '../../utils/dateTime';
@@ -286,6 +287,140 @@ export default function OrderDetailsModal({
   const handleDismissKitchenPrint = () => {
     setPrintPromptState(null);
     onClose();
+  };
+
+  // ACTION: IN PHIẾU CHO BẾP
+  const handlePrintKitchenTicket = async () => {
+    if (items.length === 0) {
+      triggerHaptic('error');
+      showToast('Đơn hàng chưa có món nào để gửi bếp!', 'error');
+      return;
+    }
+
+    if (isSubmitting) return;
+    triggerHaptic('medium');
+    setIsSubmitting(true);
+
+    try {
+      // 1. Tự động lưu thay đổi đơn hiện tại trước khi in
+      let savedOrder = order;
+      let savedTable = table;
+
+      if (onSave) {
+        await onSave(table, items);
+      } else {
+        const res = await saveOrderForTable(table.id, items);
+        if (!res || !res.success) {
+          triggerHaptic('error');
+          showToast('Lưu đơn trước khi in thất bại! Vui lòng thử lại.', 'error');
+          setIsSubmitting(false);
+          return;
+        }
+        savedOrder = res.order || order;
+        savedTable = res.table || table;
+      }
+
+      const kitchenSettings = settings?.kitchenTicketSettings || DEFAULT_KITCHEN_TICKET_SETTINGS;
+      const currentItems = savedOrder?.items || items;
+
+      // 2. Tính toán các món cần in
+      const { itemsToPrint, totalQtyToPrint, hasChanges } = computeKitchenItemsToPrint(currentItems);
+
+      const hasPreviousPrints = (currentItems || []).some(
+        (it) => (Number(it.printed_quantity) || 0) > 0
+      );
+
+      // Nếu không có món mới (đã gửi bếp hết rồi), tự động in lại toàn bộ đơn kèm ghi chú 'IN LẠI CHO BẾP'
+      const isRePrintAll = !hasChanges || itemsToPrint.length === 0;
+
+      const itemsForTicket = isRePrintAll
+        ? (currentItems || []).map((it) => ({
+            ...it,
+            qtyToPrint: Number(it.quantity) || 1,
+            quantity: Number(it.quantity) || 1,
+            isAdditional: false
+          }))
+        : itemsToPrint;
+
+      const ticketModel = buildKitchenTicketModel({
+        order: savedOrder,
+        table: savedTable || table,
+        diffItems: itemsForTicket,
+        settings,
+        currentUser,
+        printMode: isRePrintAll ? 'all' : (kitchenSettings.printMode || 'diff'),
+        ticketTag: isRePrintAll
+          ? 'IN LẠI CHO BẾP'
+          : (hasPreviousPrints ? 'MÓN GỌI THÊM' : null)
+      });
+
+      const printResult = await executeKitchenTicketPrint({
+        ticketModel,
+        settings,
+        method: 'bluetooth',
+        showToast,
+        onBrowserFallback: (model) => {
+          setActiveKitchenTicketModel(model);
+          setTimeout(() => {
+            window.print();
+          }, 150);
+        }
+      });
+
+      if (printResult?.success) {
+        let updateResult;
+        if (isRePrintAll) {
+          const allSentItems = savedOrder.items || [];
+          const allCartItemIds = (savedOrder.items || []).map((it) => it.cartItemId || it.id || it.productId);
+          if (recordKitchenTicketPrint) {
+            updateResult = await recordKitchenTicketPrint(savedOrder.id, ticketModel, allSentItems, allCartItemIds);
+          }
+        } else {
+          const newSentItems = mergeSentItems(savedOrder.kitchenSentItems, itemsToPrint);
+          const printedCartItemIds = itemsToPrint.map((it) => it.cartItemId || it.id || it.productId);
+          if (recordKitchenTicketPrint) {
+            updateResult = await recordKitchenTicketPrint(savedOrder.id, ticketModel, newSentItems, printedCartItemIds);
+          }
+        }
+
+        // Cập nhật lại state danh sách món trong modal (chuyển tag sang 'Đã gửi bếp')
+        if (updateResult?.updatedOrder?.items) {
+          const newNormalized = updateResult.updatedOrder.items.map((it, idx) => ({
+            ...it,
+            productId: it.productId || it.id,
+            cartItemId: it.cartItemId || it.id || `item-${idx}-${it.name || 'dish'}`,
+            printed_quantity: Math.max(0, Number(it.printed_quantity) || 0)
+          }));
+          setItems(newNormalized);
+          if (onItemsChange) {
+            onItemsChange(newNormalized);
+          }
+        } else {
+          setItems((prev) => {
+            const updated = prev.map((it) => ({
+              ...it,
+              printed_quantity: Number(it.quantity) || 0
+            }));
+            if (onItemsChange) onItemsChange(updated);
+            return updated;
+          });
+        }
+
+        triggerHaptic('success');
+        showToast(
+          isRePrintAll
+            ? 'Đã gửi lệnh in lại toàn bộ đơn cho bếp!'
+            : 'Đã gửi phiếu cho bếp thành công!',
+          'success'
+        );
+      }
+    } catch (err) {
+      console.error('Lỗi khi gửi phiếu bếp:', err);
+      triggerHaptic('error');
+      showToast('Có lỗi xảy ra khi gửi phiếu cho bếp!', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // 3. ACTION: THANH TOÁN
@@ -580,49 +715,69 @@ export default function OrderDetailsModal({
               </motion.button>
             </div>
           ) : (
-            /* FOOTER ĐÚNG 3 NÚT DÀN ĐỀU HÀNG NGANG 3 CỘT (GRID 3 COLS) */
-            <div className="grid grid-cols-3 gap-2 w-full pt-1">
-              {/* Nút 1: Thanh toán */}
-              <motion.button
-                type="button"
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-                transition={spring.press}
-                disabled={isSubmitting || items.length === 0}
-                onClick={handleCheckout}
-                aria-label="Thanh toán hóa đơn bàn này"
-                className="touch-target min-h-[44px] px-2 py-2 rounded-[16px] text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <Banknote className="w-4 h-4 shrink-0" />
-                <span className="truncate">Thanh toán</span>
-              </motion.button>
+            /* FOOTER 2 HÀNG: HÀNG 1 [IN PHIẾU BẾP] [THÊM MÓN] - HÀNG 2 [THANH TOÁN] [LƯU ĐƠN] */
+            <div className="space-y-2 w-full pt-1">
+              {/* Hàng 1: In phiếu bếp & Thêm món */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* Nút 1: In phiếu bếp */}
+                <motion.button
+                  type="button"
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                  transition={spring.press}
+                  disabled={isSubmitting || items.length === 0}
+                  onClick={handlePrintKitchenTicket}
+                  aria-label="In phiếu chế biến cho bếp"
+                  className="touch-target min-h-[44px] px-3 py-2 rounded-[16px] text-xs font-black text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Printer className="w-4 h-4 shrink-0" />
+                  <span className="truncate">In phiếu bếp</span>
+                </motion.button>
 
-              {/* Nút 2: Thêm món */}
-              <motion.button
-                type="button"
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-                transition={spring.press}
-                disabled={isSubmitting}
-                onClick={handleAddMoreItems}
-                aria-label="Thêm món vào đơn của bàn"
-                className="touch-target min-h-[44px] px-2 py-2 rounded-[16px] text-xs font-bold text-gray-700 clay-pill-btn flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <PlusCircle className="w-4 h-4 text-[#214E34] shrink-0" />
-                <span className="truncate">Thêm món</span>
-              </motion.button>
+                {/* Nút 2: Thêm món */}
+                <motion.button
+                  type="button"
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                  transition={spring.press}
+                  disabled={isSubmitting}
+                  onClick={handleAddMoreItems}
+                  aria-label="Thêm món vào đơn của bàn"
+                  className="touch-target min-h-[44px] px-3 py-2 rounded-[16px] text-xs font-bold text-gray-700 clay-pill-btn flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4 text-[#214E34] shrink-0" />
+                  <span className="truncate">Thêm món</span>
+                </motion.button>
+              </div>
 
-              {/* Nút 3: Lưu đơn */}
-              <motion.button
-                type="button"
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-                transition={spring.press}
-                disabled={isSubmitting || items.length === 0}
-                onClick={handleSaveOrder}
-                aria-label="Lưu đơn hàng và giữ trạng thái đang phục vụ"
-                className="touch-target min-h-[44px] px-2 py-2 rounded-[16px] text-xs font-black text-white clay-btn-primary flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
-                <span className="truncate">Lưu đơn</span>
-              </motion.button>
+              {/* Hàng 2: Thanh toán & Lưu đơn */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* Nút 3: Thanh toán */}
+                <motion.button
+                  type="button"
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                  transition={spring.press}
+                  disabled={isSubmitting || items.length === 0}
+                  onClick={handleCheckout}
+                  aria-label="Thanh toán hóa đơn bàn này"
+                  className="touch-target min-h-[44px] px-3 py-2 rounded-[16px] text-xs font-black text-white bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Banknote className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Thanh toán</span>
+                </motion.button>
+
+                {/* Nút 4: Lưu đơn */}
+                <motion.button
+                  type="button"
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                  transition={spring.press}
+                  disabled={isSubmitting || items.length === 0}
+                  onClick={handleSaveOrder}
+                  aria-label="Lưu đơn hàng và giữ trạng thái đang phục vụ"
+                  className="touch-target min-h-[44px] px-3 py-2 rounded-[16px] text-xs font-black text-white clay-btn-primary flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
+                  <span className="truncate">Lưu đơn</span>
+                </motion.button>
+              </div>
             </div>
           )}
         </div>
