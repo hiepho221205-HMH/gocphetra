@@ -187,7 +187,7 @@ export default function OnlineBillModal({
         {/* ================= SCROLLABLE BILL PREVIEW (PASTEL GLOW) ================= */}
         <div className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain scroll-touch-contain p-4 sm:p-5 bg-gradient-to-br from-[#ffe8f3] via-[#edf6fc] to-[#d9f3ff] overflow-x-hidden no-scrollbar">
           {/* Static Ambient Pastel Glow Layer (0% GPU Overhead, No Overdraw) */}
-          <div className="absolute inset-0 bg-radial from-white/35 via-transparent to-black/5 pointer-events-none" />
+          <div className="absolute inset-0 bg-radial from-white/35 via-transparent to-black/5 pointer-events-none modal-aurora-spin" />
 
           {/* Centered White Card with 30px Border Radius & Subtle Shadow */}
           <div

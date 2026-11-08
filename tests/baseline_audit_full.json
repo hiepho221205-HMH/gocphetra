@@ -1,0 +1,252 @@
+{
+  "timestamp": "2026-11-08T11:57:31.316Z",
+  "pwa": {
+    "score": 100,
+    "criteria": [
+      {
+        "name": "Manifest Link in HTML",
+        "passed": true,
+        "weight": 10,
+        "detail": "Linked via <link rel=\"manifest\">"
+      },
+      {
+        "name": "Manifest JSON Validity",
+        "passed": true,
+        "weight": 10,
+        "detail": "Valid JSON webmanifest"
+      },
+      {
+        "name": "Name & Short Name",
+        "passed": true,
+        "weight": 10,
+        "detail": "name: \"GÓC – Phê & Trà Mobile POS\", short_name: \"GÓC POS\""
+      },
+      {
+        "name": "start_url & display: standalone",
+        "passed": true,
+        "weight": 10,
+        "detail": "display: standalone, start_url: ./"
+      },
+      {
+        "name": "theme_color & background_color",
+        "passed": true,
+        "weight": 10,
+        "detail": "theme: #214E34, bg: #214E34"
+      },
+      {
+        "name": "Standard Icons (192x192 & 512x512)",
+        "passed": true,
+        "weight": 15,
+        "detail": "Icons 192x192 and 512x512 verified on disk"
+      },
+      {
+        "name": "Maskable Icon",
+        "passed": true,
+        "weight": 15,
+        "detail": "Maskable icon specified and verified on disk"
+      },
+      {
+        "name": "Service Worker (sw.js)",
+        "passed": true,
+        "weight": 10,
+        "detail": "sw.js generated and verified in dist"
+      },
+      {
+        "name": "App Shell Precache & Offline Support",
+        "passed": true,
+        "weight": 10,
+        "detail": "Workbox precaching and offline navigation configured"
+      }
+    ]
+  },
+  "screen1_login": {
+    "scores": {
+      "performance": 64,
+      "accessibility": 100,
+      "bestPractices": 100,
+      "seo": 100,
+      "pwa": 100
+    },
+    "metrics": {
+      "fcp": "5.3 s",
+      "lcp": "6.5 s",
+      "tbt": "10 ms",
+      "cls": "0.001",
+      "si": "5.3 s"
+    },
+    "opportunities": [
+      {
+        "id": "unused-css-rules",
+        "title": "Reduce unused CSS",
+        "score": 0,
+        "savingsMs": 600,
+        "savingsBytes": 90147,
+        "displayValue": "Est savings of 88 KiB"
+      },
+      {
+        "id": "unused-javascript",
+        "title": "Reduce unused JavaScript",
+        "score": 0,
+        "savingsMs": 2850,
+        "savingsBytes": 563945,
+        "displayValue": "Est savings of 551 KiB"
+      }
+    ],
+    "failingAudits": [
+      {
+        "id": "first-contentful-paint",
+        "title": "First Contentful Paint",
+        "score": 0.07,
+        "displayValue": "5.3 s"
+      },
+      {
+        "id": "largest-contentful-paint",
+        "title": "Largest Contentful Paint",
+        "score": 0.09,
+        "displayValue": "6.5 s"
+      },
+      {
+        "id": "speed-index",
+        "title": "Speed Index",
+        "score": 0.59,
+        "displayValue": "5.3 s"
+      },
+      {
+        "id": "interactive",
+        "title": "Time to Interactive",
+        "score": 0.57,
+        "displayValue": "6.7 s"
+      },
+      {
+        "id": "unused-css-rules",
+        "title": "Reduce unused CSS",
+        "score": 0,
+        "displayValue": "Est savings of 88 KiB"
+      },
+      {
+        "id": "unused-javascript",
+        "title": "Reduce unused JavaScript",
+        "score": 0,
+        "displayValue": "Est savings of 551 KiB"
+      },
+      {
+        "id": "document-latency-insight",
+        "title": "Document request latency",
+        "score": 0.5,
+        "displayValue": "Est savings of 3 KiB"
+      },
+      {
+        "id": "image-delivery-insight",
+        "title": "Improve image delivery",
+        "score": 0.5,
+        "displayValue": "Est savings of 6 KiB"
+      },
+      {
+        "id": "network-dependency-tree-insight",
+        "title": "Network dependency tree",
+        "score": 0
+      },
+      {
+        "id": "render-blocking-insight",
+        "title": "Render-blocking requests",
+        "score": 0,
+        "displayValue": "Est savings of 600 ms"
+      }
+    ]
+  },
+  "screen2_tables": {
+    "scores": {
+      "performance": 64,
+      "accessibility": 100,
+      "bestPractices": 100,
+      "seo": 100,
+      "pwa": 100
+    },
+    "metrics": {
+      "fcp": "5.3 s",
+      "lcp": "6.5 s",
+      "tbt": "50 ms",
+      "cls": "0.001",
+      "si": "5.3 s"
+    },
+    "opportunities": [
+      {
+        "id": "unused-css-rules",
+        "title": "Reduce unused CSS",
+        "score": 0,
+        "savingsMs": 600,
+        "savingsBytes": 90147,
+        "displayValue": "Est savings of 88 KiB"
+      },
+      {
+        "id": "unused-javascript",
+        "title": "Reduce unused JavaScript",
+        "score": 0,
+        "savingsMs": 2850,
+        "savingsBytes": 563945,
+        "displayValue": "Est savings of 551 KiB"
+      }
+    ],
+    "failingAudits": [
+      {
+        "id": "first-contentful-paint",
+        "title": "First Contentful Paint",
+        "score": 0.07,
+        "displayValue": "5.3 s"
+      },
+      {
+        "id": "largest-contentful-paint",
+        "title": "Largest Contentful Paint",
+        "score": 0.09,
+        "displayValue": "6.5 s"
+      },
+      {
+        "id": "speed-index",
+        "title": "Speed Index",
+        "score": 0.59,
+        "displayValue": "5.3 s"
+      },
+      {
+        "id": "interactive",
+        "title": "Time to Interactive",
+        "score": 0.46,
+        "displayValue": "7.6 s"
+      },
+      {
+        "id": "unused-css-rules",
+        "title": "Reduce unused CSS",
+        "score": 0,
+        "displayValue": "Est savings of 88 KiB"
+      },
+      {
+        "id": "unused-javascript",
+        "title": "Reduce unused JavaScript",
+        "score": 0,
+        "displayValue": "Est savings of 551 KiB"
+      },
+      {
+        "id": "document-latency-insight",
+        "title": "Document request latency",
+        "score": 0.5,
+        "displayValue": "Est savings of 3 KiB"
+      },
+      {
+        "id": "image-delivery-insight",
+        "title": "Improve image delivery",
+        "score": 0.5,
+        "displayValue": "Est savings of 6 KiB"
+      },
+      {
+        "id": "network-dependency-tree-insight",
+        "title": "Network dependency tree",
+        "score": 0
+      },
+      {
+        "id": "render-blocking-insight",
+        "title": "Render-blocking requests",
+        "score": 0,
+        "displayValue": "Est savings of 600 ms"
+      }
+    ]
+  }
+}
