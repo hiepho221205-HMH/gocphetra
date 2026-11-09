@@ -312,15 +312,29 @@ export function buildKitchenTicketModel({
   order = {},
   table = null,
   diffItems = [],
+  itemsToPrint = null,
   settings = {},
+  storeSettings = null,
+  kitchenConfig = null,
   currentUser = null,
   ticketNumber = null,
   printMode = 'diff',
-  ticketTag = null
+  ticketTag = null,
+  isAdditionalOrder: explicitIsAdditional = null,
+  reprintNote = null
 }) {
+  const sourceItems = (itemsToPrint && Array.isArray(itemsToPrint) && itemsToPrint.length > 0)
+    ? itemsToPrint
+    : (diffItems || []);
+
   const kitchenSettings = {
     ...DEFAULT_KITCHEN_TICKET_SETTINGS,
-    ...(settings?.kitchenTicketSettings || settings?.kitchen_ticket_settings || {})
+    ...(settings?.kitchenTicketSettings ||
+      settings?.kitchen_ticket_settings ||
+      storeSettings?.kitchenTicketSettings ||
+      storeSettings?.storeConfig?.kitchenConfig ||
+      kitchenConfig ||
+      {})
   };
 
   const now = new Date();
@@ -333,13 +347,13 @@ export function buildKitchenTicketModel({
   const hasPreviousPrints =
     Boolean(order?.items?.some((it) => (Number(it.printed_quantity) || 0) > 0 || it.is_printed)) ||
     (Array.isArray(order?.kitchenSentItems) && order.kitchenSentItems.length > 0) ||
-    (diffItems || []).some((it) => it.isAdditional);
+    sourceItems.some((it) => it.isAdditional);
 
-  const isAdditionalOrder = hasPreviousPrints;
-  const computedTag = ticketTag || (printMode === 'all' && hasPreviousPrints ? 'TOÀN BỘ CÁC MÓN' : (isAdditionalOrder ? 'MÓN GỌI THÊM' : null));
+  const isAdditionalOrder = explicitIsAdditional !== null ? explicitIsAdditional : hasPreviousPrints;
+  const computedTag = ticketTag || (reprintNote ? reprintNote : (printMode === 'all' && hasPreviousPrints ? 'TOÀN BỘ CÁC MÓN' : (isAdditionalOrder ? 'MÓN GỌI THÊM' : null)));
 
   // Format clean item rows
-  const formattedItems = (diffItems || []).map((it, idx) => {
+  const formattedItems = sourceItems.map((it, idx) => {
     const cleanToppings = normalizeToppingsList(it.toppings);
     const itemQty = Number(it.qtyToPrint || it.quantity) || 1;
     const isItemAdditional = Boolean(
@@ -380,6 +394,7 @@ export function buildKitchenTicketModel({
     isAdditionalOrder,
     hasPreviousPrints,
     ticketTag: computedTag,
+    reprintNote: reprintNote || (computedTag === 'IN LẠI CHO BẾP' ? 'IN LẠI CHO BẾP' : null),
     paperWidth,
     items: formattedItems,
     totalQuantity,
