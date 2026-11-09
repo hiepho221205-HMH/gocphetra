@@ -139,7 +139,33 @@ export default function OrderDetailsModal({
     return items.reduce((sum, it) => sum + (it.lineTotal || 0), 0);
   }, [items]);
 
-  if (!isOpen && !table) return null;
+  // Thống kê số lượng món và phần đang được chọn để in (Đảm bảo gọi Hook vô điều kiện tại top-level)
+  const printSelectionStats = useMemo(() => {
+    let selectedItemCount = 0;
+    let totalQtyToPrint = 0;
+    let unsentItemCount = 0;
+
+    (items || []).forEach((item) => {
+      const qty = Number(item.quantity) || 1;
+      const printedQty = Number(item.printed_quantity) || 0;
+      if (qty > printedQty) {
+        unsentItemCount++;
+      }
+
+      const sel = printSelectionMap?.[item.cartItemId];
+      if (sel?.selected) {
+        selectedItemCount++;
+        totalQtyToPrint += (Number(sel.qtyToPrint) || 0);
+      }
+    });
+
+    return {
+      selectedItemCount,
+      totalQtyToPrint,
+      unsentItemCount,
+      totalItemCount: (items || []).length
+    };
+  }, [items, printSelectionMap]);
 
   const isHistorical = order?.status === 'unpaid_carried_over';
   const tableName = table?.name || 'Bàn';
@@ -379,34 +405,6 @@ export default function OrderDetailsModal({
   const handlePrintKitchenTicket = () => {
     handleOpenKitchenPrintModal();
   };
-
-  // Thống kê số lượng món và phần đang được chọn để in
-  const printSelectionStats = useMemo(() => {
-    let selectedItemCount = 0;
-    let totalQtyToPrint = 0;
-    let unsentItemCount = 0;
-
-    items.forEach((item) => {
-      const qty = Number(item.quantity) || 1;
-      const printedQty = Number(item.printed_quantity) || 0;
-      if (qty > printedQty) {
-        unsentItemCount++;
-      }
-
-      const sel = printSelectionMap[item.cartItemId];
-      if (sel?.selected) {
-        selectedItemCount++;
-        totalQtyToPrint += (Number(sel.qtyToPrint) || 0);
-      }
-    });
-
-    return {
-      selectedItemCount,
-      totalQtyToPrint,
-      unsentItemCount,
-      totalItemCount: items.length
-    };
-  }, [items, printSelectionMap]);
 
   // Bộ lọc nhanh: Chỉ chọn món mới chưa gửi
   const handleSelectOnlyUnsent = () => {
@@ -727,6 +725,7 @@ export default function OrderDetailsModal({
   };
 
   if (typeof document === 'undefined') return null;
+  if (!isOpen && !table && !printPromptState?.isOpen) return null;
 
   return createPortal(
     <>
