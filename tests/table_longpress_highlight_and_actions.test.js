@@ -3,17 +3,17 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-test('FEATURE: Table 3s Long-press Highlight with Quick Rename & Delete Action Icons', async (t) => {
+test('FEATURE: Table 1.5s Long-press Highlight with Quick Rename & Delete Action Icons', async (t) => {
   const cardPath = path.resolve('src/components/tables/TableCard.jsx');
   const cardSrc = fs.readFileSync(cardPath, 'utf-8');
 
   const gridPath = path.resolve('src/components/tables/TableGrid.jsx');
   const gridSrc = fs.readFileSync(gridPath, 'utf-8');
 
-  await t.test('1. TableCard enforces 3000ms long-press threshold on empty tables only', () => {
+  await t.test('1. TableCard enforces 1500ms long-press threshold on empty tables only', () => {
     assert.ok(
-      cardSrc.includes('3000'),
-      'Must configure setTimeout with 3000ms (3 seconds)'
+      cardSrc.includes('1500'),
+      'Must configure setTimeout with 1500ms (1.5 seconds)'
     );
     assert.ok(
       cardSrc.includes('if (isOccupied || isLocked) return;'),
@@ -44,7 +44,7 @@ test('FEATURE: Table 3s Long-press Highlight with Quick Rename & Delete Action I
     );
   });
 
-  await t.test('3. TableCard prevents accidental click when 3s long-press triggers', () => {
+  await t.test('3. TableCard prevents accidental click when 1.5s long-press triggers', () => {
     assert.ok(
       cardSrc.includes('hasTriggeredHoldRef.current'),
       'Must track whether long-press triggered to suppress standard card click'

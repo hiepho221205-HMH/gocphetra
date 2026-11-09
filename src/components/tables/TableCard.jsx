@@ -64,7 +64,7 @@ const TableCard = React.memo(function TableCard({
     : { ...table, status: 'empty', activeOrderId: null };
 
   // =========================================================================
-  // 3S LONG-PRESS HANDLERS (CHỈ ÁP DỤNG CHO BÀN TRỐNG THEO QUY TẮC CẨN TRỌNG)
+  // 1.5S LONG-PRESS HANDLERS (CHỈ ÁP DỤNG CHO BÀN TRỐNG THEO QUY TẮC CẨN TRỌNG)
   // =========================================================================
   const handlePointerDown = (e) => {
     // Tuyệt đối không cho phép nhấn giữ trên bàn đang có khách hoặc đang tính tiền
@@ -88,7 +88,7 @@ const TableCard = React.memo(function TableCard({
       setIsHolding(false);
       triggerHaptic('medium');
       onHighlightTable?.(resolvedTable);
-    }, 3000); // Đủ 3 giây
+    }, 1500); // Đủ 1.5 giây
   };
 
   const handlePointerUpOrCancel = () => {
@@ -195,7 +195,7 @@ const TableCard = React.memo(function TableCard({
             : 'hover:border-[#214E34]/30'
         }`}
       >
-        {/* Phản hồi trực quan trong 3 giây nhấn giữ */}
+        {/* Phản hồi trực quan trong 1.5 giây nhấn giữ */}
         {isHolding && (
           <div className="absolute inset-0 rounded-[24px] pointer-events-none overflow-hidden z-20">
             <div className="absolute inset-0 bg-emerald-500/10 animate-pulse" />

@@ -473,25 +473,25 @@ export default function ManagementProfileView({ onBack }) {
       {/* ========================================================= */}
       {/* 0. TOP BAR VỚI NÚT QUAY LẠI (BACK) DÀNH CHO CÀI ĐẶT       */}
       {/* ========================================================= */}
-      <div className="flex items-center justify-between pb-3 mb-2 border-b border-gray-100">
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-4 pt-[max(12px,env(safe-area-inset-top))] pb-3.5 -mx-4 mb-3 border-b border-gray-100 flex items-center justify-between shadow-[0_4px_16px_-4px_rgba(33,78,52,0.08)]">
         <button
           type="button"
           onClick={onBack || (() => setActiveTab('tables'))}
           data-testid="settings-back-button"
-          className="p-2 rounded-xl bg-forest-50 hover:bg-forest-100 text-[#214E34] border border-forest-100 active:scale-95 transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+          className="w-10 h-10 rounded-xl bg-[#EBF5ED] hover:bg-[#D4E8DB] text-[#214E34] border border-[#D4E8DB] active:scale-95 transition-all flex items-center justify-center cursor-pointer shadow-[0_2px_8px_-2px_rgba(33,78,52,0.12)]"
           aria-label="Quay lại"
         >
           <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
         </button>
         <div className="text-center">
-          <h1 className="text-sm font-black text-[#214E34] tracking-tight leading-none">
+          <h1 className="text-base font-black text-[#214E34] tracking-tight leading-none font-sans">
             Cài đặt & Quản lý
           </h1>
-          <p className="text-[10.5px] text-gray-500 mt-0.5">
+          <p className="text-[11px] text-gray-500 font-semibold mt-1">
             Hệ thống & thông tin ca trực
           </p>
         </div>
-        <div className="w-9" />
+        <div className="w-10" />
       </div>
 
       {/* ========================================================= */}

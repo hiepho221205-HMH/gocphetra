@@ -62,34 +62,38 @@ export default function BluetoothStatusBadge({ compact = false }) {
   // Amber: Printing, Reconnecting, Connecting, or Queue > 0
   // Red: Disconnected or Error
   let colorTheme = {
-    badgeBg: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100',
+    badgeBg: 'bg-white hover:bg-rose-50/60 border-rose-200/80 text-rose-600',
     dotBg: 'bg-rose-500',
-    iconColor: 'text-rose-600',
+    iconColor: 'text-rose-500',
+    pingAnimation: false,
     label: 'Chưa kết nối',
     ariaLabel: 'Máy in Bluetooth: Chưa kết nối. Bấm để kết nối'
   };
 
   if (isPrinting || isReconnecting || queueLength > 0) {
     colorTheme = {
-      badgeBg: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100',
-      dotBg: 'bg-amber-500 animate-ping',
+      badgeBg: 'bg-amber-50/70 hover:bg-amber-100/70 border-amber-300 text-amber-700',
+      dotBg: 'bg-amber-500',
       iconColor: 'text-amber-600',
+      pingAnimation: true,
       label: isReconnecting ? 'Đang kết nối lại...' : isPrinting ? `Đang in (${queueLength + 1})` : 'Đang xử lý...',
       ariaLabel: `Máy in Bluetooth: ${isReconnecting ? 'Đang kết nối lại' : 'Đang in'}`
     };
   } else if (isConnected) {
     colorTheme = {
-      badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100',
+      badgeBg: 'bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-300 text-[#214E34]',
       dotBg: 'bg-emerald-500',
       iconColor: 'text-[#214E34]',
+      pingAnimation: false,
       label: deviceName ? `${deviceName.slice(0, 12)}` : 'Đã kết nối',
       ariaLabel: `Máy in Bluetooth: Đã kết nối với ${deviceName || 'máy in'}`
     };
   } else if (isStandbyReady) {
     colorTheme = {
-      badgeBg: 'bg-emerald-50/80 text-emerald-800 border-emerald-200/80 hover:bg-emerald-100',
+      badgeBg: 'bg-emerald-50/40 hover:bg-emerald-100/40 border-emerald-200 text-[#214E34]',
       dotBg: 'bg-emerald-400',
       iconColor: 'text-[#214E34]',
+      pingAnimation: false,
       label: deviceName ? `${deviceName.slice(0, 10)} (Sẵn sàng)` : 'Sẵn sàng',
       ariaLabel: `Máy in Bluetooth: Sẵn sàng chia sẻ in với ${deviceName || 'máy in'}`
     };
@@ -139,20 +143,24 @@ export default function BluetoothStatusBadge({ compact = false }) {
 
   return (
     <div className="relative inline-block" ref={containerRef}>
-      {/* Badge Button */}
+      {/* Badge Button - Compact 3D Clay Circle */}
       <button
         type="button"
         onClick={handleToggle}
         aria-label={colorTheme.ariaLabel}
         aria-expanded={isOpen}
+        title={colorTheme.ariaLabel}
         role="status"
-        className={`touch-target min-h-[38px] px-2.5 py-1.5 rounded-full border text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs active:scale-95 cursor-pointer ${colorTheme.badgeBg}`}
+        data-testid="header-bluetooth-button"
+        className={`relative w-[38px] h-[38px] rounded-full border flex items-center justify-center transition-all duration-150 active:scale-95 cursor-pointer shadow-[0_4px_10px_-2px_rgba(33,78,52,0.12),inset_0_1px_2px_rgba(255,255,255,0.8)] ${colorTheme.badgeBg}`}
       >
-        <span className="relative flex h-2 w-2">
-          <span className={`rounded-full h-2 w-2 ${colorTheme.dotBg}`} />
+        <Bluetooth className={`w-[18px] h-[18px] shrink-0 ${colorTheme.iconColor}`} />
+        <span className="absolute top-1 right-1 flex h-2.5 w-2.5 items-center justify-center pointer-events-none">
+          {colorTheme.pingAnimation && (
+            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${colorTheme.dotBg}`} />
+          )}
+          <span className={`relative inline-flex rounded-full h-2 w-2 border border-white shadow-2xs ${colorTheme.dotBg}`} />
         </span>
-        <Bluetooth className={`w-3.5 h-3.5 shrink-0 ${colorTheme.iconColor}`} />
-        {!compact && <span className="truncate max-w-[95px] text-[11px]">{colorTheme.label}</span>}
       </button>
 
       {/* Popover Controls */}

@@ -140,12 +140,14 @@ export default function PosContent() {
           onLogout={logoutUser}
         />
 
-        {/* Sticky Mobile POS Header */}
-        <PageHeader
-          onToggleDeviceMode={toggleDeviceMode}
-          deviceMode={deviceMode}
-          onOpenSettings={handleOpenSettings}
-        />
+        {/* Sticky Mobile POS Header (Chỉ hiển thị cho 4 tab chính, ẩn khi mở Cài đặt & Quản lý hoặc Đang gọi món) */}
+        {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab) && (
+          <PageHeader
+            onToggleDeviceMode={toggleDeviceMode}
+            deviceMode={deviceMode}
+            onOpenSettings={handleOpenSettings}
+          />
+        )}
 
         {/* PWA Update Banner */}
         {hasUpdate && (

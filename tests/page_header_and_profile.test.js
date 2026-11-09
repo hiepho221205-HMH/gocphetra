@@ -5,16 +5,18 @@ import path from 'node:path';
 
 describe('Shared Sticky Header (Foodgo Layout) & Settings Management Contract Tests', () => {
   const headerPath = path.resolve('src/components/common/PageHeader.jsx');
+  const bluetoothBadgePath = path.resolve('src/components/common/BluetoothStatusBadge.jsx');
   const profilePath = path.resolve('src/components/management/ManagementProfileView.jsx');
-  const appPath = path.resolve('src/App.jsx');
+  const posContentPath = path.resolve('src/components/pos/PosContent.jsx');
   const tableGridPath = path.resolve('src/components/tables/TableGrid.jsx');
   const menuPath = path.resolve('src/components/menu/MenuManagementView.jsx');
   const ordersPath = path.resolve('src/components/orders/OrderHistoryView.jsx');
   const reportsPath = path.resolve('src/components/reports/ReportsView.jsx');
 
   const headerContent = fs.readFileSync(headerPath, 'utf8');
+  const bluetoothBadgeContent = fs.readFileSync(bluetoothBadgePath, 'utf8');
   const profileContent = fs.readFileSync(profilePath, 'utf8');
-  const appContent = fs.readFileSync(appPath, 'utf8');
+  const posContent = fs.readFileSync(posContentPath, 'utf8');
   const tableGridContent = fs.readFileSync(tableGridPath, 'utf8');
   const menuContent = fs.readFileSync(menuPath, 'utf8');
   const ordersContent = fs.readFileSync(ordersPath, 'utf8');
@@ -67,6 +69,14 @@ describe('Shared Sticky Header (Foodgo Layout) & Settings Management Contract Te
     assert.ok(headerContent.includes('z-20'), 'PageHeader must have z-index elevation');
   });
 
+  it('1.6 - BluetoothStatusBadge renders compact 3D clay circle (38x38px) with status LED indicator', () => {
+    assert.ok(bluetoothBadgeContent.includes('w-[38px] h-[38px]'), 'Must be compact 38x38px');
+    assert.ok(bluetoothBadgeContent.includes('rounded-full'), 'Must be circular');
+    assert.ok(bluetoothBadgeContent.includes('data-testid="header-bluetooth-button"'), 'Must have testid');
+    assert.ok(bluetoothBadgeContent.includes('animate-ping'), 'Must support ping animation when printing/reconnecting');
+    assert.ok(bluetoothBadgeContent.includes('colorTheme.dotBg'), 'Must include LED indicator dot');
+  });
+
   // =========================================================================
   // 2. Settings ManagementProfileView Component & Functionality
   // =========================================================================
@@ -74,6 +84,7 @@ describe('Shared Sticky Header (Foodgo Layout) & Settings Management Contract Te
     assert.ok(profileContent.includes('ArrowLeft'), 'ManagementProfileView must have back button with ArrowLeft');
     assert.ok(profileContent.includes('data-testid="settings-back-button"'), 'Back button testid must exist');
     assert.ok(profileContent.includes('Cài đặt & Quản lý'), 'Title must be Cài đặt & Quản lý');
+    assert.ok(profileContent.includes('sticky top-0'), 'Settings header must be sticky at the top');
   });
 
   it('2.2 - ManagementProfileView provides avatar upload and removal functionality', () => {
@@ -94,17 +105,17 @@ describe('Shared Sticky Header (Foodgo Layout) & Settings Management Contract Te
   // =========================================================================
   // 3. App Integration & Header Isolation
   // =========================================================================
-  it('3.1 - App renders PageHeader only for 4 main tabs and hides it during active ordering and settings', () => {
-    assert.ok(appContent.includes('<PageHeader'), 'App must render PageHeader');
+  it('3.1 - PosContent renders PageHeader only for 4 main tabs and hides it during active ordering and settings', () => {
+    assert.ok(posContent.includes('<PageHeader'), 'PosContent must render PageHeader');
     assert.ok(
-      appContent.includes("!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab)"),
+      posContent.includes("!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab)"),
       'PageHeader must be scoped to 4 main tabs and hidden during active table ordering or settings'
     );
   });
 
-  it('3.2 - App routes avatar click directly to SettingsView with onBack', () => {
-    assert.ok(appContent.includes("activeTab === 'settings'"), 'App must route settings tab');
-    assert.ok(appContent.includes('<SettingsView onBack='), 'App must render SettingsView with onBack');
+  it('3.2 - PosContent routes avatar click directly to SettingsView with onBack', () => {
+    assert.ok(posContent.includes("activeTab === 'settings'"), 'PosContent must route settings tab');
+    assert.ok(posContent.includes('<SettingsView onBack='), 'PosContent must render SettingsView with onBack');
   });
 
   // =========================================================================
