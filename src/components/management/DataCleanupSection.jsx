@@ -314,16 +314,28 @@ export default function DataCleanupSection() {
                 >
                   Từ ngày:
                 </label>
-                <input
-                  id="cleanup-from-date-input"
-                  type="date"
-                  data-testid="cleanup-from-date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className={`w-full min-w-0 h-9 px-2 py-1.5 rounded-xl text-[11px] text-gray-900 font-semibold bg-[#F4F7FB] border transition-all shadow-inner focus:outline-none focus:bg-white focus:border-[#214E34] [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:p-0 ${
-                    isInvertedRange ? 'border-rose-400 bg-rose-50/40 text-rose-900' : 'border-gray-200/90'
-                  }`}
-                />
+                <div className="relative">
+                  <div
+                    className={`h-9 px-2.5 rounded-xl flex items-center justify-between transition-all border ${
+                      isInvertedRange
+                        ? 'border-rose-400 bg-rose-50/50 text-rose-900 shadow-inner'
+                        : 'border-gray-200/90 bg-[#F4F7FB] text-gray-800 shadow-inner'
+                    }`}
+                  >
+                    <span className="text-[11.5px] font-bold tracking-tight">
+                      {formatShortDate(fromDate) || 'Chọn ngày'}
+                    </span>
+                    <Calendar className="w-3.5 h-3.5 text-forest-700/70 shrink-0" />
+                  </div>
+                  <input
+                    id="cleanup-from-date-input"
+                    type="date"
+                    data-testid="cleanup-from-date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                </div>
               </div>
               <div className="min-w-0">
                 <label
@@ -332,16 +344,28 @@ export default function DataCleanupSection() {
                 >
                   Đến ngày:
                 </label>
-                <input
-                  id="cleanup-to-date-input"
-                  type="date"
-                  data-testid="cleanup-to-date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className={`w-full min-w-0 h-9 px-2 py-1.5 rounded-xl text-[11px] text-gray-900 font-semibold bg-[#F4F7FB] border transition-all shadow-inner focus:outline-none focus:bg-white focus:border-[#214E34] [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:p-0 ${
-                    isInvertedRange ? 'border-rose-400 bg-rose-50/40 text-rose-900' : 'border-gray-200/90'
-                  }`}
-                />
+                <div className="relative">
+                  <div
+                    className={`h-9 px-2.5 rounded-xl flex items-center justify-between transition-all border ${
+                      isInvertedRange
+                        ? 'border-rose-400 bg-rose-50/50 text-rose-900 shadow-inner'
+                        : 'border-gray-200/90 bg-[#F4F7FB] text-gray-800 shadow-inner'
+                    }`}
+                  >
+                    <span className="text-[11.5px] font-bold tracking-tight">
+                      {formatShortDate(toDate) || 'Chọn ngày'}
+                    </span>
+                    <Calendar className="w-3.5 h-3.5 text-forest-700/70 shrink-0" />
+                  </div>
+                  <input
+                    id="cleanup-to-date-input"
+                    type="date"
+                    data-testid="cleanup-to-date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                </div>
               </div>
             </div>
 
@@ -368,14 +392,22 @@ export default function DataCleanupSection() {
             >
               Xóa các hóa đơn hoàn tất trước ngày:
             </label>
-            <input
-              id="cleanup-before-date-input"
-              type="date"
-              data-testid="cleanup-before-date"
-              value={beforeDate}
-              onChange={(e) => setBeforeDate(e.target.value)}
-              className="w-full min-w-0 h-9 px-2.5 py-1.5 rounded-xl text-[11px] text-gray-900 font-semibold bg-[#F4F7FB] border border-gray-200/90 shadow-inner focus:outline-none focus:bg-white focus:border-[#214E34] transition-all [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:p-0"
-            />
+            <div className="relative">
+              <div className="h-9 px-3 rounded-xl flex items-center justify-between border border-gray-200/90 bg-[#F4F7FB] text-gray-800 shadow-inner">
+                <span className="text-[11.5px] font-bold tracking-tight">
+                  {formatShortDate(beforeDate) || 'Chọn ngày'}
+                </span>
+                <Calendar className="w-3.5 h-3.5 text-forest-700/70 shrink-0" />
+              </div>
+              <input
+                id="cleanup-before-date-input"
+                type="date"
+                data-testid="cleanup-before-date"
+                value={beforeDate}
+                onChange={(e) => setBeforeDate(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+            </div>
             <p className="text-[10.5px] text-gray-500 font-medium">
               Chỉ xóa các hóa đơn được thanh toán trước 00:00 của ngày {formatShortDate(beforeDate) || beforeDate} (giờ Việt Nam).
             </p>
