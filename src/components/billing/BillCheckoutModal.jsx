@@ -168,25 +168,21 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
   const handleFullCashCheckout = async () => {
     if (isCheckingOut) return;
     triggerHaptic('medium');
-    const isAutomated = typeof window !== 'undefined' && Boolean(window.__TEST_MODE__ || window.__E2E_PLAYWRIGHT__);
-    const confirmed = isAutomated ? true : window.confirm(`Xác nhận thu tiền mặt ${formatVND(total)} cho ${table.name}?`);
-    if (confirmed) {
-      setIsCheckingOut(true);
-      try {
-        const success = await fullCheckout(table.id, 'cash');
-        if (success) {
-          triggerHaptic('success');
-          if (onPaymentSuccess) {
-            onPaymentSuccess(table);
-          } else {
-            onClose();
-          }
+    setIsCheckingOut(true);
+    try {
+      const success = await fullCheckout(table.id, 'cash');
+      if (success) {
+        triggerHaptic('success');
+        if (onPaymentSuccess) {
+          onPaymentSuccess(table);
+        } else {
+          onClose();
         }
-      } catch (err) {
-        console.error('Lỗi khi thanh toán tiền mặt:', err);
-      } finally {
-        setIsCheckingOut(false);
       }
+    } catch (err) {
+      console.error('Lỗi khi thanh toán tiền mặt:', err);
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
