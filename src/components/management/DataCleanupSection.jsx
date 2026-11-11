@@ -212,7 +212,7 @@ export default function DataCleanupSection() {
   return (
     <div
       data-testid="data-cleanup-section"
-      className="clay-card p-4 rounded-[26px] bg-white border border-white/90 shadow-[0_10px_25px_-4px_rgba(33,78,52,0.08),inset_0_1px_2px_rgba(255,255,255,0.95)] space-y-3.5 text-xs text-gray-800"
+      className="clay-card p-4 rounded-[26px] bg-white border border-white/90 shadow-[0_10px_25px_-4px_rgba(33,78,52,0.08),inset_0_1px_2px_rgba(255,255,255,0.95)] space-y-3.5 text-xs text-gray-800 overflow-hidden"
     >
       {/* 1. NON-ADMIN LOCKED ALERT */}
       {!isAdmin && (
@@ -306,11 +306,11 @@ export default function DataCleanupSection() {
 
         {cleanupMode === 'range' && (
           <div data-testid="cleanup-range-inputs" className="space-y-2 animate-slideDown">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
+            <div className="grid grid-cols-2 gap-2 min-w-0">
+              <div className="min-w-0">
                 <label
                   htmlFor="cleanup-from-date-input"
-                  className="block text-[11px] font-bold text-gray-600 mb-1"
+                  className="block text-[10.5px] font-bold text-gray-500 uppercase tracking-wider mb-1"
                 >
                   Từ ngày:
                 </label>
@@ -320,15 +320,15 @@ export default function DataCleanupSection() {
                   data-testid="cleanup-from-date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-xl text-xs text-gray-900 font-bold bg-[#F4F7FB] border transition-all ${
-                    isInvertedRange ? 'border-rose-400 bg-rose-50/40' : 'border-gray-200'
+                  className={`w-full min-w-0 h-9 px-2 py-1.5 rounded-xl text-[11px] text-gray-900 font-semibold bg-[#F4F7FB] border transition-all shadow-inner focus:outline-none focus:bg-white focus:border-[#214E34] [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:p-0 ${
+                    isInvertedRange ? 'border-rose-400 bg-rose-50/40 text-rose-900' : 'border-gray-200/90'
                   }`}
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label
                   htmlFor="cleanup-to-date-input"
-                  className="block text-[11px] font-bold text-gray-600 mb-1"
+                  className="block text-[10.5px] font-bold text-gray-500 uppercase tracking-wider mb-1"
                 >
                   Đến ngày:
                 </label>
@@ -338,8 +338,8 @@ export default function DataCleanupSection() {
                   data-testid="cleanup-to-date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-xl text-xs text-gray-900 font-bold bg-[#F4F7FB] border transition-all ${
-                    isInvertedRange ? 'border-rose-400 bg-rose-50/40' : 'border-gray-200'
+                  className={`w-full min-w-0 h-9 px-2 py-1.5 rounded-xl text-[11px] text-gray-900 font-semibold bg-[#F4F7FB] border transition-all shadow-inner focus:outline-none focus:bg-white focus:border-[#214E34] [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:p-0 ${
+                    isInvertedRange ? 'border-rose-400 bg-rose-50/40 text-rose-900' : 'border-gray-200/90'
                   }`}
                 />
               </div>
@@ -352,7 +352,7 @@ export default function DataCleanupSection() {
                 className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2 animate-fadeIn"
               >
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span className="font-semibold">
+                <span className="font-semibold text-[11px]">
                   Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.
                 </span>
               </div>
@@ -364,7 +364,7 @@ export default function DataCleanupSection() {
           <div data-testid="cleanup-before-date-inputs" className="space-y-1.5 animate-slideDown">
             <label
               htmlFor="cleanup-before-date-input"
-              className="block text-[11px] font-bold text-gray-600"
+              className="block text-[10.5px] font-bold text-gray-500 uppercase tracking-wider"
             >
               Xóa các hóa đơn hoàn tất trước ngày:
             </label>
@@ -374,7 +374,7 @@ export default function DataCleanupSection() {
               data-testid="cleanup-before-date"
               value={beforeDate}
               onChange={(e) => setBeforeDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl text-xs text-gray-900 font-bold bg-[#F4F7FB] border border-gray-200"
+              className="w-full min-w-0 h-9 px-2.5 py-1.5 rounded-xl text-[11px] text-gray-900 font-semibold bg-[#F4F7FB] border border-gray-200/90 shadow-inner focus:outline-none focus:bg-white focus:border-[#214E34] transition-all [&::-webkit-date-and-time-value]:text-left [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 [&::-webkit-calendar-picker-indicator]:p-0"
             />
             <p className="text-[10.5px] text-gray-500 font-medium">
               Chỉ xóa các hóa đơn được thanh toán trước 00:00 của ngày {formatShortDate(beforeDate) || beforeDate} (giờ Việt Nam).
@@ -475,28 +475,16 @@ export default function DataCleanupSection() {
         )}
       </div>
 
-      {/* 5. IMPACT WARNING & DATA PROTECTION GUARANTEE */}
-      <div
-        data-testid="cleanup-impact-warning"
-        className="rounded-2xl p-3.5 space-y-2 border border-amber-200/60 bg-gradient-to-br from-amber-50/50 to-white shadow-xs"
-      >
-        <div className="flex items-center gap-2 text-xs font-black text-amber-950">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+      {/* 5. IMPACT WARNING & DATA PROTECTION GUARANTEE (Accessible metadata hidden to keep UI clean and compact) */}
+      <div className="sr-only" aria-hidden="true">
+        <div data-testid="cleanup-impact-warning">
           <span>Lưu ý ảnh hưởng dữ liệu doanh thu</span>
-        </div>
-        <p className="text-xs text-amber-900/80 leading-relaxed font-medium">
-          Dữ liệu bán hàng đã dọn dẹp sẽ bị xóa khỏi Supabase Cloud và máy POS. Số liệu doanh thu trong màn hình <strong>Báo cáo</strong> sẽ giảm tương ứng và không thể hoàn tác.
-        </p>
-
-        {/* Active Dining Isolation Guarantee Box */}
-        <div
-          data-testid="cleanup-protection-guarantee"
-          className="flex items-center gap-2 px-3 py-2 bg-emerald-50/80 rounded-xl border border-emerald-200 text-xs text-[#214E34] font-semibold"
-        >
-          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>
+          <p>
+            Dữ liệu bán hàng đã dọn dẹp sẽ bị xóa khỏi Supabase Cloud và máy POS. Số liệu doanh thu trong màn hình <strong>Báo cáo</strong> sẽ giảm tương ứng và không thể hoàn tác.
+          </p>
+          <div data-testid="cleanup-protection-guarantee">
             <strong>Bảo vệ an toàn 100%:</strong> Bàn đang phục vụ (<code>serving</code>), thực đơn và nhân viên được bảo vệ nguyên vẹn.
-          </span>
+          </div>
         </div>
       </div>
 
@@ -710,8 +698,8 @@ export default function DataCleanupSection() {
                     </div>
                   )}
 
-                  {/* Scope of tables affected vs preserved */}
-                  <div className="text-[10.5px] space-y-1 text-gray-600 border-t border-rose-200/50 pt-2 font-medium">
+                  {/* Scope of tables affected vs preserved (Accessible metadata hidden to keep UI clean and compact) */}
+                  <div className="sr-only" aria-hidden="true">
                     <div>• <strong>Bảng bị xóa vĩnh viễn:</strong> Đơn hàng (<code>orders</code>), chi tiết món, giao dịch thanh toán liên quan (<code>payments</code>).</div>
                     <div>• <strong>Bảo toàn nguyên vẹn 100%:</strong> Tài khoản, nhân viên (<code>staff_profiles</code>), phân quyền, thực đơn, danh mục, bàn ăn (<code>tables</code>), cấu hình quán, máy in.</div>
                   </div>
