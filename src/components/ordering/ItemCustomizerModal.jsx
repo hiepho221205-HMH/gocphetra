@@ -305,8 +305,8 @@ export default function ItemCustomizerModal({ item, isOpen, onClose, onAddToCart
           </div>
         </div>
 
-        {/* Footer: Quantity Stepper & Add Button */}
-        <div className="p-4 border-t border-gray-100 bg-white/95 backdrop-blur-md flex items-center gap-3">
+        {/* Footer: Quantity Stepper & Add Button (Safe-area padded for iPhone) */}
+        <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom,1rem))] border-t border-gray-100 bg-white/95 backdrop-blur-md flex items-center gap-3">
           {/* Main Item Quantity Stepper 3D */}
           <div className="flex items-center space-x-1.5 clay-inset p-1.5">
             <button

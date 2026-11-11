@@ -653,9 +653,16 @@ export function PosProvider({ children }) {
         return null;
       }
 
-      const emailLower = (user.email || '').toLowerCase();
-      const fallbackRoleByEmail = emailLower.startsWith('admin') ? 'admin' : emailLower.startsWith('manager') ? 'manager' : 'staff';
-      const role = profile?.role || user.user_metadata?.role || fallbackRoleByEmail;
+      // CHÍNH SÁCH BẢO MẬT & PHÂN QUYỀN RBAC KHẮT KHE (LEAST PRIVILEGE):
+      // Vai trò (role) bắt buộc phải xuất phát từ hồ sơ được xác thực trên database (profile.role).
+      // Tuyệt đối không tự cấp quyền Admin theo tiền tố email và không tin cậy metadata người dùng có thể tự sửa.
+      // Chỉ chấp nhận manager/staff từ metadata nếu database chưa kịp đồng bộ; Admin bắt buộc phải có profile.role === 'admin'.
+      let role = 'staff';
+      if (profile?.role && ['admin', 'manager', 'staff'].includes(profile.role)) {
+        role = profile.role;
+      } else if (user.user_metadata?.role && ['manager', 'staff'].includes(user.user_metadata.role)) {
+        role = user.user_metadata.role;
+      }
       const defaultNameByRole = role === 'admin' ? 'Trần Mai' : role === 'manager' ? 'Nguyễn Văn Hùng' : 'Lê Hoàng Nam';
       const name = profile?.name || user.user_metadata?.name || defaultNameByRole;
       const avatarUrl = profile?.avatarUrl || null;
@@ -1073,19 +1080,6 @@ export function PosProvider({ children }) {
     };
     window.addEventListener('offline', handleOffline);
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const lastSync = cloudStatusRef.current?.lastSyncTime ? new Date(cloudStatusRef.current.lastSyncTime).getTime() : 0;
-        const now = Date.now();
-        // Only re-sync if the app was hidden/sleeping for at least 5 minutes (> 300,000ms)
-        if (now - lastSync >= 300000) {
-          console.log('[Visibility] Ứng dụng trở lại foreground sau khi ngủ >5m, đồng bộ dữ liệu từ Cloud...');
-          syncFromCloud(false);
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     // Setup Realtime with full publication coverage & channel lifecycle
     let channel = null;
     let reconnectTimeout = null;
@@ -1400,6 +1394,28 @@ export function PosProvider({ children }) {
     };
 
     channel = setupRealtimeChannel();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const lastSync = cloudStatusRef.current?.lastSyncTime ? new Date(cloudStatusRef.current.lastSyncTime).getTime() : 0;
+        const now = Date.now();
+        // Foreground wakeup: sync delta if app was sleeping for >= 15 seconds
+        if (now - lastSync >= 15000) {
+          console.log('[Visibility] Ứng dụng trở lại foreground, đồng bộ nhanh dữ liệu từ Cloud...');
+          syncFromCloud(false, true);
+        }
+        // Kiểm tra và tái kết nối kênh Realtime nếu kết nối bị ngắt khi điện thoại tắt màn hình
+        const currentChannel = realtimeChannelRef.current;
+        if (!currentChannel || currentChannel.state !== 'joined') {
+          console.log('[Visibility] Kênh Realtime không ở trạng thái joined sau khi mở lại app, kết nối lại...');
+          if (currentChannel && supabase) {
+            try { supabase.removeChannel(currentChannel); } catch (_) {}
+          }
+          channel = setupRealtimeChannel();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       isMounted = false;
@@ -4321,7 +4337,43 @@ export function PosProvider({ children }) {
     setStaffList(INITIAL_STAFF);
   };
 
-  const value = {
+  const toggleDeviceMode = useCallback(() => {
+    setDeviceMode((m) => (m === 'mobile' ? 'responsive' : 'mobile'));
+  }, []);
+
+  const updateSettings = useCallback((newSet) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...newSet };
+      cloudUpsertSettings(next);
+      return next;
+    });
+  }, []);
+
+  const saveReceiptSnapshot = useCallback(async (order, paperWidth = null) => {
+    try {
+      const width = paperWidth || settings?.receiptPaperWidth || '58mm';
+      const record = createReceiptSnapshotRecord(order, settings, width);
+      await saveReceiptSnapshotToCloud(record);
+      return record;
+    } catch (err) {
+      console.warn('Lỗi saveReceiptSnapshot:', err);
+      return null;
+    }
+  }, [settings]);
+
+  const fetchReceiptSnapshot = useCallback(async (orderId) => {
+    return await fetchReceiptByOrderId(orderId);
+  }, []);
+
+  const recordReceiptReprintAction = useCallback(async (receiptId) => {
+    return await incrementReceiptReprint(receiptId);
+  }, []);
+
+  const uploadStoreLogo = useCallback(async (file, type = 'original') => {
+    return await uploadStoreLogoToStorage(file, type);
+  }, []);
+
+  const value = useMemo(() => ({
     tables,
     categories,
     menu,
@@ -4359,7 +4411,7 @@ export function PosProvider({ children }) {
     setSelectedTableId,
     deviceMode,
     setDeviceMode,
-    toggleDeviceMode: () => setDeviceMode((m) => (m === 'mobile' ? 'responsive' : 'mobile')),
+    toggleDeviceMode,
 
     showToast,
     removeToast,
@@ -4436,33 +4488,11 @@ export function PosProvider({ children }) {
     userProfiles,
     updateCurrentUserProfile,
     allOrderHistory: orderHistory,
-    updateSettings: (newSet) => {
-      setSettings((prev) => {
-        const next = { ...prev, ...newSet };
-        cloudUpsertSettings(next);
-        return next;
-      });
-    },
-    saveReceiptSnapshot: async (order, paperWidth = null) => {
-      try {
-        const width = paperWidth || settings?.receiptPaperWidth || '58mm';
-        const record = createReceiptSnapshotRecord(order, settings, width);
-        await saveReceiptSnapshotToCloud(record);
-        return record;
-      } catch (err) {
-        console.warn('Lỗi saveReceiptSnapshot:', err);
-        return null;
-      }
-    },
-    fetchReceiptSnapshot: async (orderId) => {
-      return await fetchReceiptByOrderId(orderId);
-    },
-    recordReceiptReprintAction: async (receiptId) => {
-      return await incrementReceiptReprint(receiptId);
-    },
-    uploadStoreLogo: async (file, type = 'original') => {
-      return await uploadStoreLogoToStorage(file, type);
-    },
+    updateSettings,
+    saveReceiptSnapshot,
+    fetchReceiptSnapshot,
+    recordReceiptReprintAction,
+    uploadStoreLogo,
     resetAllData,
     // Super-Admin Emergency Actions
     adminForceDeleteOrder,
@@ -4483,7 +4513,114 @@ export function PosProvider({ children }) {
     autoCloseDailyRevenue,
     getDailyCloseReport,
     calculateDailySummary
-  };
+  }), [
+    tables,
+    categories,
+    menu,
+    toppings,
+    productToppings,
+    orders,
+    visibleOrderHistory,
+    payments,
+    settings,
+    staffList,
+    toasts,
+    cloudStatus,
+    isSyncing,
+    syncFromCloud,
+    syncStaffWithCloud,
+    seedToCloud,
+    refreshCloudHealth,
+    runCatchupRollover,
+    processHistoricalPayment,
+    batchProcessHistoricalPayments,
+    currentRoute,
+    routeParams,
+    navigate,
+    activeTab,
+    selectedTableId,
+    deviceMode,
+    toggleDeviceMode,
+    showToast,
+    removeToast,
+    addTable,
+    updateTable,
+    deleteTable,
+    transferTable,
+    mergeTables,
+    getOrCreateOrder,
+    getOrderForTable,
+    saveOrderForTable,
+    recordKitchenTicketPrint,
+    addItemToOrder,
+    updateItemQuantity,
+    removeItemFromOrder,
+    updateBillAdjustments,
+    requestBillForTable,
+    processPartialPayment,
+    fullCheckout,
+    cancelOrderForTable,
+    deleteActiveOrderForTable,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    addMenuItem,
+    updateMenuItem,
+    deleteMenuItem,
+    toggleProductStock,
+    getProductToppings,
+    setProductToppingLinks,
+    addToppingItem,
+    updateToppingItem,
+    deleteToppingItem,
+    toggleToppingStock,
+    addStaff,
+    updateStaffName,
+    toggleStaffStatus,
+    saveStaffMember,
+    deleteStaff,
+    adminUpdateUserCredentials,
+    cleanupCompletedOrders,
+    session,
+    authUser,
+    currentUserProfile,
+    isAuthLoading,
+    authError,
+    loginSuccessRole,
+    loginWithEmail,
+    logoutUser,
+    isAccountSuspended,
+    onlineUserIds,
+    isStaffOnline,
+    currentRole,
+    currentUser,
+    auditLogs,
+    switchDemoRole,
+    changeUserRole,
+    userProfiles,
+    updateCurrentUserProfile,
+    orderHistory,
+    updateSettings,
+    saveReceiptSnapshot,
+    fetchReceiptSnapshot,
+    recordReceiptReprintAction,
+    uploadStoreLogo,
+    resetAllData,
+    adminForceDeleteOrder,
+    adminForceResetTable,
+    adminPurgeStaleOrders,
+    isTableBillingLocked,
+    acquireBillingLock,
+    releaseBillingLock,
+    isOnline,
+    pendingOutboxCount,
+    isSyncingOutbox,
+    replayOutboxQueue,
+    resolveOutboxConflict,
+    dailyClosures,
+    autoCloseDailyRevenue,
+    getDailyCloseReport
+  ]);
 
   return <PosContext.Provider value={value}>{children}</PosContext.Provider>;
 }

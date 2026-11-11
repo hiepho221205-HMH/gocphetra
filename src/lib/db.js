@@ -26,6 +26,14 @@ export async function getDb() {
           dailyClosures: 'date, closedAt, totalRevenue, totalOrders, cashTotal, qrTotal'
         });
         _db = dbInstance;
+        // Bảo vệ dữ liệu ngoại tuyến trên iOS Safari / WebKit & Android Chrome chống tự động xóa
+        if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
+          navigator.storage.persist().then((isPersisted) => {
+            if (isPersisted) {
+              console.log('[IndexedDB] Lưu trữ bền vững (Persistent Storage) đã được cấp phép.');
+            }
+          }).catch(() => {});
+        }
         return _db;
       } catch (err) {
         console.warn('[IndexedDB] Không thể khởi tạo Dexie:', err);

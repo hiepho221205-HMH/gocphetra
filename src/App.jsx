@@ -3,6 +3,8 @@ import { PosProvider, usePos } from './store/PosContext';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import { AnimateUIProvider } from './lib/animateUi';
 import LoginPage from './components/auth/LoginPage';
+import { useVersionChecker } from './hooks/useVersionChecker';
+import { RefreshCw } from 'lucide-react';
 
 // Code-split heavy post-auth views for instant login load and 90+ Lighthouse score
 // Routes: activeTab === 'settings', activeTab === 'tables', activeTab === 'menu', activeTab === 'orders', activeTab === 'reports'
@@ -19,6 +21,8 @@ function PosAppRoot() {
     setLoginSuccessRole,
     currentUser
   } = usePos();
+
+  const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
 
   React.useEffect(() => {
     if (!isAuthLoading) {
@@ -92,6 +96,25 @@ function PosAppRoot() {
 
   return (
     <ErrorBoundary>
+      {hasUpdate && (
+        <div
+          role="alert"
+          className="fixed top-0 inset-x-0 z-50 bg-[#214E34] text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-lg animate-fadeIn"
+        >
+          <span className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+            <span>Đã có phiên bản cập nhật mới ({newVersion})!</span>
+          </span>
+          <button
+            type="button"
+            onClick={applyUpdate}
+            className="px-3 py-1 bg-white text-[#214E34] rounded-lg font-black text-[11px] hover:bg-emerald-50 active:scale-95 cursor-pointer shadow-xs flex items-center gap-1.5 transition-transform"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>Cập nhật ngay</span>
+          </button>
+        </div>
+      )}
       <Suspense fallback={
         <div className="h-[100dvh] w-full bg-[#F8FAF7] flex flex-col items-center justify-center font-sans text-[#214E34]">
           <div className="flex flex-col items-center gap-2">

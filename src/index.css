@@ -23,6 +23,10 @@
     user-select: none;
     -webkit-user-select: none;
   }
+  /* Loại bỏ hoàn toàn độ trễ chạm 300ms (Double-tap zoom delay) trên iOS WebKit & Android Chrome */
+  button, a, input, select, textarea, [role="button"] {
+    touch-action: manipulation;
+  }
   input, textarea, select {
     user-select: text;
     -webkit-user-select: text;

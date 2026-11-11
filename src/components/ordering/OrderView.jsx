@@ -643,7 +643,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
 
       {/* ================= 3. STICKY BOTTOM SUMMARY BAR ================= */}
       <div
-        className={`absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-xl border-t border-gray-100 px-3.5 py-3 flex items-center justify-between gap-2 shadow-[0_-8px_20px_rgba(160,175,200,0.15)] transition-all duration-200 ${
+        className={`absolute bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-xl border-t border-gray-100 px-3.5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] flex items-center justify-between gap-2 shadow-[0_-8px_20px_rgba(160,175,200,0.15)] transition-all duration-200 ${
           isKeyboardOpen
             ? 'opacity-0 translate-y-6 pointer-events-none'
             : 'opacity-100 translate-y-0 pointer-events-auto'

@@ -32,6 +32,8 @@ export default defineConfig({
       injectRegister: null, // Defer SW registration in main.jsx to prevent render-blocking
       manifest: false, // Using public/manifest.webmanifest
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,svg,json,woff2,webp}'],
         globIgnores: ['**/images/**/*.png'],
         runtimeCaching: [

@@ -9,6 +9,7 @@
   "background_color": "#214E34",
   "theme_color": "#214E34",
   "orientation": "portrait-primary",
+  "categories": ["business", "food", "productivity"],
   "icons": [
     {
       "src": "./icon-192.png",
@@ -33,6 +34,66 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Sơ đồ bàn",
+      "short_name": "Bàn",
+      "description": "Xem sơ đồ bàn và phục vụ khách",
+      "url": "./",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Gọi món",
+      "short_name": "Menu",
+      "description": "Thực đơn và danh mục món",
+      "url": "./",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Lịch sử đơn",
+      "short_name": "Đơn hàng",
+      "description": "Lịch sử thanh toán và hóa đơn",
+      "url": "./",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./screenshots/01_login_mobile.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Màn hình Đăng nhập Mobile"
+    },
+    {
+      "src": "./screenshots/03_tables_mobile.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Sơ đồ Bàn Mobile"
+    },
+    {
+      "src": "./screenshots/04_menu_mobile.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Thực đơn Gọi món Mobile"
+    },
+    {
+      "src": "./screenshots/02_login_desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Màn hình Đăng nhập POS Desktop"
+    },
+    {
+      "src": "./screenshots/09_tables_desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Sơ đồ Bàn POS Desktop"
     }
   ]
 }

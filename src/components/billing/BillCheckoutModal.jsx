@@ -346,8 +346,8 @@ export default function BillCheckoutModal({ isOpen, onClose, table, onGoBackToOr
           </div>
         </div>
 
-        {/* Footer Payment Triggers */}
-        <div className="p-4 bg-white/95 backdrop-blur-md border-t border-gray-100 space-y-2.5">
+        {/* Footer Payment Triggers (Safe-area padded for iPhone Home Indicator) */}
+        <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom,1rem))] bg-white/95 backdrop-blur-md border-t border-gray-100 space-y-2.5">
           {/* Quick Actions Bar */}
           <div className="grid grid-cols-2 gap-2">
             {/* Merge Tables Button */}

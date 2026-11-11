@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { usePos } from '../../store/PosContext';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, ShieldAlert, HelpCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
+import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
 
 export default function LoginPage() {
   const { loginWithEmail, authError, isAuthLoading } = usePos();
+  const { isKeyboardOpen } = useIosKeyboardFix();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,9 +15,23 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
 
-  // Brute-force rate limiting: 5 failed attempts -> 30s lockout
-  const [failedAttempts, setFailedAttempts] = useState(0);
-  const [lockoutTimer, setLockoutTimer] = useState(0);
+  // Brute-force rate limiting: 5 failed attempts -> 30s lockout (Persisted across reload)
+  const [failedAttempts, setFailedAttempts] = useState(() => {
+    try {
+      return Number(sessionStorage.getItem('goc_login_failed_attempts')) || 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [lockoutTimer, setLockoutTimer] = useState(() => {
+    try {
+      const expiry = Number(sessionStorage.getItem('goc_login_lockout_until')) || 0;
+      const remaining = Math.max(0, Math.ceil((expiry - Date.now()) / 1000));
+      return remaining;
+    } catch {
+      return 0;
+    }
+  });
 
   useEffect(() => {
     let timer;
@@ -24,6 +40,9 @@ export default function LoginPage() {
         setLockoutTimer((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
+            try {
+              sessionStorage.removeItem('goc_login_lockout_until');
+            } catch (_) {}
             return 0;
           }
           return prev - 1;
@@ -58,9 +77,16 @@ export default function LoginPage() {
       if (!res.success) {
         const nextAttempts = failedAttempts + 1;
         setFailedAttempts(nextAttempts);
+        try {
+          sessionStorage.setItem('goc_login_failed_attempts', String(nextAttempts));
+        } catch (_) {}
         triggerHaptic('error');
 
         if (nextAttempts >= 5) {
+          const lockoutUntil = Date.now() + 30000;
+          try {
+            sessionStorage.setItem('goc_login_lockout_until', String(lockoutUntil));
+          } catch (_) {}
           setLockoutTimer(30);
           setErrorMessage('Bạn đã nhập sai 5 lần. Nút đăng nhập tạm khóa trong 30 giây để bảo mật.');
         } else {
@@ -70,6 +96,10 @@ export default function LoginPage() {
         triggerHaptic('success');
         setFailedAttempts(0);
         setLockoutTimer(0);
+        try {
+          sessionStorage.removeItem('goc_login_failed_attempts');
+          sessionStorage.removeItem('goc_login_lockout_until');
+        } catch (_) {}
       }
     } catch {
       triggerHaptic('error');
@@ -117,8 +147,8 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* B. 3D Barista Character (Mobile Scaled & Positioned Cleanly) */}
-        <div className="relative z-20 flex justify-center -mb-4 sm:-mb-5 pointer-events-none select-none">
+        {/* B. 3D Barista Character (Mobile Scaled & Positioned Cleanly - collapses when mobile keyboard opens) */}
+        <div className={`relative z-20 justify-center -mb-4 sm:-mb-5 pointer-events-none select-none transition-all duration-200 ${isKeyboardOpen ? 'hidden sm:flex' : 'flex'}`}>
           <picture className="inline-block">
             <source type="image/webp" srcSet="./images/login/barista-3d.webp" />
             <img
