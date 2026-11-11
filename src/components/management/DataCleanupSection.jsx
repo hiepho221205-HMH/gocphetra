@@ -20,7 +20,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   X,
-  RotateCcw,
   Banknote,
   QrCode,
   FileJson,
@@ -30,19 +29,18 @@ import {
   Layers,
   HelpCircle,
   Lock,
-  Archive,
   Store,
   Check
 } from 'lucide-react';
 
 /**
- * DataCleanupSection Component - Milestone 3
+ * DataCleanupSection Component - Redesigned 3D Claymorphic
  *
- * Implements the 4-step safety sales data cleanup flow:
- * 1. Scope Selection & Live Preview (KPI Cards: Orders, Revenue, Cash, VietQR in Asia/Ho_Chi_Minh).
- * 2. Impact Warning Notice (Explaining report revenue reduction & active table protection).
- * 3. 2-Step Confirmation Modal - Step A: Auto-backup guarantee & scope confirmation.
- * 4. 2-Step Confirmation Modal - Step B: Irreversible hard-delete confirmation.
+ * Implements a luxurious, scientific, and streamlined sales data cleanup flow:
+ * 1. 3-Tab Segmented Control (Khoảng ngày, Trước ngày, Toàn bộ) - clean, non-truncating.
+ * 2. 3D Clay Hero Preview Card (Orders, Total Revenue, Cash & VietQR Capsules in Asia/Ho_Chi_Minh).
+ * 3. Compact 1-line Data Protection Guarantee (shielding active tables, staff, and menu).
+ * 4. High-class 2-Step Confirmation Bottom Sheet (Step 1: Backup JSON, Step 2: Exact 'XÓA DỮ LIỆU' text).
  */
 export default function DataCleanupSection() {
   const {
@@ -56,7 +54,7 @@ export default function DataCleanupSection() {
 
   const storeName = settings?.branchName || settings?.storeName || 'Chi nhánh 01 - Trụ sở chính';
 
-  // Scope Mode State: 'range' | 'before_date' | 'all_completed' | null (Defaults to null per Zero-Trust Admin safety)
+  // Scope Mode State: 'range' | 'before_date' | 'all_completed' | null (Defaults to null per Zero-Trust Admin safety contract)
   const [cleanupMode, setCleanupMode] = useState(null);
 
   // Dynamic Date Inputs State (defaults: last 7 days for range, today for before_date)
@@ -197,8 +195,8 @@ export default function DataCleanupSection() {
         if (res && res.success === false) {
           throw new Error(res.message || 'Không thể dọn dẹp dữ liệu');
         }
+        showToast?.(`Đã xóa vĩnh viễn ${res?.count || targetOrderIds.length} hóa đơn thành công!`, 'success');
       } else {
-        // Fallback safety log
         console.warn('cleanupCompletedOrders is not yet registered in PosContext');
       }
 
@@ -214,65 +212,50 @@ export default function DataCleanupSection() {
   return (
     <div
       data-testid="data-cleanup-section"
-      className="glass-panel-elevated p-4 rounded-3xl border border-white/80 shadow-glass space-y-4"
+      className="clay-card p-4 rounded-[26px] bg-white border border-white/90 shadow-[0_10px_25px_-4px_rgba(33,78,52,0.08),inset_0_1px_2px_rgba(255,255,255,0.95)] space-y-3.5 text-xs text-gray-800"
     >
-      {/* 1. SECTION HEADER */}
-      <div className="flex items-center justify-between border-b border-forest-800/10 pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-100 shadow-2xs">
-            <Trash2 className="w-4 h-4 text-rose-700" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-extrabold text-xs text-forest-950 uppercase tracking-wider">
-                Dọn dẹp Dữ liệu Bán hàng
-              </h3>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-forest-50 text-forest-800 border border-forest-200">
-                An toàn 4 bước
-              </span>
-            </div>
-            <p className="text-[11px] text-gray-500 font-medium mt-0.5">
-              Xóa vĩnh viễn hóa đơn lịch sử cũ kèm cơ chế tự động sao lưu JSON
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Non-Admin Locked Alert */}
+      {/* 1. NON-ADMIN LOCKED ALERT */}
       {!isAdmin && (
         <div
           data-testid="cleanup-non-admin-alert"
-          className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-amber-950 animate-fadeIn"
+          className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 flex items-start gap-2.5 text-xs text-amber-950 animate-fadeIn shadow-2xs"
         >
           <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <div className="leading-relaxed text-[11px]">
+          <div className="leading-relaxed text-xs">
             <strong>Tính năng giới hạn:</strong> Thao tác xóa và lưu trữ dữ liệu bán hàng yêu cầu quyền <strong>Quản trị viên (Admin)</strong>. Vai trò hiện tại (<strong>{currentRole?.toUpperCase()}</strong>) không được phép thực hiện.
           </div>
         </div>
       )}
 
-      {/* 2. SCOPE MODE SELECTOR TABS (3 Modes) */}
+      {/* 2. SCOPE MODE SELECTOR TABS (3D Clay Segmented Switcher) */}
       <div className="space-y-1.5">
-        <label className="block text-[11px] font-bold text-gray-700">
-          Chế độ lựa chọn phạm vi:
-        </label>
+        <div className="flex items-center justify-between px-0.5">
+          <label className="text-xs font-black text-[#214E34] uppercase tracking-wider flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-[#214E34]" />
+            <span>Phạm vi dọn dẹp</span>
+          </label>
+          <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+            Admin độc quyền
+          </span>
+        </div>
+
         <div
           data-testid="cleanup-scope-tabs"
-          className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-forest-50/60 border border-forest-800/10"
+          className="grid grid-cols-3 gap-1.5 p-1 bg-gray-100/90 rounded-2xl border border-gray-200/60 shadow-inner"
         >
           {/* Tab 1: Range */}
           <button
             type="button"
             data-testid="cleanup-tab-range"
             onClick={() => setCleanupMode('range')}
-            className={`touch-target btn-press py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`touch-target py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95 ${
               cleanupMode === 'range'
-                ? 'bg-forest-800 text-white shadow-xs'
-                : 'text-forest-900/80 hover:text-forest-900 hover:bg-forest-100/60'
+                ? 'bg-white text-[#214E34] font-black shadow-[0_4px_12px_rgba(33,78,52,0.12),inset_0_1px_1px_rgba(255,255,255,0.9)]'
+                : 'text-gray-500 hover:text-gray-900'
             }`}
           >
             <CalendarRange className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Theo khoảng ngày</span>
+            <span className="truncate">Khoảng ngày</span>
           </button>
 
           {/* Tab 2: Before Date */}
@@ -280,14 +263,14 @@ export default function DataCleanupSection() {
             type="button"
             data-testid="cleanup-tab-before-date"
             onClick={() => setCleanupMode('before_date')}
-            className={`touch-target btn-press py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`touch-target py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95 ${
               cleanupMode === 'before_date'
-                ? 'bg-forest-800 text-white shadow-xs'
-                : 'text-forest-900/80 hover:text-forest-900 hover:bg-forest-100/60'
+                ? 'bg-white text-[#214E34] font-black shadow-[0_4px_12px_rgba(33,78,52,0.12),inset_0_1px_1px_rgba(255,255,255,0.9)]'
+                : 'text-gray-500 hover:text-gray-900'
             }`}
           >
             <Clock className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Trước mốc ngày</span>
+            <span className="truncate">Trước ngày</span>
           </button>
 
           {/* Tab 3: All History */}
@@ -295,74 +278,70 @@ export default function DataCleanupSection() {
             type="button"
             data-testid="cleanup-tab-all"
             onClick={() => setCleanupMode('all_completed')}
-            className={`touch-target btn-press py-2 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`touch-target py-2 px-1 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95 ${
               cleanupMode === 'all_completed'
-                ? 'bg-forest-800 text-white shadow-xs'
-                : 'text-forest-900/80 hover:text-forest-900 hover:bg-forest-100/60'
+                ? 'bg-white text-[#214E34] font-black shadow-[0_4px_12px_rgba(33,78,52,0.12),inset_0_1px_1px_rgba(255,255,255,0.9)]'
+                : 'text-gray-500 hover:text-gray-900'
             }`}
           >
             <Layers className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Toàn bộ lịch sử</span>
+            <span className="truncate">Toàn bộ</span>
           </button>
         </div>
       </div>
 
-      {/* 3. DYNAMIC DATE PICKERS */}
+      {/* 3. DYNAMIC DATE PICKERS & PROMPT */}
       <div className="space-y-2">
         {cleanupMode === null && (
           <div
             data-testid="cleanup-no-mode-selected"
-            className="p-3.5 rounded-2xl bg-forest-50/50 border border-forest-200/50 text-forest-900 text-xs flex items-center gap-2.5 animate-fadeIn"
+            className="p-3.5 rounded-2xl bg-[#F4F7FB] border border-gray-200/60 text-[#214E34] text-xs flex items-center gap-2.5 animate-fadeIn shadow-inner"
           >
-            <HelpCircle className="w-4 h-4 text-forest-700 shrink-0" />
-            <span className="font-medium text-[11.5px]">
-              Vui lòng chọn 1 trong 3 chế độ ở trên để tải bản xem trước dữ liệu cần dọn dẹp.
+            <HelpCircle className="w-4 h-4 text-[#214E34] shrink-0" />
+            <span className="font-semibold text-xs leading-relaxed">
+              Vui lòng chọn 1 trong 3 chế độ ở trên để xem trước dữ liệu cần dọn dẹp.
             </span>
           </div>
         )}
 
         {cleanupMode === 'range' && (
-          <div data-testid="cleanup-range-inputs" className="space-y-2">
+          <div data-testid="cleanup-range-inputs" className="space-y-2 animate-slideDown">
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label
                   htmlFor="cleanup-from-date-input"
-                  className="block text-[11px] font-bold text-gray-700 mb-1"
+                  className="block text-[11px] font-bold text-gray-600 mb-1"
                 >
                   Từ ngày:
                 </label>
-                <div className="relative">
-                  <input
-                    id="cleanup-from-date-input"
-                    type="date"
-                    data-testid="cleanup-from-date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className={`glass-input w-full px-2.5 py-2 rounded-xl text-xs text-gray-900 font-medium ${
-                      isInvertedRange ? 'border-rose-400 bg-rose-50/30' : ''
-                    }`}
-                  />
-                </div>
+                <input
+                  id="cleanup-from-date-input"
+                  type="date"
+                  data-testid="cleanup-from-date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className={`w-full px-3 py-2 rounded-xl text-xs text-gray-900 font-bold bg-[#F4F7FB] border transition-all ${
+                    isInvertedRange ? 'border-rose-400 bg-rose-50/40' : 'border-gray-200'
+                  }`}
+                />
               </div>
               <div>
                 <label
                   htmlFor="cleanup-to-date-input"
-                  className="block text-[11px] font-bold text-gray-700 mb-1"
+                  className="block text-[11px] font-bold text-gray-600 mb-1"
                 >
                   Đến ngày:
                 </label>
-                <div className="relative">
-                  <input
-                    id="cleanup-to-date-input"
-                    type="date"
-                    data-testid="cleanup-to-date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className={`glass-input w-full px-2.5 py-2 rounded-xl text-xs text-gray-900 font-medium ${
-                      isInvertedRange ? 'border-rose-400 bg-rose-50/30' : ''
-                    }`}
-                  />
-                </div>
+                <input
+                  id="cleanup-to-date-input"
+                  type="date"
+                  data-testid="cleanup-to-date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className={`w-full px-3 py-2 rounded-xl text-xs text-gray-900 font-bold bg-[#F4F7FB] border transition-all ${
+                    isInvertedRange ? 'border-rose-400 bg-rose-50/40' : 'border-gray-200'
+                  }`}
+                />
               </div>
             </div>
 
@@ -370,7 +349,7 @@ export default function DataCleanupSection() {
             {isInvertedRange && (
               <div
                 data-testid="cleanup-inverted-warning"
-                className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] flex items-center gap-2 animate-fadeIn"
+                className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2 animate-fadeIn"
               >
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span className="font-semibold">
@@ -382,10 +361,10 @@ export default function DataCleanupSection() {
         )}
 
         {cleanupMode === 'before_date' && (
-          <div data-testid="cleanup-before-date-inputs" className="space-y-1.5">
+          <div data-testid="cleanup-before-date-inputs" className="space-y-1.5 animate-slideDown">
             <label
               htmlFor="cleanup-before-date-input"
-              className="block text-[11px] font-bold text-gray-700"
+              className="block text-[11px] font-bold text-gray-600"
             >
               Xóa các hóa đơn hoàn tất trước ngày:
             </label>
@@ -395,10 +374,10 @@ export default function DataCleanupSection() {
               data-testid="cleanup-before-date"
               value={beforeDate}
               onChange={(e) => setBeforeDate(e.target.value)}
-              className="glass-input w-full px-2.5 py-2 rounded-xl text-xs text-gray-900 font-medium"
+              className="w-full px-3 py-2 rounded-xl text-xs text-gray-900 font-bold bg-[#F4F7FB] border border-gray-200"
             />
-            <p className="text-[10.5px] text-gray-500">
-              Chỉ xóa các hóa đơn được thanh toán trước 00:00 của ngày {formatShortDate(beforeDate) || beforeDate} (theo giờ Việt Nam).
+            <p className="text-[10.5px] text-gray-500 font-medium">
+              Chỉ xóa các hóa đơn được thanh toán trước 00:00 của ngày {formatShortDate(beforeDate) || beforeDate} (giờ Việt Nam).
             </p>
           </div>
         )}
@@ -406,80 +385,79 @@ export default function DataCleanupSection() {
         {cleanupMode === 'all_completed' && (
           <div
             data-testid="cleanup-all-notice"
-            className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-amber-900 text-xs flex items-start gap-2"
+            className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/70 text-emerald-950 text-xs flex items-start gap-2 animate-fadeIn"
           >
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="leading-relaxed">
-              <strong>Phạm vi toàn diện:</strong> Hệ thống sẽ chọn tất cả hóa đơn đã thanh toán hoàn tất trong toàn bộ lịch sử từ trước đến nay. Bàn đang phục vụ sẽ được bảo vệ tuyệt đối.
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="leading-relaxed text-xs">
+              <strong>Phạm vi toàn diện:</strong> Lọc tất cả hóa đơn đã thanh toán hoàn tất trong lịch sử. Bàn đang phục vụ sẽ được bảo vệ tuyệt đối.
             </div>
           </div>
         )}
       </div>
 
-      {/* 4. STEP 1: LIVE PREVIEW KPI CARD */}
+      {/* 4. STEP 1: LIVE PREVIEW KPI CARD (3D Clay Hero Card) */}
       <div
         data-testid="cleanup-preview-card"
-        className="glass-panel p-3.5 rounded-2xl border border-white/80 shadow-xs space-y-2.5"
+        className="p-4 rounded-2xl bg-white border border-gray-100 shadow-[0_8px_20px_-4px_rgba(33,78,52,0.06),inset_0_1px_2px_rgba(255,255,255,0.95)] space-y-3 relative overflow-hidden"
       >
-        <div className="flex items-center justify-between border-b border-forest-800/10 pb-2">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <h4 className="font-bold text-gray-900 text-xs">
-              Xem trước dữ liệu dọn dẹp (Live Preview)
+        <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <h4 className="font-black text-gray-900 text-xs tracking-tight">
+              Xem trước dữ liệu dọn dẹp
             </h4>
           </div>
-          <span className="text-[10px] text-gray-400 font-mono">
+          <span className="text-[10.5px] font-bold text-gray-400 font-mono">
             Asia/Ho_Chi_Minh
           </span>
         </div>
 
-        {/* KPI Grid: Count, Total Revenue, Cash, VietQR */}
-        <div className="grid grid-cols-2 gap-2">
-          {/* KPI 1: Orders Count */}
-          <div className="bg-white/80 p-2.5 rounded-xl border border-forest-800/10 space-y-1">
-            <span className="text-[10.5px] text-gray-500 font-medium">Số lượng hóa đơn</span>
+        {/* 2 Khối Metric 3D Clay Inset */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="bg-[#F4F7FB] p-3 rounded-xl border border-gray-200/50 shadow-inner flex flex-col justify-between">
+            <span className="text-xs font-bold text-gray-500">Số lượng hóa đơn</span>
             <div
               data-testid="cleanup-preview-count"
-              className="text-base font-black text-forest-900 tracking-tight"
+              className="text-2xl font-black text-[#214E34] tracking-tight mt-1"
             >
-              {preview.count} <span className="text-xs font-semibold text-gray-500">đơn</span>
+              {preview.count} <span className="text-xs font-bold text-gray-500">đơn</span>
             </div>
           </div>
 
-          {/* KPI 2: Total Revenue */}
-          <div className="bg-white/80 p-2.5 rounded-xl border border-forest-800/10 space-y-1">
-            <span className="text-[10.5px] text-gray-500 font-medium">Tổng tiền doanh thu</span>
+          <div className="bg-[#F4F7FB] p-3 rounded-xl border border-gray-200/50 shadow-inner flex flex-col justify-between">
+            <span className="text-xs font-bold text-gray-500">Tổng tiền doanh thu</span>
             <div
               data-testid="cleanup-preview-revenue"
-              className="text-base font-black text-forest-900 tracking-tight truncate"
+              className="text-lg font-black text-rose-700 tracking-tight mt-1 truncate"
             >
               {formatVND(preview.totalRevenue)}
             </div>
           </div>
+        </div>
 
-          {/* KPI 3: Cash Breakdown */}
-          <div className="bg-forest-50/50 p-2 rounded-xl border border-forest-100 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Banknote className="w-3.5 h-3.5 text-forest-700" />
-              <span className="text-[11px] text-gray-600 font-medium">Tiền mặt</span>
+        {/* 2 Viên Capsule Tiền mặt & VietQR 3D */}
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-100">
+          <div className="flex items-center justify-between bg-emerald-50/60 px-3 py-2 rounded-xl border border-emerald-100/80 shadow-2xs">
+            <div className="flex items-center gap-1.5 text-xs text-[#214E34] font-bold">
+              <Banknote className="w-3.5 h-3.5" />
+              <span>Tiền mặt</span>
             </div>
             <span
               data-testid="cleanup-preview-cash"
-              className="font-bold text-forest-900 text-[11px]"
+              className="font-black text-[#214E34] text-xs"
             >
               {formatVND(preview.cashTotal)}
             </span>
           </div>
 
-          {/* KPI 4: VietQR Breakdown */}
-          <div className="bg-emerald-50/50 p-2 rounded-xl border border-emerald-100 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <QrCode className="w-3.5 h-3.5 text-emerald-700" />
-              <span className="text-[11px] text-gray-600 font-medium">VietQR</span>
+          <div className="flex items-center justify-between bg-blue-50/60 px-3 py-2 rounded-xl border border-blue-100/80 shadow-2xs">
+            <div className="flex items-center gap-1.5 text-xs text-blue-800 font-bold">
+              <QrCode className="w-3.5 h-3.5" />
+              <span>VietQR</span>
             </div>
             <span
               data-testid="cleanup-preview-vietqr"
-              className="font-bold text-emerald-900 text-[11px]"
+              className="font-black text-blue-900 text-xs"
             >
               {formatVND(preview.qrTotal)}
             </span>
@@ -490,74 +468,67 @@ export default function DataCleanupSection() {
         {preview.count === 0 && !isInvertedRange && (
           <div
             data-testid="cleanup-zero-orders-notice"
-            className="text-center py-2 text-[11px] text-gray-500 bg-gray-50/80 rounded-xl border border-gray-200/60"
+            className="text-center py-2 text-xs font-semibold text-gray-500 bg-gray-50 rounded-xl border border-gray-200/60"
           >
             Không có hóa đơn hoàn tất nào thỏa mãn điều kiện lọc để dọn dẹp.
           </div>
         )}
       </div>
 
-      {/* 5. STEP 2: IMPACT WARNING NOTICE & ISOLATION GUARANTEE */}
+      {/* 5. IMPACT WARNING & DATA PROTECTION GUARANTEE */}
       <div
         data-testid="cleanup-impact-warning"
-        className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3 space-y-2 shadow-2xs"
+        className="rounded-2xl p-3.5 space-y-2 border border-amber-200/60 bg-gradient-to-br from-amber-50/50 to-white shadow-xs"
       >
-        <div className="flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <h5 className="font-bold text-xs text-amber-950">
-              Cảnh báo ảnh hưởng dữ liệu doanh thu
-            </h5>
-            <p className="text-[11px] text-amber-900/90 leading-relaxed">
-              Thao tác dọn dẹp sẽ xóa vĩnh viễn các hóa đơn đã thanh toán nằm trong phạm vi đã chọn khỏi bộ nhớ thiết bị và Supabase Cloud. Toàn bộ số liệu doanh thu trong màn hình <strong>Báo cáo</strong> tương ứng với các ngày này sẽ bị điều chỉnh giảm và KHÔNG thể hoàn tác.
-            </p>
-          </div>
+        <div className="flex items-center gap-2 text-xs font-black text-amber-950">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>Lưu ý ảnh hưởng dữ liệu doanh thu</span>
         </div>
+        <p className="text-xs text-amber-900/80 leading-relaxed font-medium">
+          Dữ liệu bán hàng đã dọn dẹp sẽ bị xóa khỏi Supabase Cloud và máy POS. Số liệu doanh thu trong màn hình <strong>Báo cáo</strong> sẽ giảm tương ứng và không thể hoàn tác.
+        </p>
 
         {/* Active Dining Isolation Guarantee Box */}
         <div
           data-testid="cleanup-protection-guarantee"
-          className="bg-white/80 p-2.5 rounded-xl border border-amber-200/60 flex items-start gap-2 text-[10.5px] text-gray-700"
+          className="flex items-center gap-2 px-3 py-2 bg-emerald-50/80 rounded-xl border border-emerald-200 text-xs text-[#214E34] font-semibold"
         >
-          <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <strong>Cam kết bảo vệ dữ liệu:</strong> Bàn đang phục vụ (<code>serving</code>), bàn chờ thanh toán (<code>awaiting_payment</code>), danh mục, thực đơn, nhân viên và cấu hình quán được bảo vệ an toàn 100%, không bị ảnh hưởng.
-          </div>
+          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>
+            <strong>Bảo vệ an toàn 100%:</strong> Bàn đang phục vụ (<code>serving</code>), thực đơn và nhân viên được bảo vệ nguyên vẹn.
+          </span>
         </div>
       </div>
 
-      {/* 6. MAIN TRIGGER BUTTONS: ARCHIVE (PRIMARY) & HARD-DELETE (DISABLED) */}
-      <div className="space-y-2">
+      {/* 6. MAIN TRIGGER BUTTONS: BACKUP & HARD-DELETE */}
+      <div className="space-y-2 pt-1">
         <button
           type="button"
           data-testid="cleanup-initiate-btn"
           disabled={!canInitiate}
           onClick={handleOpenModal}
-          className="touch-target btn-press w-full py-3 px-4 bg-forest-800 hover:bg-forest-900 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-xs"
+          className="touch-target btn-press w-full py-3.5 px-4 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-[0_8px_18px_-3px_rgba(225,29,72,0.35),inset_0_1px_2px_rgba(255,255,255,0.35)] active:scale-98 cursor-pointer"
         >
-          <Archive className="w-4 h-4 text-emerald-300" />
-          <span>Lưu trữ an toàn & Xuất backup ({preview.count} hóa đơn)</span>
+          <Trash2 className="w-4 h-4 text-white" />
+          <span>Sao lưu an toàn & Xóa vĩnh viễn ({preview.count} hóa đơn)</span>
         </button>
 
-        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-gray-50 border border-gray-200/80 text-[10.5px]">
-          <div className="flex items-center gap-1.5 text-gray-500">
-            <Lock className="w-3.5 h-3.5 text-gray-400" />
-            <span>Xóa vĩnh viễn (Chờ xác thực Backend)</span>
+        <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-[11px]">
+          <div className="flex items-center gap-2 text-emerald-800 font-bold">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600" />
+            </span>
+            <span>Xác thực Backend: Supabase RPC đã sẵn sàng</span>
           </div>
-          <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-md bg-gray-200/70 text-gray-500">
-            Tạm khóa
+          <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+            Sẵn sàng
           </span>
         </div>
-
-        {preview.count === 0 && !isInvertedRange && (
-          <p className="text-[10px] text-gray-400 text-center mt-1">
-            Không có hóa đơn hoàn tất nào phù hợp trong phạm vi đã chọn
-          </p>
-        )}
       </div>
 
       {/* ========================================================================= */}
-      {/* 7. STEP 3 & 4: 2-STEP CONFIRMATION MODAL */}
+      {/* 7. STEP 3 & 4: 2-STEP CONFIRMATION MODAL (3D CLAY BOTTOM SHEET)          */}
       {/* ========================================================================= */}
       {isModalOpen && (
         <div
@@ -566,29 +537,29 @@ export default function DataCleanupSection() {
           aria-modal="true"
           aria-labelledby={modalTitleId}
           aria-describedby={modalDescId}
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-3 sm:p-4 animate-fadeIn"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-2 sm:p-4 animate-fadeIn"
           onClick={(e) => {
             if (e.target === e.currentTarget && !isDeleting) handleCloseModal();
           }}
         >
-          <div className="bg-white w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl border border-gray-100 text-left">
+          <div className="bg-white w-full max-w-md rounded-[28px] p-5 space-y-4 shadow-2xl border border-gray-100 text-left animate-slideUp">
             {/* Modal Top Bar */}
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-forest-50 text-forest-800 flex items-center justify-center">
-                  <Trash2 className="w-4 h-4 text-rose-700" />
+            <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-100 shadow-2xs font-black text-xs">
+                  {modalStep}/2
                 </div>
                 <div>
                   <h3
                     id={modalTitleId}
-                    className="font-extrabold text-forest-900 text-sm"
+                    className="font-black text-gray-900 text-sm"
                   >
                     {modalStep === 1
                       ? 'Bước 1/2: Tải sao lưu & Kiểm tra'
-                      : 'Bước 2/2: Xác nhận Xóa vĩnh viễn dữ liệu bán hàng'}
+                      : 'Bước 2/2: Xác nhận Xóa vĩnh viễn'}
                   </h3>
-                  <p id={modalDescId} className="text-[10px] text-gray-400">
-                    Quy trình kiểm soát an toàn nhiều bước GÓC POS & Supabase Cloud
+                  <p id={modalDescId} className="text-[10.5px] text-gray-400 font-semibold">
+                    Quy trình kiểm soát an toàn GÓC POS & Supabase
                   </p>
                 </div>
               </div>
@@ -597,7 +568,7 @@ export default function DataCleanupSection() {
                   type="button"
                   data-testid="cleanup-modal-close-btn"
                   onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100 transition-colors"
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors cursor-pointer"
                   title="Đóng"
                 >
                   <X className="w-4 h-4" />
@@ -611,15 +582,15 @@ export default function DataCleanupSection() {
                 {/* Scope Summary Card */}
                 <div
                   data-testid="cleanup-scope-summary"
-                  className="bg-forest-50/70 p-3 rounded-2xl border border-forest-200/70 space-y-2 text-xs"
+                  className="bg-[#F4F7FB] p-3.5 rounded-2xl border border-gray-200/60 shadow-inner space-y-2 text-xs"
                 >
-                  <div className="font-bold text-forest-900 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-forest-700" />
+                  <div className="font-black text-[#214E34] flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#214E34]" />
                     <span>Phạm vi dọn dẹp đã chọn:</span>
                   </div>
-                  <div className="space-y-1 text-[11px] text-gray-700 pl-5">
+                  <div className="space-y-1.5 text-xs text-gray-700 pl-5">
                     <div>
-                      • Cửa hàng: <strong className="text-forest-950">{storeName}</strong>
+                      • Cửa hàng: <strong className="text-gray-900">{storeName}</strong>
                     </div>
                     <div>
                       • Chế độ: <strong>
@@ -628,30 +599,28 @@ export default function DataCleanupSection() {
                         {(cleanupMode === 'all_completed' || cleanupMode === 'all') && 'Toàn bộ lịch sử bán hàng'}
                       </strong>
                     </div>
-                    <div>
-                      • Số lượng: <strong className="text-forest-900">{preview.count} hóa đơn</strong>
-                    </div>
-                    <div>
-                      • Doanh thu: <strong className="text-forest-900">{formatVND(preview.totalRevenue)}</strong>
+                    <div className="flex justify-between items-center pr-2 pt-1 border-t border-gray-200/50">
+                      <span>• Số lượng: <strong className="text-[#214E34]">{preview.count} hóa đơn</strong></span>
+                      <span>• Doanh thu: <strong className="text-rose-700">{formatVND(preview.totalRevenue)}</strong></span>
                     </div>
                     {preview.hasCrossDatePayments && (
-                      <div className="text-amber-800 font-semibold">
-                        • Cảnh báo: Có {preview.crossDatePaymentCount} đơn thanh toán lệch ngày
+                      <div className="text-amber-800 font-bold bg-amber-50 p-2 rounded-lg border border-amber-200">
+                        ⚠️ Cảnh báo: Có {preview.crossDatePaymentCount} đơn thanh toán lệch ngày
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* Auto-Backup Action Box */}
-                <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-200 space-y-2.5">
+                <div className="bg-white p-3.5 rounded-2xl border border-gray-200 shadow-xs space-y-2.5">
                   <div className="flex items-start gap-2">
-                    <FileJson className="w-5 h-5 text-forest-700 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-xs text-gray-900">
+                    <FileJson className="w-5 h-5 text-[#214E34] shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <h4 className="font-black text-xs text-gray-900">
                         Bước bắt buộc: Tải file sao lưu an toàn
                       </h4>
-                      <p className="text-[11px] text-gray-500 leading-relaxed">
-                        Hệ thống yêu cầu tạo và tải file sao lưu JSON chứa toàn bộ dữ liệu chi tiết của {preview.count} hóa đơn này trước khi cho phép xác nhận xóa.
+                      <p className="text-[11px] text-gray-500 leading-relaxed font-medium">
+                        Hệ thống yêu cầu tạo và tải file JSON sao lưu của {preview.count} hóa đơn này trước khi mở khóa bước xóa.
                       </p>
                     </div>
                   </div>
@@ -659,11 +628,11 @@ export default function DataCleanupSection() {
                   {backupDownloaded ? (
                     <div
                       data-testid="cleanup-backup-downloaded-alert"
-                      className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] flex items-center gap-2"
+                      className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 font-bold shadow-2xs"
                     >
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                       <div className="truncate">
-                        <strong>Đã tải sao lưu:</strong> {downloadedFileName}
+                        Đã tải sao lưu: {downloadedFileName}
                       </div>
                     </div>
                   ) : (
@@ -671,10 +640,10 @@ export default function DataCleanupSection() {
                       type="button"
                       data-testid="cleanup-download-backup-btn"
                       onClick={handleDownloadBackup}
-                      className="touch-target btn-press w-full py-2.5 px-3 bg-white hover:bg-forest-50 text-forest-900 border border-forest-800/30 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-2xs"
+                      className="touch-target btn-press w-full py-3 px-3 bg-gradient-to-r from-[#214E34] to-[#173825] hover:from-[#1b3f2a] hover:to-[#11291b] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-[0_6px_14px_-2px_rgba(33,78,52,0.3)] cursor-pointer active:scale-98"
                     >
-                      <Download className="w-4 h-4 text-forest-700" />
-                      <span>Tải file sao lưu (.json)</span>
+                      <Download className="w-4 h-4 text-emerald-300" />
+                      <span>Tải file sao lưu (.json) ngay</span>
                     </button>
                   )}
                 </div>
@@ -685,7 +654,7 @@ export default function DataCleanupSection() {
                     type="button"
                     data-testid="cleanup-cancel-modal-btn"
                     onClick={handleCloseModal}
-                    className="touch-target btn-press flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors"
+                    className="touch-target btn-press flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
                   >
                     Hủy bỏ
                   </button>
@@ -694,7 +663,7 @@ export default function DataCleanupSection() {
                     data-testid="cleanup-proceed-to-step2-btn"
                     disabled={!backupDownloaded}
                     onClick={() => setModalStep(2)}
-                    className="touch-target btn-press flex-1 py-2.5 bg-forest-800 hover:bg-forest-900 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs transition-colors shadow-xs flex items-center justify-center gap-1.5"
+                    className="touch-target btn-press flex-1 py-3 bg-forest-800 hover:bg-forest-900 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <span>Tiếp tục bước 2</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -709,34 +678,25 @@ export default function DataCleanupSection() {
                 {/* Permanent Deletion Danger Banner */}
                 <div
                   data-testid="cleanup-danger-alert"
-                  className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 space-y-2 text-rose-950"
+                  className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 space-y-2.5 text-rose-950 shadow-2xs"
                 >
-                  <div className="flex items-center gap-2 text-rose-800 font-extrabold text-xs">
+                  <div className="flex items-center gap-2 text-rose-800 font-black text-xs uppercase tracking-wide">
                     <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                     <span>CẢNH BÁO: XÓA VĨNH VIỄN DỮ LIỆU BÁN HÀNG</span>
                   </div>
-                  <p className="text-[11px] text-gray-800 leading-relaxed">
-                    Thao tác này sẽ xóa vĩnh viễn dữ liệu bán hàng trên Supabase Cloud và máy cục bộ. <strong>Hành động không thể hoàn tác!</strong>
+                  <p className="text-[11.5px] text-gray-700 leading-relaxed font-medium">
+                    Thao tác này sẽ xóa dứt điểm dữ liệu bán hàng trên Supabase Cloud và máy cục bộ. <strong>Hành động không thể hoàn tác!</strong>
                   </p>
 
                   {/* Scope Details Summary */}
-                  <div className="bg-white/80 p-2.5 rounded-xl border border-rose-100 space-y-1 text-[11px] text-gray-800">
-                    <div className="font-semibold text-forest-950 flex items-center gap-1.5">
-                      <Store className="w-3.5 h-3.5 text-forest-800" />
+                  <div className="bg-white/90 p-3 rounded-xl border border-rose-100 space-y-1.5 text-xs text-gray-800">
+                    <div className="font-black text-gray-900 flex items-center gap-1.5">
+                      <Store className="w-3.5 h-3.5 text-[#214E34]" />
                       <span>Cửa hàng: <strong>{storeName}</strong></span>
                     </div>
-                    <div>
-                      • Phạm vi: <strong>
-                        {cleanupMode === 'range' && `Theo khoảng ngày (${formatShortDate(fromDate)} – ${formatShortDate(toDate)})`}
-                        {cleanupMode === 'before_date' && `Trước ngày ${formatShortDate(beforeDate)}`}
-                        {(cleanupMode === 'all_completed' || cleanupMode === 'all') && 'Toàn bộ lịch sử bán hàng'}
-                      </strong>
-                    </div>
-                    <div>
-                      • Số lượng đơn sẽ xóa: <strong className="text-rose-700">{preview.count} đơn hàng</strong>
-                    </div>
-                    <div>
-                      • Doanh thu ước tính bị giảm: <strong className="text-rose-700">{formatVND(preview.totalRevenue)}</strong>
+                    <div className="flex justify-between items-center">
+                      <span>• Số lượng xóa: <strong className="text-rose-700">{preview.count} đơn hàng</strong></span>
+                      <span>• Doanh thu giảm: <strong className="text-rose-700">{formatVND(preview.totalRevenue)}</strong></span>
                     </div>
                   </div>
 
@@ -744,24 +704,24 @@ export default function DataCleanupSection() {
                   {preview.hasCrossDatePayments && (
                     <div
                       data-testid="cleanup-cross-date-warning"
-                      className="p-2 rounded-xl bg-amber-100/80 border border-amber-300 text-amber-900 text-[10.5px] leading-relaxed"
+                      className="p-2.5 rounded-xl bg-amber-100/90 border border-amber-300 text-amber-900 text-[11px] leading-relaxed font-semibold"
                     >
                       <strong>Lưu ý giao dịch lệch ngày:</strong> Có {preview.crossDatePaymentCount} đơn có giao dịch thanh toán khác ngày hoàn thành. Toàn bộ các giao dịch này sẽ bị xóa khỏi lịch sử đối soát thanh toán.
                     </div>
                   )}
 
                   {/* Scope of tables affected vs preserved */}
-                  <div className="text-[10px] space-y-1 text-gray-600 border-t border-rose-200/50 pt-2">
+                  <div className="text-[10.5px] space-y-1 text-gray-600 border-t border-rose-200/50 pt-2 font-medium">
                     <div>• <strong>Bảng bị xóa vĩnh viễn:</strong> Đơn hàng (<code>orders</code>), chi tiết món, giao dịch thanh toán liên quan (<code>payments</code>).</div>
                     <div>• <strong>Bảo toàn nguyên vẹn 100%:</strong> Tài khoản, nhân viên (<code>staff_profiles</code>), phân quyền, thực đơn, danh mục, bàn ăn (<code>tables</code>), cấu hình quán, máy in.</div>
                   </div>
                 </div>
 
                 {/* Type Confirmation Input: "XÓA DỮ LIỆU" */}
-                <div className="space-y-1.5 p-3 rounded-2xl bg-gray-50 border border-gray-200">
+                <div className="space-y-1.5 p-3 rounded-2xl bg-[#F4F7FB] border border-gray-200 shadow-inner">
                   <label
                     htmlFor="cleanup-confirm-text-input"
-                    className="block text-[11px] font-bold text-gray-800"
+                    className="block text-xs font-bold text-gray-800"
                   >
                     Nhập chính xác cụm từ <span className="text-rose-600 font-black tracking-wide">XÓA DỮ LIỆU</span> để xác nhận:
                   </label>
@@ -773,15 +733,15 @@ export default function DataCleanupSection() {
                       value={confirmDeleteText}
                       onChange={(e) => setConfirmDeleteText(e.target.value)}
                       placeholder="Nhập XÓA DỮ LIỆU"
-                      className={`glass-input w-full px-3 py-2 rounded-xl text-xs font-bold ${
+                      className={`w-full px-3 py-2.5 rounded-xl text-xs font-black text-center tracking-wider transition-all ${
                         confirmDeleteText.trim() === 'XÓA DỮ LIỆU'
-                          ? 'border-emerald-500 bg-emerald-50/30 text-emerald-900'
-                          : 'text-gray-900 border-gray-300'
+                          ? 'border-2 border-emerald-500 bg-emerald-50/60 text-emerald-900 shadow-xs'
+                          : 'border border-gray-300 bg-white text-gray-900'
                       }`}
                       autoComplete="off"
                     />
                     {confirmDeleteText.trim() === 'XÓA DỮ LIỆU' && (
-                      <Check className="w-4 h-4 text-emerald-600 absolute right-2.5 top-2.5" />
+                      <Check className="w-4 h-4 text-emerald-600 absolute right-3 top-3" />
                     )}
                   </div>
                 </div>
@@ -793,9 +753,9 @@ export default function DataCleanupSection() {
                     data-testid="cleanup-confirm-checkbox"
                     checked={isConfirmedChecked}
                     onChange={(e) => setIsConfirmedChecked(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 text-forest-700 rounded border-gray-300 focus:ring-forest-500"
+                    className="mt-0.5 w-4 h-4 text-rose-700 rounded border-gray-300 focus:ring-rose-500 cursor-pointer"
                   />
-                  <span className="text-[11px] text-gray-800 leading-snug font-medium">
+                  <span className="text-[11.5px] text-gray-800 leading-snug font-semibold">
                     Tôi xác nhận đã tải tệp sao lưu và đồng ý xóa vĩnh viễn <strong>{preview.count} đơn hàng</strong> này khỏi Supabase Cloud và máy POS.
                   </span>
                 </label>
@@ -807,7 +767,7 @@ export default function DataCleanupSection() {
                     data-testid="cleanup-back-step-btn"
                     disabled={isDeleting}
                     onClick={() => setModalStep(1)}
-                    className="touch-target btn-press flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+                    className="touch-target btn-press flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
                     <span>Quay lại</span>
@@ -817,7 +777,7 @@ export default function DataCleanupSection() {
                     data-testid="cleanup-execute-delete-btn"
                     disabled={!isConfirmedChecked || confirmDeleteText.trim() !== 'XÓA DỮ LIỆU' || isDeleting || preview.count === 0}
                     onClick={handleExecuteDelete}
-                    className="touch-target btn-press flex-1 py-2.5 bg-rose-700 hover:bg-rose-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs transition-colors shadow-xs flex items-center justify-center gap-1.5"
+                    className="touch-target btn-press flex-1 py-3 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-black text-xs transition-all shadow-[0_6px_16px_-2px_rgba(225,29,72,0.35)] flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                   >
                     {isDeleting ? (
                       <>

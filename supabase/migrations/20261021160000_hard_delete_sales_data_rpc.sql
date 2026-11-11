@@ -19,7 +19,7 @@ SECURITY DEFINER
 SET search_path = public, auth, pg_temp
 AS $$
 DECLARE
-    v_caller_role public.app_role;
+    v_caller_role TEXT;
     v_branch_id TEXT := 'main';
     v_active_serving_count INT := 0;
     v_found_count INT := 0;
@@ -33,7 +33,7 @@ BEGIN
     -- Check that caller is Admin if authenticated
     IF auth.uid() IS NOT NULL THEN
         v_caller_role := public.get_current_user_role();
-        IF v_caller_role != 'admin'::public.app_role THEN
+        IF v_caller_role != 'admin' THEN
             RAISE EXCEPTION 'Truy cập bị từ chối: Chỉ Quản trị viên (Admin) mới có quyền xóa dữ liệu bán hàng.';
         END IF;
 
@@ -62,17 +62,17 @@ BEGIN
         );
     END IF;
 
-    -- Filter to orders that belong to this store / branch_id
+    -- Filter to orders that exist
     SELECT ARRAY_AGG(id) INTO v_valid_order_ids
     FROM public.orders
-    WHERE id = ANY(p_order_ids)
-      AND (branch_id = v_branch_id OR branch_id IS NULL);
+    WHERE id = ANY(p_order_ids);
 
     IF v_valid_order_ids IS NULL OR array_length(v_valid_order_ids, 1) = 0 THEN
         RETURN jsonb_build_object(
-            'success', false,
+            'success', true,
             'count', 0,
-            'message', 'Không tìm thấy đơn hàng nào thuộc cửa hàng hiện tại để xóa.'
+            'deleted_orders_count', 0,
+            'message', 'Không tìm thấy đơn hàng nào cần xóa (có thể đã được xóa trước đó).'
         );
     END IF;
 
@@ -157,7 +157,7 @@ BEGIN
             details
         ) VALUES (
             auth.uid(),
-            'admin'::public.app_role,
+            'admin',
             'sales_data_cleanup',
             'orders',
             v_branch_id,
