@@ -468,7 +468,7 @@ export default function ManagementProfileView({ onBack }) {
   return (
     <div
       data-testid="management-profile-view"
-      className="px-4 pt-3 pb-28 text-xs"
+      className="px-4 pt-0 pb-28 text-xs"
     >
       {/* ========================================================= */}
       {/* 0. TOP BAR VỚI NÚT QUAY LẠI (BACK) DÀNH CHO CÀI ĐẶT       */}
