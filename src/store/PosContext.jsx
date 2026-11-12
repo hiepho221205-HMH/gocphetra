@@ -2489,11 +2489,36 @@ export function PosProvider({ children }) {
         printed_quantity: Math.max(0, Number(it.printed_quantity) || 0)
       }));
 
+      // Kiểm tra nếu đơn trước đó đã hoàn tất pha chế nhưng khách gọi thêm món mới:
+      // Tự động kích hoạt lại đơn (reset về pending) để hiển thị lại trên Sơ đồ bàn & Quầy Bar cho Barista
+      const isCompletedBefore =
+        existingOrder.baristaStatus === 'completed' ||
+        (Array.isArray(baristaHistory) && baristaHistory.some((h) => h.id === orderId));
+      const prevTotalQuantity = Array.isArray(existingOrder.items)
+        ? existingOrder.items.reduce((sum, it) => sum + (it.quantity || 1), 0)
+        : 0;
+      const newTotalQuantity = normalizedItems.reduce((sum, it) => sum + (it.quantity || 1), 0);
+      const hasAddedItems = newTotalQuantity > prevTotalQuantity;
+      const shouldResetBarista = isCompletedBefore && hasAddedItems;
+      const nextBaristaStatus = shouldResetBarista ? 'pending' : (existingOrder.baristaStatus || 'pending');
+
       const updatedOrder = recalculateOrder({
         ...existingOrder,
         items: normalizedItems,
+        baristaStatus: nextBaristaStatus,
+        baristaCompletedAt: shouldResetBarista ? null : existingOrder.baristaCompletedAt,
         version: nextVersion
       });
+
+      if (shouldResetBarista) {
+        setBaristaHistory((prev) => {
+          const next = prev.filter((h) => h.id !== orderId);
+          try {
+            localStorage.setItem(STORAGE_KEYS.BARISTA_HISTORY, JSON.stringify(next));
+          } catch (_) {}
+          return next;
+        });
+      }
 
       const updatedTable = {
         ...table,

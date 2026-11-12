@@ -11,7 +11,7 @@ export default function TableGrid({
   onOpenBill,
   onViewOrderDetails
 }) {
-  const { tables, orders, updateTable, deleteTable, showToast, currentRole } = usePos();
+  const { tables, orders, baristaHistory, updateTable, deleteTable, showToast, currentRole } = usePos();
   const isBarista = currentRole === 'barista';
   const { spring } = useMotionTokens();
   const shouldReduceMotion = useReducedMotion();
@@ -53,6 +53,23 @@ export default function TableGrid({
     return Boolean(ord && Array.isArray(ord.items) && ord.items.length > 0);
   };
 
+  // Helper: Bàn có đơn đang chờ pha chế (dành riêng cho Barista: ẩn bàn nếu đơn đã hoàn thành)
+  const isTablePendingBarista = (t) => {
+    const ord =
+      (t.activeOrderId && orders[t.activeOrderId] && orders[t.activeOrderId].status !== 'completed' && orders[t.activeOrderId].status !== 'cancelled')
+        ? orders[t.activeOrderId]
+        : Object.values(orders).find(
+            (o) => o.tableId === t.id && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
+          );
+    if (!ord || !Array.isArray(ord.items) || ord.items.length === 0) return false;
+
+    const isDone =
+      ord.baristaStatus === 'completed' ||
+      (Array.isArray(baristaHistory) && baristaHistory.some((h) => h.id === ord.id));
+
+    return !isDone;
+  };
+
   // Trích xuất số tự nhiên từ tên bàn (Bàn 01 -> 1, Bàn 12 -> 12)
   const getTableNaturalNumber = (t) => {
     const match = (t.name || t.id || '').match(/\d+/);
@@ -76,8 +93,11 @@ export default function TableGrid({
     const list = tables.filter((t) => {
       const occupied = isTableOccupied(t);
 
-      // Đối với Barista: chỉ hiển thị các bàn đang có khách / có order pha chế
+      // Đối với Barista: chỉ hiển thị các bàn đang có khách / có order pha chế CHƯA HOÀN THÀNH
       if (isBarista && !occupied) {
+        return false;
+      }
+      if (isBarista && !isTablePendingBarista(t)) {
         return false;
       }
 
@@ -112,7 +132,7 @@ export default function TableGrid({
       }
       return (a.name || a.id).localeCompare(b.name || b.id, 'vi', { numeric: true });
     });
-  }, [tables, orders, selectedStatus, searchQuery, isBarista]);
+  }, [tables, orders, baristaHistory, selectedStatus, searchQuery, isBarista]);
 
   const handleStatusChange = (status) => {
     triggerHaptic('light');

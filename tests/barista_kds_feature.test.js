@@ -276,5 +276,15 @@ describe('GÓC Coffee POS — Barista KDS & Kitchen Queue Feature Suite', () => 
       const sql = fs.readFileSync(migrationPath, 'utf-8');
       assert.ok(sql.includes("ALTER TYPE public.app_role ADD VALUE 'barista';"), 'Must add barista to app_role enum');
     });
+
+    it('4.8 - TableGrid.jsx hides completed tables from Barista and only shows tables with uncompleted/pending orders', () => {
+      const tableGridSrc = fs.readFileSync(path.join(rootDir, 'src/components/tables/TableGrid.jsx'), 'utf-8');
+      assert.ok(tableGridSrc.includes('isTablePendingBarista'), 'TableGrid must implement isTablePendingBarista filter');
+      assert.ok(tableGridSrc.includes('if (isBarista && !isTablePendingBarista(t))'), 'TableGrid must exclude completed barista tables');
+      assert.ok(tableGridSrc.includes('baristaHistory'), 'TableGrid must observe baristaHistory updates');
+
+      const posContextSrc = fs.readFileSync(path.join(rootDir, 'src/store/PosContext.jsx'), 'utf-8');
+      assert.ok(posContextSrc.includes('shouldResetBarista'), 'PosContext must reactivate order to pending when cashier adds items');
+    });
   });
 });
