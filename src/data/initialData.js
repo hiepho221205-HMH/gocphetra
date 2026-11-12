@@ -230,6 +230,18 @@ export const DEMO_ACCOUNTS = {
     phone: '0987654321',
     notes: 'Thu ngân ca sáng',
     isDemo: true
+  },
+  barista: {
+    id: 'staff-04',
+    uid: '00000000-0000-0000-0000-000000000004',
+    name: 'Phạm Minh Quân',
+    email: 'barista@gocpos.vn',
+    role: 'barista',
+    branchId: 'main',
+    avatarUrl: null,
+    phone: '0933445566',
+    notes: 'Pha chế trưởng quầy bar',
+    isDemo: true
   }
 };
 

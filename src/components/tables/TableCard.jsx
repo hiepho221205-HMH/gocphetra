@@ -67,8 +67,8 @@ const TableCard = React.memo(function TableCard({
   // 1.5S LONG-PRESS HANDLERS (CHỈ ÁP DỤNG CHO BÀN TRỐNG THEO QUY TẮC CẨN TRỌNG)
   // =========================================================================
   const handlePointerDown = (e) => {
-    // Tuyệt đối không cho phép nhấn giữ trên bàn đang có khách hoặc đang tính tiền
-    if (isOccupied || isLocked) return;
+    // Tuyệt đối không cho phép nhấn giữ trên bàn đang có khách hoặc đang tính tiền hoặc với Barista
+    if (isOccupied || isLocked || currentRole === 'barista') return;
 
     // Chỉ bắt chuột trái (button === 0) hoặc touch
     if (e.button !== undefined && e.button !== 0) return;
@@ -273,6 +273,15 @@ const TableCard = React.memo(function TableCard({
               <Utensils className="w-3.5 h-3.5 text-emerald-300 stroke-[2.2]" />
               <span>Gọi món</span>
             </motion.button>
+          ) : currentRole === 'barista' ? (
+            /* Barista View: Chỉ hiển thị nút Xem chi tiết món */
+            <button
+              type="button"
+              onClick={handleEyeClick}
+              className="touch-target w-full py-2.5 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98 transition-all"
+            >
+              <span>Xem chi tiết món</span>
+            </button>
           ) : (
             /* Bàn có khách: Bộ 3 nút icon phân bổ cân đối [Xem đơn] [Thanh toán] [Xóa đơn] */
             <div className="grid grid-cols-3 gap-1.5">

@@ -59,7 +59,7 @@ export default function StaffListPage() {
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterRole, setFilterRole] = useState('all'); // 'all' | 'admin' | 'manager' | 'staff'
+  const [filterRole, setFilterRole] = useState('all'); // 'all' | 'admin' | 'manager' | 'staff' | 'barista'
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'active' | 'paused'
   const [filterOnlineOnly, setFilterOnlineOnly] = useState(false);
   const [suspendingStaff, setSuspendingStaff] = useState(null);
@@ -220,6 +220,18 @@ export default function StaffListPage() {
             }`}
           >
             Thu ngân
+          </button>
+          <button
+            type="button"
+            data-testid="filter-role-barista"
+            onClick={() => setFilterRole('barista')}
+            className={`px-2.5 py-1 rounded-xl text-[10.5px] font-bold transition-all shrink-0 cursor-pointer ${
+              filterRole === 'barista'
+                ? 'bg-[#214E34] text-white shadow-[0_2px_6px_rgba(33,78,52,0.3)]'
+                : 'bg-white border border-gray-200/80 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Pha chế
           </button>
 
           {/* Separator */}
@@ -392,10 +404,12 @@ export default function StaffListPage() {
                             ? 'bg-emerald-50 text-[#214E34] border-[#214E34]/30'
                             : staff.role === 'manager'
                             ? 'bg-blue-50 text-blue-800 border-blue-200'
+                            : staff.role === 'barista'
+                            ? 'bg-amber-50 text-amber-900 border-amber-300'
                             : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                         }`}
                       >
-                        {staff.role === 'admin' ? 'Quản lý' : staff.role === 'manager' ? 'Cửa hàng trưởng' : 'Thu ngân'}
+                        {staff.role === 'admin' ? 'Quản lý' : staff.role === 'manager' ? 'Cửa hàng trưởng' : staff.role === 'barista' ? 'Pha chế' : 'Thu ngân'}
                       </span>
                     </div>
 

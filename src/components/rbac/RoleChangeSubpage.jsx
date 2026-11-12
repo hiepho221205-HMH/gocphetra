@@ -8,6 +8,7 @@ import {
   ShieldAlert,
   UserCog,
   Briefcase,
+  Coffee,
   CheckCircle2,
   AlertTriangle,
   Loader2,
@@ -117,6 +118,14 @@ export default function RoleChangeSubpage() {
       tagColor: 'text-emerald-700 bg-emerald-50 border-emerald-200',
       activeBorder: 'border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-600/20',
       desc: 'Phục vụ bàn, tạo & sửa món trong đơn, gửi bếp, thanh toán hóa đơn và xem lịch sử đơn trong ngày. Bị khóa xem doanh thu tổng và chỉnh sửa menu/giá.'
+    },
+    {
+      id: 'barista',
+      name: 'Barista (Pha chế / Quầy bar)',
+      icon: Coffee,
+      tagColor: 'text-amber-700 bg-amber-50 border-amber-200',
+      activeBorder: 'border-amber-600 bg-amber-50/40 ring-2 ring-amber-600/20',
+      desc: 'Màn hình KDS chuyên biệt cho quầy bar: Xem danh sách đơn FIFO, đánh dấu món hoàn tất, xem vị trí sơ đồ các bàn đang chờ nước. Đã ẩn các tính năng thanh toán, sửa món, doanh thu và báo cáo.'
     }
   ];
 

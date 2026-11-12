@@ -71,6 +71,7 @@ export default function StaffDetailSubpage() {
   const avatarUrl = staff.avatarUrl || profile.avatarUrl;
   const isStaffAdmin = staff.role === 'admin';
   const isStaffManager = staff.role === 'manager';
+  const isStaffBarista = staff.role === 'barista';
   const isActive = staff.status === 'active';
 
   // Lọc lịch sử hoạt động liên quan đến nhân sự này
@@ -163,11 +164,13 @@ export default function StaffDetailSubpage() {
                     ? 'bg-purple-50 text-purple-900 border-purple-200'
                     : isStaffManager
                     ? 'bg-blue-50 text-blue-900 border-blue-200'
+                    : isStaffBarista
+                    ? 'bg-amber-50 text-amber-900 border-amber-300'
                     : 'bg-emerald-50 text-emerald-900 border-emerald-200'
                 }`}
               >
                 <Shield className="w-3 h-3" />
-                <span>Vai trò: {isStaffAdmin ? 'Admin (Quản trị viên)' : isStaffManager ? 'Manager (Quản lý)' : 'Staff (Nhân viên)'}</span>
+                <span>Vai trò: {isStaffAdmin ? 'Admin (Quản trị viên)' : isStaffManager ? 'Manager (Quản lý)' : isStaffBarista ? 'Barista (Pha chế)' : 'Staff (Nhân viên)'}</span>
               </span>
             </div>
 
@@ -248,7 +251,12 @@ export default function StaffDetailSubpage() {
                     <strong className="text-blue-900">Quản lý (Manager):</strong> Vận hành thu ngân đầy đủ, cập nhật danh mục thực đơn, điều chỉnh giá bán và xem báo cáo doanh thu kinh doanh. Không có quyền đổi vai trò nhân sự hoặc xóa lịch sử bán hàng.
                   </p>
                 )}
-                {!isStaffAdmin && !isStaffManager && (
+                {isStaffBarista && (
+                  <p>
+                    <strong className="text-amber-900">Pha chế (Barista):</strong> Chuyên trách chế biến đồ uống tại quầy bar với màn hình KDS, theo dõi hàng đợi FIFO, đánh dấu món hoàn tất và xem sơ đồ các bàn đang chờ món. Không truy cập thanh toán hoặc báo cáo doanh thu.
+                  </p>
+                )}
+                {!isStaffAdmin && !isStaffManager && !isStaffBarista && (
                   <p>
                     <strong className="text-emerald-900">Nhân viên (Staff):</strong> Phục vụ khách hàng tại bàn, tạo và gửi đơn xuống bếp, thanh toán đơn hàng và xem lịch sử hóa đơn trong ngày. Bị khóa xem doanh thu tổng và chỉnh sửa menu/giá.
                   </p>

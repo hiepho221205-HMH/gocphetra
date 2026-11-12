@@ -574,6 +574,7 @@ export default function StaffCreatePage() {
                   className="w-full h-10 px-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:border-forest-800 text-xs font-bold text-gray-900"
                 >
                   <option value="staff">Thu ngân (Staff) — Chỉ thao tác bán hàng & ca trực</option>
+                  <option value="barista">Pha chế (Barista) — Màn hình KDS & hàng đợi đồ uống</option>
                   <option value="manager">Cửa hàng trưởng (Manager) — Vận hành, menu & báo cáo</option>
                   {isEditMode && editingStaff?.role === 'admin' && (
                     <option value="admin">Quản lý (Admin) — Toàn quyền hệ thống</option>

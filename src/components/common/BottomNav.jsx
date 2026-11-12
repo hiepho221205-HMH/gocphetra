@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { usePos } from '../../store/PosContext';
 import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
-import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3 } from 'lucide-react';
+import { LayoutGrid, UtensilsCrossed, ClipboardList, BarChart3, Coffee, History } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
 import { motion, AnimatePresence, useReducedMotion, useMotionTokens } from '../../lib/animateUi';
 
 export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
-  const { activeTab, setActiveTab, orders, currentRole } = usePos();
+  const { activeTab, setActiveTab, orders, currentRole, baristaPendingOrders = [] } = usePos();
   const { spring } = useMotionTokens();
   const shouldReduceMotion = useReducedMotion();
   const { isKeyboardOpen: internalIsKeyboardOpen } = useIosKeyboardFix();
 
   // Scroll visibility & auto-hide states
-  const AUTO_HIDE_TABS = ['tables', 'orders'];
+  const AUTO_HIDE_TABS = ['tables', 'orders', 'barista', 'barista_history'];
   const shouldAutoHide = AUTO_HIDE_TABS.includes(activeTab);
 
   const [isVisible, setIsVisible] = useState(true);
@@ -26,6 +26,7 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
   // Đếm bàn đang phục vụ
   const activeOrderCount = Object.keys(orders).length;
 
+  const isBarista = currentRole === 'barista';
   const isStaff = currentRole === 'staff';
 
   const allNavItems = [
@@ -35,8 +36,21 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
     { id: 'reports', label: 'Báo cáo', icon: BarChart3 },
   ];
 
-  // RBAC Filter: Staff chỉ truy cập Sơ đồ bàn ('tables') và Đơn hàng ('orders')
-  const navItems = isStaff
+  // RBAC Filter: Barista hiển thị đúng 3 nội dung: Sơ đồ bàn, Danh sách pha chế, Lịch sử pha chế
+  const baristaNavItems = [
+    { id: 'tables', label: 'Sơ đồ bàn', icon: LayoutGrid },
+    {
+      id: 'barista',
+      label: 'Danh sách pha chế',
+      icon: Coffee,
+      badge: baristaPendingOrders.length > 0 ? baristaPendingOrders.length : null
+    },
+    { id: 'barista_history', label: 'Lịch sử pha chế', icon: History }
+  ];
+
+  const navItems = isBarista
+    ? baristaNavItems
+    : isStaff
     ? [allNavItems[0], allNavItems[2]]
     : allNavItems;
 
@@ -109,7 +123,7 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
   useEffect(() => {
     const syncTabFromUrl = () => {
       const hash = window.location.hash.replace('#', '');
-      const validTabs = ['tables', 'menu', 'orders', 'reports', 'settings'];
+      const validTabs = ['tables', 'barista', 'barista_history', 'menu', 'orders', 'reports', 'settings'];
       if (validTabs.includes(hash) && hash !== activeTab) {
         setActiveTab(hash);
       }
@@ -123,7 +137,7 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
       window.removeEventListener('popstate', syncTabFromUrl);
       window.removeEventListener('hashchange', syncTabFromUrl);
     };
-  }, [activeTab, setActiveTab, isStaff]);
+  }, [activeTab, setActiveTab, isStaff, isBarista]);
 
   return (
     <nav
@@ -144,11 +158,11 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
           isEffectiveVisible ? 'pointer-events-auto' : 'pointer-events-none'
         }`}
       >
-        {/* Track Grid phân bổ theo số tab (2 cột cho Staff, 4 cột cho Manager/Admin) */}
-        <div role="tablist" aria-label="Thanh điều hướng chính" className={`relative w-full h-full grid ${isStaff ? 'grid-cols-2' : 'grid-cols-4'} items-center`}>
+        {/* Track Grid phân bổ theo số tab (3 cột cho Barista, 2 cột cho Staff, 4 cột cho Manager/Admin) */}
+        <div role="tablist" aria-label="Thanh điều hướng chính" className={`relative w-full h-full grid ${isBarista ? 'grid-cols-3' : isStaff ? 'grid-cols-2' : 'grid-cols-4'} items-center`}>
           {/* Khối Highlight Circle 48x48px nền xanh trượt ngang mượt mà */}
           <motion.div
-            className={`absolute top-0 bottom-0 left-0 ${isStaff ? 'w-1/2' : 'w-1/4'} flex items-center justify-center pointer-events-none z-0`}
+            className={`absolute top-0 bottom-0 left-0 ${isBarista ? 'w-1/3' : isStaff ? 'w-1/2' : 'w-1/4'} flex items-center justify-center pointer-events-none z-0`}
             animate={{
               x: `${Math.max(0, activeIndex) * 100}%`,
               opacity: activeIndex >= 0 ? 1 : 0

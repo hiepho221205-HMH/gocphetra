@@ -37,7 +37,7 @@ export default function RbacMainPage({ onBack }) {
   }, [syncStaffWithCloud]);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'admin' | 'manager' | 'staff'
+  const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'admin' | 'manager' | 'staff' | 'barista'
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'active' | 'inactive'
 
   const handleBack = () => {
@@ -48,14 +48,15 @@ export default function RbacMainPage({ onBack }) {
     }
   };
 
-  // Thống kê 4 KPIs (chỉ tính nhân sự đang quản lý, loại trừ archived/removed)
+  // Thống kê KPIs (chỉ tính nhân sự đang quản lý, loại trừ archived/removed)
   const stats = useMemo(() => {
     const managedStaff = staffList.filter((s) => s.status !== 'archived' && s.status !== 'removed');
     const total = managedStaff.length;
     const adminCount = managedStaff.filter((s) => s.role === 'admin').length;
     const managerCount = managedStaff.filter((s) => s.role === 'manager').length;
+    const baristaCount = managedStaff.filter((s) => s.role === 'barista').length;
     const staffCount = managedStaff.filter((s) => s.role === 'staff').length;
-    return { total, adminCount, managerCount, staffCount };
+    return { total, adminCount, managerCount, baristaCount, staffCount };
   }, [staffList]);
 
   // Lọc danh sách nhân viên
@@ -244,7 +245,8 @@ export default function RbacMainPage({ onBack }) {
             { id: 'all', label: 'Tất cả' },
             { id: 'admin', label: 'Admin' },
             { id: 'manager', label: 'Manager' },
-            { id: 'staff', label: 'Staff' }
+            { id: 'staff', label: 'Thu ngân' },
+            { id: 'barista', label: 'Pha chế' }
           ].map((chip) => {
             const isSelected = roleFilter === chip.id;
             return (
@@ -315,6 +317,7 @@ export default function RbacMainPage({ onBack }) {
             const avatarUrl = staff.avatarUrl || profile.avatarUrl;
             const isStaffAdmin = staff.role === 'admin';
             const isStaffManager = staff.role === 'manager';
+            const isStaffBarista = staff.role === 'barista';
             const isActive = staff.status === 'active';
 
             return (
@@ -365,10 +368,12 @@ export default function RbacMainPage({ onBack }) {
                             ? 'bg-purple-50 text-purple-900 border-purple-200'
                             : isStaffManager
                             ? 'bg-blue-50 text-blue-900 border-blue-200'
+                            : isStaffBarista
+                            ? 'bg-amber-50 text-amber-900 border-amber-300'
                             : 'bg-emerald-50 text-emerald-900 border-emerald-200'
                         }`}
                       >
-                        {isStaffAdmin ? 'Admin' : isStaffManager ? 'Manager' : 'Staff'}
+                        {isStaffAdmin ? 'Admin' : isStaffManager ? 'Manager' : isStaffBarista ? 'Pha chế' : 'Thu ngân'}
                       </span>
 
                       {/* Badge Trạng thái */}

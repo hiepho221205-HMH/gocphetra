@@ -32,7 +32,8 @@ function PosAppRoot() {
         }
       } else {
         if (currentRoute === '/login' && !loginSuccessRole) {
-          navigate('/tables');
+          const targetRoute = currentUser?.role === 'barista' ? '/barista' : '/tables';
+          navigate(targetRoute);
         }
       }
     }
@@ -67,7 +68,11 @@ function PosAppRoot() {
                 sessionStorage.removeItem('goc_pos_welcome_role');
               } catch (_) {}
               setLoginSuccessRole(null);
-              navigate('/tables');
+              if (loginSuccessRole === 'barista') {
+                navigate('/barista');
+              } else {
+                navigate('/tables');
+              }
             }}
           />
         </Suspense>

@@ -11,7 +11,8 @@ export default function TableGrid({
   onOpenBill,
   onViewOrderDetails
 }) {
-  const { tables, orders, updateTable, deleteTable, showToast } = usePos();
+  const { tables, orders, updateTable, deleteTable, showToast, currentRole } = usePos();
+  const isBarista = currentRole === 'barista';
   const { spring } = useMotionTokens();
   const shouldReduceMotion = useReducedMotion();
   const [selectedStatus, setSelectedStatus] = useState('all'); // 'all' | 'empty' | 'occupied'
@@ -74,6 +75,12 @@ export default function TableGrid({
   const filteredTables = useMemo(() => {
     const list = tables.filter((t) => {
       const occupied = isTableOccupied(t);
+
+      // Đối với Barista: chỉ hiển thị các bàn đang có khách / có order pha chế
+      if (isBarista && !occupied) {
+        return false;
+      }
+
       const matchesStatus =
         selectedStatus === 'all' ||
         (selectedStatus === 'occupied' && occupied) ||
@@ -105,7 +112,7 @@ export default function TableGrid({
       }
       return (a.name || a.id).localeCompare(b.name || b.id, 'vi', { numeric: true });
     });
-  }, [tables, orders, selectedStatus, searchQuery]);
+  }, [tables, orders, selectedStatus, searchQuery, isBarista]);
 
   const handleStatusChange = (status) => {
     triggerHaptic('light');
@@ -154,68 +161,70 @@ export default function TableGrid({
 
   return (
     <div className="px-3.5 pt-3 pb-28">
-      {/* 1. Dashboard 3 Thẻ Thống Kê kiêm Bộ Lọc Chính (Claymorphism 3D Token) */}
-      <div className="grid grid-cols-3 gap-2.5 mb-3.5" role="region" aria-label="Bộ lọc thống kê bàn">
-        {/* Token 1: TỔNG BÀN (Clay Disc Blue) */}
-        <motion.div
-          data-testid="filter-card-all"
-          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-          transition={spring.press}
-          onClick={() => handleStatusChange('all')}
-          className={`clay-card p-3 flex flex-col items-center justify-between text-center cursor-pointer transition-all ${
-            selectedStatus === 'all'
-              ? 'ring-2 ring-blue-500 shadow-md bg-blue-50/40'
-              : 'hover:border-blue-200'
-          }`}
-        >
-          <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 mb-2">
-            Tổng bàn
-          </span>
-          <div className="w-12 h-12 clay-disc-base clay-disc-blue text-lg shadow-clay-disc">
-            {totalCount}
-          </div>
-        </motion.div>
+      {/* 1. Dashboard 3 Thẻ Thống Kê kiêm Bộ Lọc Chính (Claymorphism 3D Token) - Ẩn đối với Barista */}
+      {!isBarista && (
+        <div className="grid grid-cols-3 gap-2.5 mb-3.5" role="region" aria-label="Bộ lọc thống kê bàn">
+          {/* Token 1: TỔNG BÀN (Clay Disc Blue) */}
+          <motion.div
+            data-testid="filter-card-all"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+            transition={spring.press}
+            onClick={() => handleStatusChange('all')}
+            className={`clay-card p-3 flex flex-col items-center justify-between text-center cursor-pointer transition-all ${
+              selectedStatus === 'all'
+                ? 'ring-2 ring-blue-500 shadow-md bg-blue-50/40'
+                : 'hover:border-blue-200'
+            }`}
+          >
+            <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 mb-2">
+              Tổng bàn
+            </span>
+            <div className="w-12 h-12 clay-disc-base clay-disc-blue text-lg shadow-clay-disc">
+              {totalCount}
+            </div>
+          </motion.div>
 
-        {/* Token 2: CÓ KHÁCH (Clay Disc Green) */}
-        <motion.div
-          data-testid="filter-card-occupied"
-          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-          transition={spring.press}
-          onClick={() => handleStatusChange('occupied')}
-          className={`clay-card p-3 flex flex-col items-center justify-between text-center cursor-pointer transition-all ${
-            selectedStatus === 'occupied'
-              ? 'ring-2 ring-emerald-500 shadow-md bg-emerald-50/40'
-              : 'hover:border-emerald-200'
-          }`}
-        >
-          <span className="text-[11px] font-black uppercase tracking-wider text-emerald-900 mb-2">
-            Có khách
-          </span>
-          <div className="w-12 h-12 clay-disc-base clay-disc-green text-lg shadow-clay-disc">
-            {occupiedCount}
-          </div>
-        </motion.div>
+          {/* Token 2: CÓ KHÁCH (Clay Disc Green) */}
+          <motion.div
+            data-testid="filter-card-occupied"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+            transition={spring.press}
+            onClick={() => handleStatusChange('occupied')}
+            className={`clay-card p-3 flex flex-col items-center justify-between text-center cursor-pointer transition-all ${
+              selectedStatus === 'occupied'
+                ? 'ring-2 ring-emerald-500 shadow-md bg-emerald-50/40'
+                : 'hover:border-emerald-200'
+            }`}
+          >
+            <span className="text-[11px] font-black uppercase tracking-wider text-emerald-900 mb-2">
+              Có khách
+            </span>
+            <div className="w-12 h-12 clay-disc-base clay-disc-green text-lg shadow-clay-disc">
+              {occupiedCount}
+            </div>
+          </motion.div>
 
-        {/* Token 3: BÀN TRỐNG (Clay Disc White Inset) */}
-        <motion.div
-          data-testid="filter-card-empty"
-          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-          transition={spring.press}
-          onClick={() => handleStatusChange('empty')}
-          className={`clay-card p-3 flex flex-col items-center justify-between text-center cursor-pointer transition-all ${
-            selectedStatus === 'empty'
-              ? 'ring-2 ring-gray-400 shadow-md bg-gray-50'
-              : 'hover:border-gray-300'
-          }`}
-        >
-          <span className="text-[11px] font-black uppercase tracking-wider text-gray-700 mb-2">
-            Bàn trống
-          </span>
-          <div className="w-12 h-12 clay-disc-base clay-disc-white text-lg border border-gray-100 shadow-clay-disc">
-            {emptyCount}
-          </div>
-        </motion.div>
-      </div>
+          {/* Token 3: BÀN TRỐNG (Clay Disc White Inset) */}
+          <motion.div
+            data-testid="filter-card-empty"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+            transition={spring.press}
+            onClick={() => handleStatusChange('empty')}
+            className={`clay-card p-3 flex flex-col items-center justify-between text-center cursor-pointer transition-all ${
+              selectedStatus === 'empty'
+                ? 'ring-2 ring-gray-400 shadow-md bg-gray-50'
+                : 'hover:border-gray-300'
+            }`}
+          >
+            <span className="text-[11px] font-black uppercase tracking-wider text-gray-700 mb-2">
+              Bàn trống
+            </span>
+            <div className="w-12 h-12 clay-disc-base clay-disc-white text-lg border border-gray-100 shadow-clay-disc">
+              {emptyCount}
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* 2. Thanh công cụ tìm kiếm & nút Thêm bàn */}
       <div className="flex items-center gap-2 mb-3.5">
@@ -224,24 +233,26 @@ export default function TableGrid({
           <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
-            placeholder="Tìm số bàn..."
+            placeholder={isBarista ? "Tìm số bàn đang chờ..." : "Tìm số bàn..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2.5 clay-input text-xs placeholder:text-gray-400 font-bold text-gray-800"
           />
         </div>
 
-        {/* Nút "+ Thêm bàn" 3D Pill Forest Green */}
-        <motion.button
-          type="button"
-          whileTap={shouldReduceMotion ? undefined : { scale: 0.94 }}
-          transition={spring.press}
-          onClick={handleAddClick}
-          className="touch-target clay-btn-primary px-3.5 py-2.5 text-xs font-black flex items-center gap-1.5 shrink-0 cursor-pointer"
-        >
-          <Plus className="w-4 h-4 text-emerald-300 stroke-[2.5]" />
-          <span>Thêm bàn</span>
-        </motion.button>
+        {/* Nút "+ Thêm bàn" 3D Pill Forest Green (Chỉ hiện cho Thu ngân / Quản lý) */}
+        {!isBarista && (
+          <motion.button
+            type="button"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.94 }}
+            transition={spring.press}
+            onClick={handleAddClick}
+            className="touch-target clay-btn-primary px-3.5 py-2.5 text-xs font-black flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-emerald-300 stroke-[2.5]" />
+            <span>Thêm bàn</span>
+          </motion.button>
+        )}
       </div>
 
       {/* Hidden standard select element for backward compatibility with automated tests */}
@@ -270,6 +281,14 @@ export default function TableGrid({
               onHighlightTable={setHighlightedTable}
             />
           ))}
+        </div>
+      ) : isBarista ? (
+        <div className="text-center py-12 clay-card p-6 border-dashed border-gray-200">
+          <Coffee className="w-9 h-9 text-emerald-600 mx-auto mb-2" />
+          <p className="text-xs text-gray-700 font-bold">Hiện không có bàn nào đang chờ pha chế</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            Các bàn có đơn mới sẽ tự động hiển thị tại đây để tiện điều phối
+          </p>
         </div>
       ) : (
         <div className="text-center py-12 clay-card p-6 border-dashed border-gray-200">

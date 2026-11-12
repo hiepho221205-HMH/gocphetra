@@ -11,6 +11,14 @@ const TAB_CONFIG = {
     title: 'Sơ đồ bàn',
     subtitle: 'Quản lý trạng thái bàn & gọi món nhanh'
   },
+  barista: {
+    title: 'Danh sách pha chế',
+    subtitle: 'Hàng đợi chế biến & tiến độ quầy bar'
+  },
+  barista_history: {
+    title: 'Lịch sử pha chế',
+    subtitle: 'Các đơn đã hoàn tất trong ca làm việc'
+  },
   menu: {
     title: 'Thực đơn',
     subtitle: 'Quản lý món, phân loại danh mục & topping'
@@ -33,12 +41,19 @@ const TAB_CONFIG = {
  * - Persistent sticky positioning, safe-area aware, high-contrast, mobile-first 360-430px
  */
 export default function PageHeader({ onOpenSettings, onOpenProfile }) {
-  const { activeTab, settings, setActiveTab, currentUser, userProfiles, canAccessSettings, showToast } = usePos();
+  const { activeTab, settings, setActiveTab, currentUser, userProfiles, canAccessSettings, showToast, currentRole } = usePos();
   const [imageError, setImageError] = useState(false);
   const { isInstallable, isInstalled } = usePwaInstall();
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
-  const config = TAB_CONFIG[activeTab] || TAB_CONFIG.tables;
+  const isBarista = currentUser?.role === 'barista' || currentRole === 'barista';
+  let config = TAB_CONFIG[activeTab] || TAB_CONFIG.tables;
+  if (isBarista && activeTab === 'tables') {
+    config = {
+      title: 'Sơ đồ bàn',
+      subtitle: 'Vị trí các bàn đang chờ pha chế'
+    };
+  }
   const activeId = currentUser?.id;
   const userProfile = (activeId && userProfiles?.[activeId]) || currentUser || {};
   const avatarUrl = userProfile.avatarUrl || settings?.avatarUrl || null;

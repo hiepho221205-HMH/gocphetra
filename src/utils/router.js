@@ -4,7 +4,11 @@
 export function parseRouteFromLocation(loc = (typeof window !== 'undefined' ? window.location : null)) {
   let path = '/tables';
   let search = '';
-  if (loc) {
+  if (typeof loc === 'string') {
+    const parts = loc.split('?');
+    path = parts[0] || '/tables';
+    search = parts[1] ? `?${parts[1]}` : '';
+  } else if (loc) {
     const hash = loc.hash || '';
     if (hash.startsWith('#/')) {
       const parts = hash.substring(1).split('?');
@@ -13,7 +17,7 @@ export function parseRouteFromLocation(loc = (typeof window !== 'undefined' ? wi
     } else if (loc.pathname && loc.pathname !== '/') {
       const segments = loc.pathname.split('/').filter(Boolean);
       const last = segments[segments.length - 1];
-      if (['tables', 'menu', 'orders', 'reports', 'settings', 'login'].includes(last)) {
+      if (['tables', 'menu', 'orders', 'reports', 'settings', 'login', 'barista', 'barista_history'].includes(last)) {
         path = `/${last}`;
       } else {
         path = '/tables';
@@ -40,6 +44,8 @@ export function parseRouteFromLocation(loc = (typeof window !== 'undefined' ? wi
  */
 export function getTabFromRoute(path) {
   if (!path || path === '/' || path === '/tables') return 'tables';
+  if (path === '/barista') return 'barista';
+  if (path === '/barista_history') return 'barista_history';
   if (path === '/menu') return 'menu';
   if (path === '/orders') return 'orders';
   if (path === '/reports') return 'reports';

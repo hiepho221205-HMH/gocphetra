@@ -1,4 +1,5 @@
 import { calculateDailySummary } from '../utils/dailySettlement';
+import { playOrderChime } from '../utils/audioChime';
 import {
   db,
   migrateFromLocalStorage,
@@ -121,6 +122,8 @@ const STORAGE_KEYS = {
   ROLE: 'goc_pos_role_v4',
   AUDIT_LOGS: 'goc_pos_audit_logs_v4',
   USER_PROFILES: 'goc_pos_user_profiles_v4',
+  BARISTA_HISTORY: 'goc_pos_barista_history_v1',
+  BARISTA_ITEM_DONE: 'goc_pos_barista_item_done_v1',
 };
 
 function loadStorage(key, fallback) {
@@ -227,9 +230,9 @@ function getSynchronousCachedAuth() {
               const savedProfiles = loadStorage(STORAGE_KEYS.USER_PROFILES, {});
               const p = savedProfiles[user.id];
               const emailLower = (user.email || '').toLowerCase();
-              const fallbackRole = emailLower.startsWith('admin') ? 'admin' : emailLower.startsWith('manager') ? 'manager' : 'staff';
-              role = p?.role || user.user_metadata?.role || (['admin', 'manager', 'staff'].includes(savedRole) ? savedRole : fallbackRole);
-              const defaultName = role === 'admin' ? 'Trần Mai' : role === 'manager' ? 'Nguyễn Văn Hùng' : 'Lê Hoàng Nam';
+              const fallbackRole = emailLower.startsWith('admin') ? 'admin' : emailLower.startsWith('manager') ? 'manager' : emailLower.startsWith('barista') ? 'barista' : 'staff';
+              role = p?.role || user.user_metadata?.role || (['admin', 'manager', 'staff', 'barista'].includes(savedRole) ? savedRole : fallbackRole);
+              const defaultName = role === 'admin' ? 'Trần Mai' : role === 'manager' ? 'Nguyễn Văn Hùng' : role === 'barista' ? 'Phạm Minh Quân' : 'Lê Hoàng Nam';
               profileObj = {
                 id: user.id,
                 uid: user.id,
@@ -287,6 +290,12 @@ export function PosProvider({ children }) {
     const loaded = loadStorage(STORAGE_KEYS.STAFF, null);
     return loaded && Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_STAFF;
   });
+  const [baristaHistory, setBaristaHistory] = useState(() => {
+    return loadStorage(STORAGE_KEYS.BARISTA_HISTORY, []);
+  });
+  const [baristaItemDone, setBaristaItemDone] = useState(() => {
+    return loadStorage(STORAGE_KEYS.BARISTA_ITEM_DONE, {});
+  });
 
   // Synchronous recovery snapshot (0ms white screen / 0ms loading delay)
   const [initialCachedAuth] = useState(() => getSynchronousCachedAuth());
@@ -320,7 +329,7 @@ export function PosProvider({ children }) {
       return null;
     }
     const saved = loadStorage(STORAGE_KEYS.ROLE, 'admin');
-    return ['admin', 'manager', 'staff'].includes(saved) ? saved : 'admin';
+    return ['admin', 'manager', 'staff', 'barista'].includes(saved) ? saved : 'admin';
   });
 
   // Sync active client security role to Supabase guard
@@ -658,12 +667,12 @@ export function PosProvider({ children }) {
       // Tuyệt đối không tự cấp quyền Admin theo tiền tố email và không tin cậy metadata người dùng có thể tự sửa.
       // Chỉ chấp nhận manager/staff từ metadata nếu database chưa kịp đồng bộ; Admin bắt buộc phải có profile.role === 'admin'.
       let role = 'staff';
-      if (profile?.role && ['admin', 'manager', 'staff'].includes(profile.role)) {
+      if (profile?.role && ['admin', 'manager', 'staff', 'barista'].includes(profile.role)) {
         role = profile.role;
-      } else if (user.user_metadata?.role && ['manager', 'staff'].includes(user.user_metadata.role)) {
+      } else if (user.user_metadata?.role && ['manager', 'staff', 'barista'].includes(user.user_metadata.role)) {
         role = user.user_metadata.role;
       }
-      const defaultNameByRole = role === 'admin' ? 'Trần Mai' : role === 'manager' ? 'Nguyễn Văn Hùng' : 'Lê Hoàng Nam';
+      const defaultNameByRole = role === 'admin' ? 'Trần Mai' : role === 'manager' ? 'Nguyễn Văn Hùng' : role === 'barista' ? 'Phạm Minh Quân' : 'Lê Hoàng Nam';
       const name = profile?.name || user.user_metadata?.name || defaultNameByRole;
       const avatarUrl = profile?.avatarUrl || null;
       const phone = profile?.phone || user.user_metadata?.phone || '';
@@ -886,6 +895,8 @@ export function PosProvider({ children }) {
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.ROLE, JSON.stringify(currentRole)); }, [currentRole]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(auditLogs)); }, [auditLogs]);
   useEffect(() => { localStorage.setItem(STORAGE_KEYS.USER_PROFILES, JSON.stringify(userProfiles)); }, [userProfiles]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.BARISTA_HISTORY, JSON.stringify(baristaHistory)); }, [baristaHistory]);
+  useEffect(() => { localStorage.setItem(STORAGE_KEYS.BARISTA_ITEM_DONE, JSON.stringify(baristaItemDone)); }, [baristaItemDone]);
 
   // =================== CLOUD SYNC & REALTIME ===================
   const refreshCloudHealth = async () => {
@@ -1575,7 +1586,7 @@ export function PosProvider({ children }) {
 
   // =================== RBAC ROLE ACTIONS ===================
   const updateCurrentUserProfile = ({ name, avatarUrl, phone, notes }) => {
-    const activeId = currentUser?.id || (currentRole === 'admin' ? 'staff-01' : currentRole === 'manager' ? 'staff-02' : 'staff-03');
+    const activeId = currentUser?.id || (currentRole === 'admin' ? 'staff-01' : currentRole === 'manager' ? 'staff-02' : currentRole === 'barista' ? 'staff-04' : 'staff-03');
     const existing = userProfiles[activeId] || {};
     const updatedName = (name !== undefined && name !== null && String(name).trim()) ? String(name).trim() : (existing.name || currentUser?.name || 'Thu ngân');
     const updatedAvatar = avatarUrl !== undefined ? avatarUrl : (existing.avatarUrl !== undefined ? existing.avatarUrl : (settings.avatarUrl || null));
@@ -1635,12 +1646,12 @@ export function PosProvider({ children }) {
   };
 
   const switchDemoRole = (newRole) => {
-    if (!['admin', 'manager', 'staff'].includes(newRole)) return;
-    const activeId = newRole === 'admin' ? 'staff-01' : newRole === 'manager' ? 'staff-02' : 'staff-03';
+    if (!['admin', 'manager', 'staff', 'barista'].includes(newRole)) return;
+    const activeId = newRole === 'admin' ? 'staff-01' : newRole === 'manager' ? 'staff-02' : newRole === 'barista' ? 'staff-04' : 'staff-03';
     const account = (DEMO_ACCOUNTS && DEMO_ACCOUNTS[newRole]) || {};
     const savedProfile = userProfiles[activeId] || account;
 
-    const targetName = savedProfile.name || account.name || (newRole === 'admin' ? 'Trần Mai' : newRole === 'manager' ? 'Nguyễn Văn Hùng' : 'Lê Hoàng Nam');
+    const targetName = savedProfile.name || account.name || (newRole === 'admin' ? 'Trần Mai' : newRole === 'manager' ? 'Nguyễn Văn Hùng' : newRole === 'barista' ? 'Phạm Minh Quân' : 'Lê Hoàng Nam');
     const targetAvatar = savedProfile.avatarUrl !== undefined ? savedProfile.avatarUrl : (account.avatarUrl || null);
 
     setCurrentRole(newRole);
@@ -1660,8 +1671,9 @@ export function PosProvider({ children }) {
       currentCashier: `${targetName} (Mã NV: ${activeId.toUpperCase()})`
     }));
 
-    // If Staff, redirect away from restricted tabs (menu, reports) & restricted routes (/staff*)
-    if (newRole === 'staff') {
+    if (newRole === 'barista') {
+      setActiveTab('barista');
+    } else if (newRole === 'staff') {
       if (['menu', 'reports'].includes(activeTab) || currentRoute.startsWith('/staff')) {
         navigate('/tables');
       }
@@ -1674,7 +1686,7 @@ export function PosProvider({ children }) {
       return { success: false, message: 'Chỉ Admin mới có quyền đổi vai trò' };
     }
 
-    if (!['admin', 'manager', 'staff'].includes(newRole)) {
+    if (!['admin', 'manager', 'staff', 'barista'].includes(newRole)) {
       showToast('Vai trò mới không hợp lệ.', 'error');
       return { success: false, message: 'Vai trò không hợp lệ' };
     }
@@ -1751,6 +1763,51 @@ export function PosProvider({ children }) {
     showToast(`Đã cập nhật vai trò "${target.name}" thành ${newRole.toUpperCase()}`, 'success');
     return { success: true, targetId: targetStaffId, oldRole, newRole };
   };
+
+  // =================== BARISTA KDS METHODS ===================
+  const baristaPendingOrders = useMemo(() => {
+    const historyCompletedIds = new Set(baristaHistory.map((h) => h.id));
+    return Object.values(orders)
+      .filter((o) => o && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0 && !historyCompletedIds.has(o.id))
+      .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)); // FIFO
+  }, [orders, baristaHistory]);
+
+  const completeBaristaOrder = useCallback((orderId) => {
+    const order = orders[orderId];
+    if (!order) return;
+    const historyEntry = {
+      ...order,
+      finishedAt: new Date().toISOString()
+    };
+    setBaristaHistory((prev) => [historyEntry, ...prev.filter((h) => h.id !== orderId)]);
+    showToast?.(`Đã hoàn tất đơn [${order.tableName || 'Đơn món'}]!`, 'success');
+  }, [orders, showToast]);
+
+  const undoBaristaOrder = useCallback((orderId) => {
+    setBaristaHistory((prev) => prev.filter((h) => h.id !== orderId));
+    showToast?.('Đã đưa đơn về hàng đợi pha chế!', 'info');
+  }, [showToast]);
+
+  const toggleBaristaItemDone = useCallback((orderId, itemIndexOrId) => {
+    setBaristaItemDone((prev) => {
+      const currentList = prev[orderId] || [];
+      const key = String(itemIndexOrId);
+      const isDone = currentList.includes(key);
+      const nextList = isDone ? currentList.filter((k) => k !== key) : [...currentList, key];
+      return {
+        ...prev,
+        [orderId]: nextList
+      };
+    });
+  }, []);
+
+  const prevPendingCountRef = useRef(baristaPendingOrders.length);
+  useEffect(() => {
+    if (baristaPendingOrders.length > prevPendingCountRef.current) {
+      playOrderChime();
+    }
+    prevPendingCountRef.current = baristaPendingOrders.length;
+  }, [baristaPendingOrders.length]);
 
   // =================== TABLE ACTIONS ===================
   const addTable = (tableData) => {
@@ -4483,6 +4540,14 @@ export function PosProvider({ children }) {
     canChangeUserRole: currentRole === 'admin',
     canCleanupData: currentRole === 'admin',
     canAccessSettings: ['admin', 'manager', 'staff'].includes(currentRole),
+    canAccessKds: ['admin', 'manager', 'barista'].includes(currentRole),
+    isBarista: currentRole === 'barista',
+    baristaPendingOrders,
+    baristaHistory,
+    baristaItemDone,
+    completeBaristaOrder,
+    undoBaristaOrder,
+    toggleBaristaItemDone,
     canViewPastOrders: ['admin', 'manager'].includes(currentRole),
     canBatchSettlePastOrders: ['admin', 'manager'].includes(currentRole),
     userProfiles,
@@ -4600,6 +4665,12 @@ export function PosProvider({ children }) {
     userProfiles,
     updateCurrentUserProfile,
     orderHistory,
+    baristaPendingOrders,
+    baristaHistory,
+    baristaItemDone,
+    completeBaristaOrder,
+    undoBaristaOrder,
+    toggleBaristaItemDone,
     updateSettings,
     saveReceiptSnapshot,
     fetchReceiptSnapshot,

@@ -20,6 +20,7 @@ const MenuManagementView = lazy(() => import('../menu/MenuManagementView'));
 const OrderHistoryView = lazy(() => import('../orders/OrderHistoryView'));
 const ReportsView = lazy(() => import('../reports/ReportsView'));
 const SettingsView = lazy(() => import('../settings/SettingsView'));
+const BaristaKdsView = lazy(() => import('../kds/BaristaKdsView'));
 
 const ViewLoadingFallback = () => (
   <div className="flex-1 min-h-[240px] flex items-center justify-center p-6 text-[#214E34]">
@@ -41,10 +42,18 @@ export default function PosContent() {
     canManageMenu,
     canViewReports,
     canAccessSettings,
+    currentRole,
     showToast,
     isAccountSuspended,
     logoutUser
   } = usePos();
+
+  // RBAC Guard for Barista: If Barista opens restricted tabs, redirect to 'barista'
+  useEffect(() => {
+    if (currentRole === 'barista' && ['menu', 'orders', 'reports', 'settings'].includes(activeTab)) {
+      setActiveTab('barista');
+    }
+  }, [currentRole, activeTab, setActiveTab]);
 
   const [previousTab, setPreviousTab] = useState('tables');
   const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
@@ -140,8 +149,8 @@ export default function PosContent() {
           onLogout={logoutUser}
         />
 
-        {/* Sticky Mobile POS Header (Chỉ hiển thị cho 4 tab chính, ẩn khi mở Cài đặt & Quản lý hoặc Đang gọi món) */}
-        {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab) && (
+        {/* Sticky Mobile POS Header (Hiển thị cho các tab chính, ẩn khi mở Cài đặt & Quản lý hoặc Đang gọi món) */}
+        {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports', 'barista', 'barista_history'].includes(activeTab) && (
           <PageHeader
             onToggleDeviceMode={toggleDeviceMode}
             deviceMode={deviceMode}
@@ -276,11 +285,25 @@ export default function PosContent() {
                 )}
               </div>
             )}
+
+            {/* TAB 6: QUẦY PHA CHẾ (BARISTA KDS QUEUE) */}
+            {activeTab === 'barista' && (
+              <div className="animate-fadeIn h-full flex flex-col min-h-0">
+                <BaristaKdsView viewMode="queue" />
+              </div>
+            )}
+
+            {/* TAB 7: LỊCH SỬ PHA CHẾ (BARISTA KDS HISTORY) */}
+            {activeTab === 'barista_history' && (
+              <div className="animate-fadeIn h-full flex flex-col min-h-0">
+                <BaristaKdsView viewMode="history" />
+              </div>
+            )}
           </Suspense>
         </main>
 
         {/* Bottom Navigation (Chỉ hiện trên các tab chính, ẩn khi đang gọi món hoặc vào Cài đặt) */}
-        {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab) && (
+        {!activeOrderingTable && ['tables', 'menu', 'orders', 'reports', 'barista', 'barista_history'].includes(activeTab) && (
           <BottomNav isKeyboardOpen={isKeyboardOpen} />
         )}
 
