@@ -69,14 +69,14 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
     <>
       <header
         data-testid="shared-page-header"
-        className="sticky top-0 z-20 backdrop-blur-md header-gradient-fade px-4 pt-[max(10px,env(safe-area-inset-top))] pb-2.5 shrink-0 transition-all duration-200"
+        className="sticky top-0 z-20 backdrop-blur-md header-gradient-fade px-4 pt-[max(14px,env(safe-area-inset-top))] sm:pt-6 pb-2.5 shrink-0 transition-all duration-200"
       >
         <div className="flex items-center justify-between gap-3">
-          {/* Left: Prominent Bold Page Title (Clean, Maximizing Screen Space) */}
-          <div className="flex-1 min-w-0 pr-1">
+          {/* Left: Prominent Bold Page Title (Clean, Maximizing Screen Space, No Diacritic Clipping) */}
+          <div className="flex-1 min-w-0 pr-1 py-0.5">
             <h1
               data-testid="page-header-title"
-              className="text-[26px] font-black text-[#214E34] tracking-tight leading-none truncate font-sans"
+              className="text-[26px] font-black text-[#214E34] uppercase tracking-wide leading-tight truncate py-0.5 font-sans"
             >
               {config.title}
             </h1>

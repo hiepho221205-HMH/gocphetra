@@ -484,7 +484,7 @@ export default function ManagementProfileView({ onBack }) {
           <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
         </button>
         <div className="text-center">
-          <h1 className="text-base font-black text-[#214E34] tracking-tight leading-none font-sans">
+          <h1 className="text-base font-black text-[#214E34] tracking-tight leading-snug font-sans">
             Cài đặt & Quản lý
           </h1>
           <p className="text-[11px] text-gray-500 font-semibold mt-1">
