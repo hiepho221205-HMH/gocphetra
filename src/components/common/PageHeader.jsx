@@ -69,7 +69,7 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
     <>
       <header
         data-testid="shared-page-header"
-        className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-4 pt-[max(12px,env(safe-area-inset-top))] pb-3 border-b border-white/60 shadow-[0_8px_20px_-4px_rgba(160,175,200,0.12),inset_0_-1px_2px_rgba(255,255,255,0.8)] shrink-0 transition-all duration-200"
+        className="sticky top-0 z-20 header-gradient-fade px-4 pt-[max(12px,env(safe-area-inset-top))] pb-4 shrink-0 transition-all duration-200"
       >
         <div className="flex items-center justify-between gap-3">
           {/* Left: Big Title & Subtitle */}

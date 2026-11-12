@@ -122,11 +122,14 @@ export default function PosContent() {
     setActiveTab('settings');
   };
 
+  const isSettingsTab = activeTab === 'settings';
+
   return (
     <div className={`fixed inset-0 w-full h-full ambient-clay-bg flex flex-col items-center justify-center overflow-hidden transition-all ${deviceMode === 'mobile' ? 'p-0 sm:py-3 sm:px-4' : 'p-0'}`}>
       {/* Mobile Device Frame Container */}
       <div
-        className={`w-full bg-[#F4F7FB] flex flex-col relative transition-all duration-300 shadow-2xl overflow-hidden h-full max-h-full ${
+        style={!isSettingsTab ? { background: 'linear-gradient(159deg, rgba(255, 255, 255, 0.8) 0%, rgba(249, 221, 219, 0.8) 100%)' } : undefined}
+        className={`w-full ${isSettingsTab ? 'bg-[#F4F7FB]' : ''} flex flex-col relative transition-all duration-300 shadow-2xl overflow-hidden h-full max-h-full ${
           deviceMode === 'mobile'
             ? 'max-w-[400px] sm:h-[844px] sm:max-h-[92vh] sm:rounded-[40px] sm:border-[8px] sm:border-[#1E2E22]'
             : 'max-w-6xl rounded-none'
@@ -178,7 +181,12 @@ export default function PosContent() {
         )}
 
         {/* Main Application Content Area */}
-        <main id="main-content" tabIndex="-1" className="flex-1 overflow-y-auto overflow-x-hidden relative flex flex-col focus:outline-none">
+        <main
+          id="main-content"
+          tabIndex="-1"
+          style={!isSettingsTab ? { background: 'transparent' } : undefined}
+          className="flex-1 overflow-y-auto overflow-x-hidden relative flex flex-col focus:outline-none"
+        >
           <Suspense fallback={<ViewLoadingFallback />}>
             {/* TAB 1: SƠ ĐỒ BÀN (FLOORPLAN & ACTIVE ORDERS) */}
             {activeTab === 'tables' && (

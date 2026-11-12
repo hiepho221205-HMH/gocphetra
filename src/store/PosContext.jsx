@@ -1775,18 +1775,45 @@ export function PosProvider({ children }) {
   const completeBaristaOrder = useCallback((orderId) => {
     const order = orders[orderId];
     if (!order) return;
+    const finishedAt = new Date().toISOString();
     const historyEntry = {
       ...order,
-      finishedAt: new Date().toISOString()
+      finishedAt
     };
     setBaristaHistory((prev) => [historyEntry, ...prev.filter((h) => h.id !== orderId)]);
+
+    // Cập nhật trạng thái barista cho order để Sơ đồ bàn hiển thị ĐANG PHỤC VỤ
+    const updatedOrder = {
+      ...order,
+      baristaStatus: 'completed',
+      baristaCompletedAt: finishedAt
+    };
+    setOrders((prev) => ({
+      ...prev,
+      [orderId]: updatedOrder
+    }));
+    cloudUpsertOrder(updatedOrder).catch(() => {});
+
     showToast?.(`Đã hoàn tất đơn [${order.tableName || 'Đơn món'}]!`, 'success');
   }, [orders, showToast]);
 
   const undoBaristaOrder = useCallback((orderId) => {
     setBaristaHistory((prev) => prev.filter((h) => h.id !== orderId));
+    const order = orders[orderId];
+    if (order) {
+      const updatedOrder = {
+        ...order,
+        baristaStatus: 'pending',
+        baristaCompletedAt: null
+      };
+      setOrders((prev) => ({
+        ...prev,
+        [orderId]: updatedOrder
+      }));
+      cloudUpsertOrder(updatedOrder).catch(() => {});
+    }
     showToast?.('Đã đưa đơn về hàng đợi pha chế!', 'info');
-  }, [showToast]);
+  }, [orders, showToast]);
 
   const toggleBaristaItemDone = useCallback((orderId, itemIndexOrId) => {
     setBaristaItemDone((prev) => {

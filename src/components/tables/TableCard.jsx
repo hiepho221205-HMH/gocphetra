@@ -16,6 +16,7 @@ const TableCard = React.memo(function TableCard({
 }) {
   const {
     orders,
+    baristaHistory,
     isTableBillingLocked,
     releaseBillingLock,
     currentUser,
@@ -54,8 +55,14 @@ const TableCard = React.memo(function TableCard({
           (o) => o.tableId === table.id && o.status === 'serving' && Array.isArray(o.items) && o.items.length > 0
         ) || null;
 
-  // Logic đơn giản: Có order đang phục vụ và có món là "Có khách", còn lại là "Trống"
+  // Logic đơn giản: Có order đang phục vụ và có món là có đơn, còn lại là "Trống"
   const isOccupied = Boolean(activeOrder && Array.isArray(activeOrder.items) && activeOrder.items.length > 0);
+  const isBaristaDone = Boolean(
+    isOccupied && (
+      activeOrder?.baristaStatus === 'completed' ||
+      (Array.isArray(baristaHistory) && baristaHistory.some((h) => h.id === activeOrder?.id))
+    )
+  );
   const itemCount = activeOrder?.items?.reduce((sum, it) => sum + (it.quantity || 1), 0) || 0;
   const totalAmount = activeOrder?.total || 0;
 
@@ -191,7 +198,9 @@ const TableCard = React.memo(function TableCard({
           isHolding ? 'scale-[0.97] ring-2 ring-emerald-500/80 shadow-lg' : ''
         } ${
           isOccupied
-            ? 'border-emerald-500/30 hover:border-emerald-600/60 shadow-[0_14px_30px_-4px_rgba(16,185,129,0.18),inset_0_2px_2px_rgba(255,255,255,1)]'
+            ? isBaristaDone
+              ? 'border-blue-500/30 hover:border-blue-600/60 shadow-[0_14px_30px_-4px_rgba(59,130,246,0.18),inset_0_2px_2px_rgba(255,255,255,1)]'
+              : 'border-emerald-500/30 hover:border-emerald-600/60 shadow-[0_14px_30px_-4px_rgba(16,185,129,0.18),inset_0_2px_2px_rgba(255,255,255,1)]'
             : 'hover:border-[#214E34]/30'
         }`}
       >
@@ -209,21 +218,34 @@ const TableCard = React.memo(function TableCard({
             {table.name}
           </span>
 
-          {/* Badge trạng thái chuẩn 3D Clay: TRỐNG, CÓ KHÁCH hoặc ĐANG TÍNH TIỀN */}
+          {/* Badge trạng thái chuẩn 3D Clay: TRỐNG, CÓ KHÁCH, ĐANG PHỤC VỤ hoặc ĐANG TÍNH TIỀN */}
           {isLocked ? (
             <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-500 text-white ring-2 ring-white shadow-sm flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               ĐANG TÍNH TIỀN
             </span>
+          ) : isOccupied ? (
+            isBaristaDone ? (
+              <span
+                data-testid={`table-status-serving-${table.id}`}
+                className="text-[9.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider clay-disc-blue ring-2 ring-white shadow-sm"
+              >
+                ĐANG PHỤC VỤ
+              </span>
+            ) : (
+              <span
+                data-testid={`table-status-occupied-${table.id}`}
+                className="text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider clay-disc-green ring-2 ring-white shadow-sm"
+              >
+                CÓ KHÁCH
+              </span>
+            )
           ) : (
             <span
-              className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider transition-all ${
-                isOccupied
-                  ? 'clay-disc-green ring-2 ring-white shadow-sm'
-                  : 'clay-inset text-gray-700 font-black border border-gray-200/80'
-              }`}
+              data-testid={`table-status-empty-${table.id}`}
+              className="text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider clay-inset text-gray-700 font-black border border-gray-200/80"
             >
-              {isOccupied ? 'CÓ KHÁCH' : 'TRỐNG'}
+              TRỐNG
             </span>
           )}
         </div>

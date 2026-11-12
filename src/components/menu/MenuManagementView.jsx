@@ -463,7 +463,7 @@ export default function MenuManagementView() {
         {/* ================= RIGHT COLUMN: ITEM LIST (~276px) ================= */}
         <section className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
           {/* Header Bar */}
-          <div className="shrink-0 p-2.5 pb-2 border-b border-gray-100 bg-white/80 backdrop-blur-md sticky top-0 z-10 space-y-2">
+          <div className="shrink-0 p-2.5 pb-2.5 header-gradient-fade sticky top-0 z-10 space-y-2">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-black text-[#214E34] flex items-center gap-1.5">

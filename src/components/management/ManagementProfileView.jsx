@@ -473,7 +473,7 @@ export default function ManagementProfileView({ onBack }) {
       {/* ========================================================= */}
       {/* 0. TOP BAR VỚI NÚT QUAY LẠI (BACK) DÀNH CHO CÀI ĐẶT       */}
       {/* ========================================================= */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-4 pt-[max(12px,env(safe-area-inset-top))] pb-3.5 -mx-4 mb-3 border-b border-gray-100 flex items-center justify-between shadow-[0_4px_16px_-4px_rgba(33,78,52,0.08)]">
+      <div className="sticky top-0 z-20 header-gradient-fade px-4 pt-[max(12px,env(safe-area-inset-top))] pb-4 -mx-4 mb-2 flex items-center justify-between">
         <button
           type="button"
           onClick={onBack || (() => setActiveTab('tables'))}

@@ -377,7 +377,7 @@ export default function OrderView({ table, onBack, onGoToBill }) {
   return (
     <div data-testid="order-view" className="flex flex-col h-full ambient-clay-bg overflow-hidden select-none relative">
       {/* ================= 1. HEADER TRANG GỌI MÓN ================= */}
-      <header className="px-3.5 py-3 bg-white/95 backdrop-blur-md border-b border-gray-100 flex items-center justify-between shrink-0 z-20 shadow-xs">
+      <header className="px-3.5 pt-3.5 pb-4 header-gradient-fade flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-2.5">
           <button
             type="button"
@@ -396,11 +396,17 @@ export default function OrderView({ table, onBack, onGoToBill }) {
               <span
                 className={`text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase ${
                   table.status === 'occupied'
-                    ? 'clay-disc-green shadow-xs'
+                    ? table.activeOrderId && orders[table.activeOrderId]?.baristaStatus === 'completed'
+                      ? 'clay-disc-blue shadow-xs text-white'
+                      : 'clay-disc-green shadow-xs'
                     : 'clay-inset text-gray-500'
                 }`}
               >
-                {table.status === 'occupied' ? 'Có khách' : 'Trống'}
+                {table.status === 'occupied'
+                  ? table.activeOrderId && orders[table.activeOrderId]?.baristaStatus === 'completed'
+                    ? 'Đang phục vụ'
+                    : 'Có khách'
+                  : 'Trống'}
               </span>
             </div>
             <p className="text-[10px] text-gray-500 font-medium">
