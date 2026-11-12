@@ -397,14 +397,14 @@ export default function OrderView({ table, onBack, onGoToBill }) {
                 className={`text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase ${
                   table.status === 'occupied'
                     ? table.activeOrderId && orders[table.activeOrderId]?.baristaStatus === 'completed'
-                      ? 'clay-disc-blue shadow-xs text-white'
+                      ? 'clay-disc-butter shadow-xs ring-1 ring-white'
                       : 'clay-disc-green shadow-xs'
                     : 'clay-inset text-gray-500'
                 }`}
               >
                 {table.status === 'occupied'
                   ? table.activeOrderId && orders[table.activeOrderId]?.baristaStatus === 'completed'
-                    ? 'Đang phục vụ'
+                    ? 'Phục vụ'
                     : 'Có khách'
                   : 'Trống'}
               </span>

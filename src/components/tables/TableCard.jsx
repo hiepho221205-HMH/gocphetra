@@ -199,7 +199,7 @@ const TableCard = React.memo(function TableCard({
         } ${
           isOccupied
             ? isBaristaDone
-              ? 'border-blue-500/30 hover:border-blue-600/60 shadow-[0_14px_30px_-4px_rgba(59,130,246,0.18),inset_0_2px_2px_rgba(255,255,255,1)]'
+              ? 'border-amber-300/60 hover:border-amber-400/80 shadow-[0_14px_30px_-4px_rgba(245,158,11,0.2),inset_0_2px_2px_rgba(255,255,255,1)]'
               : 'border-emerald-500/30 hover:border-emerald-600/60 shadow-[0_14px_30px_-4px_rgba(16,185,129,0.18),inset_0_2px_2px_rgba(255,255,255,1)]'
             : 'hover:border-[#214E34]/30'
         }`}
@@ -218,7 +218,7 @@ const TableCard = React.memo(function TableCard({
             {table.name}
           </span>
 
-          {/* Badge trạng thái chuẩn 3D Clay: TRỐNG, CÓ KHÁCH, ĐANG PHỤC VỤ hoặc ĐANG TÍNH TIỀN */}
+          {/* Badge trạng thái chuẩn 3D Clay: TRỐNG, CÓ KHÁCH, PHỤC VỤ hoặc ĐANG TÍNH TIỀN */}
           {isLocked ? (
             <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-500 text-white ring-2 ring-white shadow-sm flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -228,9 +228,9 @@ const TableCard = React.memo(function TableCard({
             isBaristaDone ? (
               <span
                 data-testid={`table-status-serving-${table.id}`}
-                className="text-[9.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider clay-disc-blue ring-2 ring-white shadow-sm"
+                className="text-[9.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider clay-disc-butter ring-2 ring-white shadow-sm"
               >
-                ĐANG PHỤC VỤ
+                PHỤC VỤ
               </span>
             ) : (
               <span

@@ -164,6 +164,16 @@
     inset 0 -3px 4px rgba(180, 83, 9, 0.45);
 }
 
+.clay-disc-butter {
+  background: linear-gradient(145deg, #FEF08A 0%, #FDE047 100%);
+  color: #78350F;
+  box-shadow: 
+    0 8px 18px -2px rgba(234, 179, 8, 0.38),
+    0 3px 6px -1px rgba(234, 179, 8, 0.2),
+    inset 0 2px 2px rgba(255, 255, 255, 0.9),
+    inset 0 -2px 3px rgba(202, 138, 4, 0.25);
+}
+
 .clay-disc-forest {
   background: linear-gradient(145deg, #2E6744, #214E34);
   color: #FFFFFF;
