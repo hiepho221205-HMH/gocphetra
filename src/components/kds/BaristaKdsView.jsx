@@ -91,7 +91,7 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3.5">
               {baristaPendingOrders.map((order) => {
                 const waitMins = getWaitMinutes(order.createdAt);
                 let badgeStyle = 'bg-emerald-100 text-emerald-800 border-emerald-200';
