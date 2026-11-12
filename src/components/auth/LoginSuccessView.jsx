@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Check, ArrowRight, Crown, Users, User, ShieldAlert, BarChart3, ClipboardCheck, Coffee, Monitor } from 'lucide-react';
+import { Check, ArrowRight, Crown, Users, User, ShieldAlert, BarChart3, ClipboardCheck, Coffee, Monitor, CheckCircle2 } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
 
 const ROLE_CONFIGS = {
@@ -71,10 +71,33 @@ const ROLE_CONFIGS = {
       color: 'bg-amber-100 text-amber-800 border-amber-200/80',
       pos: 'top-8 -right-3 sm:right-1'
     }
+  },
+  barista: {
+    roleBadge: 'PHA CHẾ',
+    icon: Coffee,
+    badgeBg: 'bg-[#E2F6EA] text-[#1A7C49] border-[#C5EDD4]',
+    imageWebp: '/images/login-success/barista-3d.webp',
+    imagePng: '/images/login-success/barista-3d.png',
+    title: 'ĐĂNG NHẬP THÀNH CÔNG',
+    defaultName: 'Phạm Minh Quân',
+    greetingLine1: 'Chào mừng bạn quay trở lại!',
+    greetingLine2: 'Bạn đã đăng nhập với vai trò Pha chế quầy bar (KDS).',
+    destRoute: '/barista',
+    buttonText: 'VÀO QUẦY BAR',
+    decorLeft: {
+      icon: Coffee,
+      color: 'bg-emerald-100 text-emerald-800 border-emerald-200/80',
+      pos: 'top-8 -left-3 sm:left-1'
+    },
+    decorRight: {
+      icon: CheckCircle2,
+      color: 'bg-amber-100 text-amber-800 border-amber-200/80',
+      pos: 'top-6 -right-3 sm:right-1'
+    }
   }
 };
 
-export default function LoginSuccessView({ role = 'staff', user, onContinue }) {
+export default function LoginSuccessView({ role = 'staff', user, onContinue, onLogout }) {
   const normalizedRole = (role || '').toLowerCase();
   const config = ROLE_CONFIGS[normalizedRole];
   const autoAdvanceTimer = useRef(null);
@@ -82,6 +105,7 @@ export default function LoginSuccessView({ role = 'staff', user, onContinue }) {
 
   // Play haptic success feedback once on mount
   useEffect(() => {
+    if (!config) return;
     triggerHaptic('success');
     // Optional gentle auto-advance fallback after 4.5 seconds
     autoAdvanceTimer.current = setTimeout(() => {
@@ -93,7 +117,7 @@ export default function LoginSuccessView({ role = 'staff', user, onContinue }) {
         clearTimeout(autoAdvanceTimer.current);
       }
     };
-  }, [onContinue]);
+  }, [onContinue, config]);
 
   const handleContinue = () => {
     if (autoAdvanceTimer.current) {
@@ -101,6 +125,20 @@ export default function LoginSuccessView({ role = 'staff', user, onContinue }) {
     }
     triggerHaptic('medium');
     if (onContinue) {
+      onContinue();
+    }
+  };
+
+  const handleUnassignedExit = () => {
+    if (autoAdvanceTimer.current) {
+      clearTimeout(autoAdvanceTimer.current);
+    }
+    triggerHaptic('medium');
+    if (onLogout) {
+      onLogout();
+    } else if (typeof window !== 'undefined' && window.__gocLogout) {
+      window.__gocLogout();
+    } else if (onContinue) {
       onContinue();
     }
   };
@@ -124,7 +162,7 @@ export default function LoginSuccessView({ role = 'staff', user, onContinue }) {
           </p>
           <button
             type="button"
-            onClick={handleContinue}
+            onClick={handleUnassignedExit}
             className="w-full py-3 rounded-full bg-gray-800 text-white font-bold text-xs hover:bg-gray-900 transition-colors cursor-pointer"
           >
             Quay lại đăng nhập

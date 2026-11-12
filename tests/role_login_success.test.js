@@ -20,7 +20,7 @@ const posContextSrc = fs.readFileSync(path.resolve('src/store/PosContext.jsx'), 
 const appSrc = fs.readFileSync(path.resolve('src/App.jsx'), 'utf-8');
 
 test('TASK: GÓC POS — ROLE-BASED LOGIN SUCCESS UI', async (t) => {
-  await t.test('1. Role Configuration & Content: Admin, Manager, Staff', () => {
+  await t.test('1. Role Configuration & Content: Admin, Manager, Staff, Barista', () => {
     // Admin config
     assert.ok(loginSuccessSrc.includes('roleBadge: \'ADMIN\''), 'Must have ADMIN badge');
     assert.ok(loginSuccessSrc.includes('Bạn đã đăng nhập với quyền quản trị hệ thống'), 'Must have Admin greeting');
@@ -38,16 +38,24 @@ test('TASK: GÓC POS — ROLE-BASED LOGIN SUCCESS UI', async (t) => {
     assert.ok(loginSuccessSrc.includes('Bạn đã đăng nhập với quyền nhân viên'), 'Must have Staff greeting');
     assert.ok(loginSuccessSrc.includes('/images/login-success/staff-3d.webp'), 'Staff webp asset path');
     assert.ok(loginSuccessSrc.includes('/images/login-success/staff-3d.png'), 'Staff png asset path');
+
+    // Barista config
+    assert.ok(loginSuccessSrc.includes('roleBadge: \'PHA CHẾ\''), 'Must have PHA CHẾ badge');
+    assert.ok(loginSuccessSrc.includes('Bạn đã đăng nhập với vai trò Pha chế quầy bar (KDS)'), 'Must have Barista greeting');
+    assert.ok(loginSuccessSrc.includes('/images/login-success/barista-3d.webp'), 'Barista webp asset path');
+    assert.ok(loginSuccessSrc.includes('/images/login-success/barista-3d.png'), 'Barista png asset path');
   });
 
-  await t.test('2. 3D Character Assets on disk: All 3 roles have valid PNG and WebP assets', () => {
+  await t.test('2. 3D Character Assets on disk: All 4 roles have valid PNG and WebP assets', () => {
     const assets = [
       'public/images/login-success/admin-3d.webp',
       'public/images/login-success/admin-3d.png',
       'public/images/login-success/manager-3d.webp',
       'public/images/login-success/manager-3d.png',
       'public/images/login-success/staff-3d.webp',
-      'public/images/login-success/staff-3d.png'
+      'public/images/login-success/staff-3d.png',
+      'public/images/login-success/barista-3d.webp',
+      'public/images/login-success/barista-3d.png'
     ];
 
     for (const a of assets) {

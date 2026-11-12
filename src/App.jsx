@@ -19,7 +19,8 @@ function PosAppRoot() {
     navigate,
     loginSuccessRole,
     setLoginSuccessRole,
-    currentUser
+    currentUser,
+    logoutUser
   } = usePos();
 
   const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
@@ -63,6 +64,7 @@ function PosAppRoot() {
           <LoginSuccessView
             role={loginSuccessRole}
             user={currentUser}
+            onLogout={logoutUser}
             onContinue={() => {
               try {
                 sessionStorage.removeItem('goc_pos_welcome_role');
