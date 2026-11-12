@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { usePos } from '../../store/PosContext';
-import { Coffee, CheckCircle2, RotateCcw, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { Coffee, CheckCircle2, RotateCcw, Volume2, VolumeX, Sparkles, Clock, Check } from 'lucide-react';
 import { isAudioMuted, toggleAudioMuted, playOrderChime } from '../../utils/audioChime';
 import { triggerHaptic } from '../../utils/haptics';
 
@@ -45,10 +45,10 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
   };
 
   return (
-    <div className="space-y-4 animate-fadeIn p-1 sm:p-2" data-testid="barista-kds-view">
+    <div className="space-y-4 animate-fadeIn p-2 sm:p-3 min-h-full pb-28 bg-[#EEF2ED] rounded-2xl" data-testid="barista-kds-view">
       {/* Top Floating Mini Bar for Sound Mute Toggle */}
       <div className="flex items-center justify-between px-1">
-        <span className="text-xs font-bold text-gray-500">
+        <span className="text-xs font-bold text-gray-600">
           {isHistoryView
             ? `Tổng cộng ${baristaHistory.length} đơn đã pha trong ca`
             : `${baristaPendingOrders.length} đơn đang chờ pha chế (FIFO)`}
@@ -114,26 +114,32 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
                 return (
                   <div
                     key={order.id}
-                    className={`clay-surface p-4 flex flex-col justify-between ${cardBorder} shadow-sm transition-all`}
+                    className={`bg-white rounded-[22px] p-4 flex flex-col justify-between ${cardBorder} shadow-[0_10px_25px_-5px_rgba(23,77,54,0.07),0_8px_10px_-6px_rgba(23,77,54,0.03)] border-2 transition-all`}
                   >
                     <div>
                       {/* Card Header */}
-                      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-gray-100">
+                      <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-100">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-base font-black text-gray-900 tracking-tight">
-                            {order.tableName || 'Mang Về'}
-                          </h4>
-                          <span className="text-[11px] font-mono font-bold text-gray-400">
-                            #{String(order.id).slice(-4)}
-                          </span>
+                          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#174D36] border border-emerald-200/80 flex items-center justify-center font-black text-sm shadow-xs">
+                            <Coffee className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-base font-black text-[#174D36] tracking-tight leading-none">
+                              {order.tableName || 'Mang Về'}
+                            </h4>
+                            <span className="text-[10px] font-mono font-bold text-gray-400">
+                              #{String(order.id).slice(-4)}
+                            </span>
+                          </div>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${badgeStyle}`}>
-                          ⏳ {waitMins}p trước
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${badgeStyle}`}>
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{waitMins}p trước</span>
                         </span>
                       </div>
 
                       {/* Items List (Full row touchable) */}
-                      <div className="divide-y divide-gray-100 my-2.5 space-y-1">
+                      <div className="divide-y divide-gray-100 my-3 space-y-1">
                         {order.items.map((item, idx) => {
                           const itemKey = String(idx);
                           const isDone = doneItemKeys.includes(itemKey);
@@ -142,23 +148,26 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
                             <div
                               key={idx}
                               onClick={() => toggleBaristaItemDone?.(order.id, itemKey)}
-                              className={`py-2 flex items-start gap-2.5 cursor-pointer select-none active:bg-gray-50 rounded-lg p-1 transition-colors ${
-                                isDone ? 'line-through opacity-50' : ''
+                              className={`py-2.5 px-2.5 rounded-xl flex items-start gap-3 cursor-pointer select-none transition-all active:scale-[0.99] border ${
+                                isDone
+                                  ? 'bg-emerald-50/50 border-emerald-200/60 opacity-60'
+                                  : 'bg-gray-50/70 border-gray-100 hover:bg-emerald-50/30'
                               }`}
                             >
-                              <input
-                                type="checkbox"
-                                checked={isDone}
-                                onChange={() => {}} // Handled by row click
-                                className="w-5 h-5 rounded-md mt-0.5 text-emerald-600 focus:ring-emerald-500 cursor-pointer accent-[#214E34]"
-                              />
+                              <div className={`w-5 h-5 rounded-lg border mt-0.5 flex items-center justify-center transition-colors shadow-2xs ${
+                                isDone
+                                  ? 'bg-[#174D36] border-[#174D36] text-white'
+                                  : 'bg-white border-gray-300'
+                              }`}>
+                                {isDone && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                              </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs sm:text-sm font-black text-gray-800 truncate">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className={`text-xs sm:text-sm font-black text-gray-900 ${isDone ? 'line-through text-gray-500' : ''}`}>
                                     {item.quantity || item.qty || 1}x {item.name || item.productName}
                                   </span>
                                   {item.size && (
-                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-gray-100 text-gray-600 ml-1">
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white text-[#174D36] border border-gray-200 shrink-0">
                                       {item.size}
                                     </span>
                                   )}
@@ -166,13 +175,13 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
 
                                 {/* Toppings */}
                                 {Array.isArray(item.toppings) && item.toppings.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-0.5">
+                                  <div className="flex flex-wrap gap-1 mt-1">
                                     {item.toppings.map((t, tIdx) => {
                                       const tName = typeof t === 'string' ? t : t.name;
                                       return (
                                         <span
                                           key={tIdx}
-                                          className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                          className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200"
                                         >
                                           + {tName}
                                         </span>
@@ -183,7 +192,7 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
 
                                 {/* Notes */}
                                 {(item.notes || item.note) && (
-                                  <p className="text-[11px] text-amber-900 font-bold mt-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded inline-block">
+                                  <p className="text-[11px] text-amber-900 font-bold mt-1.5 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg inline-block">
                                     Ghi chú: {item.notes || item.note}
                                   </p>
                                 )}
@@ -195,17 +204,17 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
                     </div>
 
                     {/* Card Footer Action Button */}
-                    <div className="pt-2.5 border-t border-gray-100">
+                    <div className="pt-2 border-t border-gray-100">
                       <button
                         type="button"
                         onClick={() => completeBaristaOrder?.(order.id)}
-                        className={`w-full min-h-[46px] rounded-xl font-black text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 shadow-xs ${
+                        className={`w-full min-h-[46px] rounded-xl font-black text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-md ${
                           allItemsDone
-                            ? 'clay-btn-primary'
-                            : 'bg-gray-100 hover:bg-emerald-50 text-[#1A462C] border border-gray-200'
+                            ? 'clay-btn-primary text-white'
+                            : 'bg-[#214E34] text-white hover:bg-[#1A3F2A]'
                         }`}
                       >
-                        <CheckCircle2 className="w-4 h-4" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-300" />
                         <span>{allItemsDone ? 'Đã Xong — Giao Khách' : 'Hoàn Tất Cả Đơn'}</span>
                       </button>
                     </div>
@@ -231,7 +240,7 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 w-full">
               {baristaHistory.map((order) => {
                 const finishedTimeStr = order.finishedAt
                   ? new Date(order.finishedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
@@ -240,29 +249,37 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
                 return (
                   <div
                     key={order.id}
-                    className="clay-surface p-3.5 flex flex-col justify-between opacity-95 border border-gray-100 shadow-xs"
+                    className="bg-white rounded-[22px] p-4 flex flex-col justify-between border border-gray-200/80 shadow-[0_8px_20px_-4px_rgba(23,77,54,0.06)] w-full transition-all"
                   >
                     <div>
-                      <div className="flex items-center justify-between pb-1.5 border-b border-gray-100">
+                      <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-black text-gray-900">
-                            {order.tableName || 'Mang Về'}
-                          </h4>
-                          <span className="text-[10px] font-mono font-bold text-gray-400">
-                            #{String(order.id).slice(-4)}
-                          </span>
+                          <div className="w-8 h-8 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center font-black text-xs">
+                            <Coffee className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-black text-gray-900 leading-tight">
+                              {order.tableName || 'Mang Về'}
+                            </h4>
+                            <span className="text-[10px] font-mono font-bold text-gray-400">
+                              #{String(order.id).slice(-4)}
+                            </span>
+                          </div>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          Xong lúc {finishedTimeStr}
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 flex items-center gap-1 shadow-2xs">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Xong lúc {finishedTimeStr}</span>
                         </span>
                       </div>
 
-                      <div className="text-[11px] text-gray-600 my-2 space-y-0.5">
+                      <div className="my-2.5 space-y-1">
                         {Array.isArray(order.items) &&
                           order.items.map((it, idx) => (
-                            <div key={idx} className="truncate">
-                              • {it.quantity || it.qty || 1}x {it.name || it.productName}
-                              {it.size ? ` (${it.size})` : ''}
+                            <div key={idx} className="flex items-center justify-between py-1 px-2 rounded-lg bg-gray-50 text-xs font-bold text-gray-700">
+                              <span>{it.quantity || it.qty || 1}x {it.name || it.productName}</span>
+                              {it.size && (
+                                <span className="text-[10px] text-gray-500 font-semibold">({it.size})</span>
+                              )}
                             </div>
                           ))}
                       </div>
@@ -271,9 +288,9 @@ export default function BaristaKdsView({ viewMode = 'queue' }) {
                     <button
                       type="button"
                       onClick={() => undoBaristaOrder?.(order.id)}
-                      className="w-full py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs flex items-center justify-center gap-1 active:scale-98 cursor-pointer mt-2"
+                      className="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-black text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] cursor-pointer mt-2 border border-gray-200/70 shadow-2xs transition-colors"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
+                      <RotateCcw className="w-3.5 h-3.5 text-gray-600" />
                       <span>Hoàn tác lại hàng đợi</span>
                     </button>
                   </div>

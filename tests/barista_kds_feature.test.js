@@ -232,7 +232,8 @@ describe('GÓC Coffee POS — Barista KDS & Kitchen Queue Feature Suite', () => 
       const bottomNavSrc = fs.readFileSync(path.join(rootDir, 'src/components/common/BottomNav.jsx'), 'utf-8');
       assert.ok(bottomNavSrc.includes('baristaNavItems'), 'Must define baristaNavItems');
       assert.ok(bottomNavSrc.includes("id: 'tables'"), 'Tab 1: Sơ đồ bàn');
-      assert.ok(bottomNavSrc.includes("id: 'barista'"), 'Tab 2: Danh sách pha chế');
+      assert.ok(bottomNavSrc.includes("id: 'barista'"), 'Tab 2: Quầy Bar');
+      assert.ok(bottomNavSrc.includes("label: 'Quầy Bar'"), 'Tab 2 label must be Quầy Bar');
       assert.ok(bottomNavSrc.includes("id: 'barista_history'"), 'Tab 3: Lịch sử pha chế');
       assert.ok(bottomNavSrc.includes("isBarista ? 'w-1/3'"), 'Sliding disc adapts width to 3 tabs');
     });
@@ -240,7 +241,7 @@ describe('GÓC Coffee POS — Barista KDS & Kitchen Queue Feature Suite', () => 
     it('4.3 - PageHeader.jsx provides appropriate headers for barista tabs', () => {
       const headerSrc = fs.readFileSync(path.join(rootDir, 'src/components/common/PageHeader.jsx'), 'utf-8');
       assert.ok(headerSrc.includes("barista: {"), 'Must configure barista header');
-      assert.ok(headerSrc.includes("Danh sách pha chế"), 'Must define title for barista');
+      assert.ok(headerSrc.includes("Quầy Bar"), 'Must define title for barista as Quầy Bar');
       assert.ok(headerSrc.includes("barista_history: {"), 'Must configure barista_history header');
       assert.ok(headerSrc.includes("Lịch sử pha chế"), 'Must define title for barista_history');
     });
@@ -258,10 +259,18 @@ describe('GÓC Coffee POS — Barista KDS & Kitchen Queue Feature Suite', () => 
       assert.ok(kdsSrc.includes('toggleAudioMuted'), 'Must import audio mute toggle');
       assert.ok(kdsSrc.includes('baristaPendingOrders'), 'Must consume pending orders queue');
       assert.ok(kdsSrc.includes('baristaHistory'), 'Must consume barista history');
-      assert.ok(kdsSrc.includes('clay-surface'), 'Must use Claymorphism styling');
+      assert.ok(kdsSrc.includes('Clock'), 'Must use Clock icon instead of hourglass');
     });
 
-    it('4.6 - Database Migration file exists for barista enum value', () => {
+    it('4.6 - OrderDetailsModal.jsx provides specialized 2-button layout and hides prices for Barista', () => {
+      const modalSrc = fs.readFileSync(path.join(rootDir, 'src/components/orders/OrderDetailsModal.jsx'), 'utf-8');
+      assert.ok(modalSrc.includes('isBarista'), 'Must check isBarista in OrderDetailsModal');
+      assert.ok(modalSrc.includes('In phiếu bếp'), 'Must include In phiếu bếp button');
+      assert.ok(modalSrc.includes('Lưu đơn'), 'Must include Lưu đơn button');
+      assert.ok(modalSrc.includes('!isBarista && ('), 'Must conditionally hide prices for Barista');
+    });
+
+    it('4.7 - Database Migration file exists for barista enum value', () => {
       const migrationPath = path.join(rootDir, 'supabase/migrations/20261112000000_add_barista_role.sql');
       assert.ok(fs.existsSync(migrationPath), 'Migration file must exist');
       const sql = fs.readFileSync(migrationPath, 'utf-8');

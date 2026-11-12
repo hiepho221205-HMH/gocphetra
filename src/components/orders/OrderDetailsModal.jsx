@@ -57,8 +57,11 @@ export default function OrderDetailsModal({
     recordKitchenTicketPrint,
     settings,
     currentUser,
-    showToast
+    showToast,
+    currentRole
   } = usePos();
+
+  const isBarista = currentRole === 'barista' || currentUser?.role === 'barista';
 
   // Local state of items to allow real-time editing (qty + / - or remove)
   const [items, setItems] = useState([]);
@@ -930,13 +933,21 @@ export default function OrderDetailsModal({
                           </p>
                         )}
 
-                        <div className="text-[11.5px] font-bold text-gray-600 mt-1">
-                          {formatVND(item.lineTotal || (item.unitPrice * item.quantity))}
-                        </div>
+                        {!isBarista && (
+                          <div className="text-[11.5px] font-bold text-gray-600 mt-1">
+                            {formatVND(item.lineTotal || (item.unitPrice * item.quantity))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Quantity Controls */}
-                      {!isHistorical && (
+                      {isBarista ? (
+                        <div className="flex items-center justify-center px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 shrink-0">
+                          <span className="text-xs font-black text-[#174D36]">
+                            x{item.quantity}
+                          </span>
+                        </div>
+                      ) : !isHistorical && (
                         <div className="flex items-center gap-1.5 bg-[#F4F6F4] p-1 rounded-full shrink-0 border border-gray-200/60">
                           {item.quantity === 1 ? (
                             <button
@@ -980,13 +991,24 @@ export default function OrderDetailsModal({
 
             {/* ================= SUMMARY & FOOTER ================= */}
             <div className="p-4 bg-white/95 backdrop-blur-md border-t border-gray-100 space-y-3 shrink-0">
-              {!isTransferMode && (
+              {!isTransferMode && !isBarista && (
                 <div className="flex items-center justify-between px-1">
                   <span className="text-xs font-bold text-gray-500">
                     Tổng thanh toán ({totalItemCount} món):
                   </span>
                   <span className="text-lg font-black text-[#214E34]">
                     {formatVND(subtotal)}
+                  </span>
+                </div>
+              )}
+
+              {!isTransferMode && isBarista && (
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-bold text-gray-600">
+                    Tổng số lượng món:
+                  </span>
+                  <span className="text-xs font-black text-[#174D36] px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/80">
+                    {totalItemCount} món
                   </span>
                 </div>
               )}
@@ -1055,6 +1077,42 @@ export default function OrderDetailsModal({
                   >
                     <Banknote className="w-4 h-4 shrink-0" />
                     <span className="truncate">Thu tiền ({formatVND(subtotal)})</span>
+                  </button>
+                </div>
+              ) : isBarista ? (
+                /* FOOTER RIÊNG CHO BARISTA: ĐÚNG 1 HÀNG 2 NÚT [IN PHIẾU BẾP] & [LƯU ĐƠN] */
+                <div className="grid grid-cols-2 gap-2 w-full pt-1">
+                  {/* Nút 1: In phiếu bếp */}
+                  <button
+                    type="button"
+                    disabled={isSubmitting || items.length === 0}
+                    onClick={handlePrintKitchenTicket}
+                    aria-label="In phiếu chế biến cho bếp"
+                    className="touch-target min-h-[44px] px-3 py-2 rounded-[16px] text-xs font-black text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-md flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98]"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                        <span className="truncate">Đang in...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer className="w-4 h-4 shrink-0" />
+                        <span className="truncate">In phiếu bếp</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Nút 2: Lưu đơn */}
+                  <button
+                    type="button"
+                    disabled={isSubmitting || items.length === 0}
+                    onClick={handleSaveOrder}
+                    aria-label="Lưu đơn hàng và giữ trạng thái đang phục vụ"
+                    className="touch-target min-h-[44px] px-3 py-2 rounded-[16px] text-xs font-black text-white clay-btn-primary flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer active:scale-[0.98]"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
+                    <span className="truncate">Lưu đơn</span>
                   </button>
                 </div>
               ) : (

@@ -12,7 +12,7 @@ const TAB_CONFIG = {
     subtitle: 'Quản lý trạng thái bàn & gọi món nhanh'
   },
   barista: {
-    title: 'Danh sách pha chế',
+    title: 'Quầy Bar',
     subtitle: 'Hàng đợi chế biến & tiến độ quầy bar'
   },
   barista_history: {

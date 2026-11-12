@@ -36,12 +36,12 @@ export default function BottomNav({ isKeyboardOpen: propIsKeyboardOpen }) {
     { id: 'reports', label: 'Báo cáo', icon: BarChart3 },
   ];
 
-  // RBAC Filter: Barista hiển thị đúng 3 nội dung: Sơ đồ bàn, Danh sách pha chế, Lịch sử pha chế
+  // RBAC Filter: Barista hiển thị đúng 3 nội dung: Sơ đồ bàn, Quầy Bar, Lịch sử pha chế
   const baristaNavItems = [
     { id: 'tables', label: 'Sơ đồ bàn', icon: LayoutGrid },
     {
       id: 'barista',
-      label: 'Danh sách pha chế',
+      label: 'Quầy Bar',
       icon: Coffee,
       badge: baristaPendingOrders.length > 0 ? baristaPendingOrders.length : null
     },
