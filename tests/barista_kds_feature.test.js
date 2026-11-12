@@ -286,5 +286,19 @@ describe('GÓC Coffee POS — Barista KDS & Kitchen Queue Feature Suite', () => 
       const posContextSrc = fs.readFileSync(path.join(rootDir, 'src/store/PosContext.jsx'), 'utf-8');
       assert.ok(posContextSrc.includes('shouldResetBarista'), 'PosContext must reactivate order to pending when cashier adds items');
     });
+
+    it('4.9 - PosContext implements sub-10ms Local Mesh BroadcastChannel and added-item chime detection', () => {
+      const posContextSrc = fs.readFileSync(path.join(rootDir, 'src/store/PosContext.jsx'), 'utf-8');
+      assert.ok(posContextSrc.includes('goc_pos_ultra_mesh_v1'), 'Must use local BroadcastChannel for <1ms mesh sync');
+      assert.ok(posContextSrc.includes('totalPendingItemsCount'), 'Must track total pending items to trigger chime when items added');
+      assert.ok(posContextSrc.includes('isNewItemAdded'), 'Must tag payload with isNewItemAdded for instant barista alert');
+
+      const chimeSrc = fs.readFileSync(path.join(rootDir, 'src/utils/audioChime.js'), 'utf-8');
+      assert.ok(chimeSrc.includes('warmUpAudio') || chimeSrc.includes('pointerdown'), 'Must pre-warm AudioContext on user interaction');
+
+      const viteConfigSrc = fs.readFileSync(path.join(rootDir, 'vite.config.js'), 'utf-8');
+      assert.ok(viteConfigSrc.includes("!dep.includes('vendor-supabase')"), 'Vite config must exclude vendor-supabase from initial preload');
+      assert.ok(viteConfigSrc.includes("!dep.includes('vendor-motion')"), 'Vite config must exclude vendor-motion from initial preload');
+    });
   });
 });

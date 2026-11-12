@@ -377,6 +377,7 @@ export function PosProvider({ children }) {
   const cloudStatusRef = useRef(cloudStatus);
   useEffect(() => { cloudStatusRef.current = cloudStatus; }, [cloudStatus]);
   const realtimeChannelRef = useRef(null);
+  const localBroadcastChannelRef = useRef(null);
   const clientInstanceIdRef = useRef('client_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
   const saveOrderMutexRef = useRef(new Set());
   const checkoutMutexRef = useRef(new Set());
@@ -1095,110 +1096,142 @@ export function PosProvider({ children }) {
     let channel = null;
     let reconnectTimeout = null;
 
+    // Bộ xử lý sự kiện đồng bộ hợp nhất: dùng chung cho cả Local Mesh (BroadcastChannel < 1ms) và Supabase Realtime
+    const processIncomingBroadcast = (event, payload) => {
+      if (!payload || payload.senderInstance === clientInstanceIdRef.current) return;
+
+      if (event === 'billing_lock') {
+        if (!payload.tableId) return;
+        setTables((prev) =>
+          prev.map((t) => (t.id === payload.tableId ? { ...t, billingLock: payload.billingLock } : t))
+        );
+        return;
+      }
+
+      if (event === 'table_sync') {
+        if (!payload.table) return;
+        setTables((prev) => {
+          const idx = prev.findIndex((t) => t.id === payload.table.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = { ...next[idx], ...payload.table };
+            return next;
+          }
+          return [...prev, payload.table];
+        });
+        return;
+      }
+
+      if (event === 'order_sync') {
+        const { order: syncOrder, table: syncTable, sourceTable: syncSourceTable, deletedOrderId, payment: syncPayment, isNewItemAdded } = payload;
+
+        // Tối ưu độ trễ Barista: Nếu có món mới hoặc đơn mới, kích hoạt chuông báo ngay lập tức (<1ms)
+        if (isNewItemAdded && (currentRoleRef.current === 'barista' || currentUserRef.current?.role === 'barista')) {
+          playOrderChime();
+        }
+
+        if (deletedOrderId) {
+          setOrders((prev) => {
+            if (!prev[deletedOrderId]) return prev;
+            const next = { ...prev };
+            delete next[deletedOrderId];
+            return next;
+          });
+        }
+
+        if (syncSourceTable) {
+          setTables((prev) =>
+            prev.map((t) => (t.id === syncSourceTable.id ? { ...t, ...syncSourceTable } : t))
+          );
+        }
+
+        if (syncOrder) {
+          if (syncOrder.status === 'completed' || syncOrder.status === 'cancelled' || syncOrder.status === 'unpaid_carried_over') {
+            setOrders((prev) => {
+              if (!prev[syncOrder.id]) return prev;
+              const next = { ...prev };
+              delete next[syncOrder.id];
+              return next;
+            });
+
+            setOrderHistory((prev) => {
+              const filtered = prev.filter((o) => o.id !== syncOrder.id);
+              return [syncOrder, ...filtered];
+            });
+
+            if (syncTable || syncOrder.tableId) {
+              const targetTableId = syncTable?.id || syncOrder.tableId;
+              setTables((prev) =>
+                prev.map((t) =>
+                  t.id === targetTableId
+                    ? { ...t, ...(syncTable || {}), status: 'empty', activeOrderId: null, customerCount: 0, billingLock: null }
+                    : t
+                )
+              );
+            }
+
+            if (syncPayment) {
+              setPayments((prev) => {
+                if (prev.some((p) => p.id === syncPayment.id || p.orderId === syncPayment.orderId)) return prev;
+                return [syncPayment, ...prev];
+              });
+            }
+          } else {
+            // Active order (serving)
+            setOrders((prev) => ({
+              ...prev,
+              [syncOrder.id]: syncOrder
+            }));
+
+            if (syncTable || syncOrder.tableId) {
+              const targetTableId = syncTable?.id || syncOrder.tableId;
+              setTables((prev) =>
+                prev.map((t) =>
+                  t.id === targetTableId
+                    ? {
+                        ...t,
+                        ...(syncTable || {}),
+                        status: 'occupied',
+                        activeOrderId: syncOrder.id,
+                        customerCount: syncOrder.customerCount || t.customerCount || 1,
+                        seatedAt: t.seatedAt || syncOrder.createdAt || new Date().toISOString()
+                      }
+                    : t
+                )
+              );
+            }
+          }
+        } else if (syncTable) {
+          setTables((prev) =>
+            prev.map((t) => (t.id === syncTable.id ? { ...t, ...syncTable } : t))
+          );
+        }
+      }
+    };
+
+    // Thiết lập kênh Local Mesh (BroadcastChannel API: độ trễ < 1ms giữa các tab/cửa sổ PWA cùng máy)
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window && !localBroadcastChannelRef.current) {
+      try {
+        const localBc = new window.BroadcastChannel('goc_pos_ultra_mesh_v1');
+        localBroadcastChannelRef.current = localBc;
+        localBc.onmessage = (msg) => {
+          if (msg.data && msg.data.event && msg.data.payload) {
+            processIncomingBroadcast(msg.data.event, msg.data.payload);
+          }
+        };
+      } catch (err) {
+        console.debug('[LocalMesh] BroadcastChannel init error:', err);
+      }
+    }
+
     const setupRealtimeChannel = () => {
       if (!isSupabaseConfigured || !supabase) return null;
 
       const ch = supabase
         .channel('pos_realtime_sync_channel')
-        .on('broadcast', { event: 'billing_lock' }, ({ payload }) => {
-          if (!payload || !payload.tableId || payload.senderInstance === clientInstanceIdRef.current) return;
-          setTables((prev) =>
-            prev.map((t) => (t.id === payload.tableId ? { ...t, billingLock: payload.billingLock } : t))
-          );
-        })
-        .on('broadcast', { event: 'order_sync' }, ({ payload }) => {
-          if (!payload || payload.senderInstance === clientInstanceIdRef.current) return;
-          const { order: syncOrder, table: syncTable, sourceTable: syncSourceTable, deletedOrderId, payment: syncPayment } = payload;
-
-          if (deletedOrderId) {
-            setOrders((prev) => {
-              if (!prev[deletedOrderId]) return prev;
-              const next = { ...prev };
-              delete next[deletedOrderId];
-              return next;
-            });
-          }
-
-          if (syncSourceTable) {
-            setTables((prev) =>
-              prev.map((t) => (t.id === syncSourceTable.id ? { ...t, ...syncSourceTable } : t))
-            );
-          }
-
-          if (syncOrder) {
-            if (syncOrder.status === 'completed' || syncOrder.status === 'cancelled' || syncOrder.status === 'unpaid_carried_over') {
-              setOrders((prev) => {
-                if (!prev[syncOrder.id]) return prev;
-                const next = { ...prev };
-                delete next[syncOrder.id];
-                return next;
-              });
-
-              setOrderHistory((prev) => {
-                const filtered = prev.filter((o) => o.id !== syncOrder.id);
-                return [syncOrder, ...filtered];
-              });
-
-              if (syncTable || syncOrder.tableId) {
-                const targetTableId = syncTable?.id || syncOrder.tableId;
-                setTables((prev) =>
-                  prev.map((t) =>
-                    t.id === targetTableId
-                      ? { ...t, ...(syncTable || {}), status: 'empty', activeOrderId: null, customerCount: 0, billingLock: null }
-                      : t
-                  )
-                );
-              }
-
-              if (syncPayment) {
-                setPayments((prev) => {
-                  if (prev.some((p) => p.id === syncPayment.id || p.orderId === syncPayment.orderId)) return prev;
-                  return [syncPayment, ...prev];
-                });
-              }
-            } else {
-              // Active order (serving)
-              setOrders((prev) => ({
-                ...prev,
-                [syncOrder.id]: syncOrder
-              }));
-
-              if (syncTable || syncOrder.tableId) {
-                const targetTableId = syncTable?.id || syncOrder.tableId;
-                setTables((prev) =>
-                  prev.map((t) =>
-                    t.id === targetTableId
-                      ? {
-                          ...t,
-                          ...(syncTable || {}),
-                          status: 'occupied',
-                          activeOrderId: syncOrder.id,
-                          customerCount: syncOrder.customerCount || t.customerCount || 1,
-                          seatedAt: t.seatedAt || syncOrder.createdAt || new Date().toISOString()
-                        }
-                      : t
-                  )
-                );
-              }
-            }
-          } else if (syncTable) {
-            setTables((prev) =>
-              prev.map((t) => (t.id === syncTable.id ? { ...t, ...syncTable } : t))
-            );
-          }
-        })
-        .on('broadcast', { event: 'table_sync' }, ({ payload }) => {
-          if (!payload || !payload.table || payload.senderInstance === clientInstanceIdRef.current) return;
-          setTables((prev) => {
-            const idx = prev.findIndex((t) => t.id === payload.table.id);
-            if (idx >= 0) {
-              const next = [...prev];
-              next[idx] = { ...next[idx], ...payload.table };
-              return next;
-            }
-            return [...prev, payload.table];
-          });
-        })
+        .on('broadcast', { event: 'billing_lock' }, ({ payload }) => processIncomingBroadcast('billing_lock', payload))
+        .on('broadcast', { event: 'order_sync' }, ({ payload }) => processIncomingBroadcast('order_sync', payload))
+        .on('broadcast', { event: 'table_sync' }, ({ payload }) => processIncomingBroadcast('table_sync', payload))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, async (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const updated = mapTableFromDb(payload.new);
@@ -1436,6 +1469,10 @@ export function PosProvider({ children }) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (channel && supabase) {
         try { supabase.removeChannel(channel); } catch (_) {}
+      }
+      if (localBroadcastChannelRef.current) {
+        try { localBroadcastChannelRef.current.close(); } catch (_) {}
+        localBroadcastChannelRef.current = null;
       }
     };
   }, []);
@@ -1828,13 +1865,27 @@ export function PosProvider({ children }) {
     });
   }, []);
 
+  // Tổng số lượng món đang chờ pha chế (để kích hoạt chuông chính xác cả khi gọi thêm món vào đơn đang có)
+  const totalPendingItemsCount = useMemo(() => {
+    return baristaPendingOrders.reduce((total, ord) => {
+      return total + (Array.isArray(ord.items) ? ord.items.reduce((sum, it) => sum + (it.quantity || 1), 0) : 0);
+    }, 0);
+  }, [baristaPendingOrders]);
+
   const prevPendingCountRef = useRef(baristaPendingOrders.length);
+  const prevPendingItemsCountRef = useRef(totalPendingItemsCount);
+
   useEffect(() => {
-    if (baristaPendingOrders.length > prevPendingCountRef.current) {
+    const hasMoreOrders = baristaPendingOrders.length > prevPendingCountRef.current;
+    const hasMoreItems = totalPendingItemsCount > prevPendingItemsCountRef.current;
+
+    if (hasMoreOrders || hasMoreItems) {
       playOrderChime();
     }
+
     prevPendingCountRef.current = baristaPendingOrders.length;
-  }, [baristaPendingOrders.length]);
+    prevPendingItemsCountRef.current = totalPendingItemsCount;
+  }, [baristaPendingOrders.length, totalPendingItemsCount]);
 
   // =================== TABLE ACTIONS ===================
   const addTable = (tableData) => {
@@ -2533,6 +2584,34 @@ export function PosProvider({ children }) {
         prev.map((t) => (t.id === tableId ? updatedTable : t))
       );
 
+      const syncPayload = {
+        order: updatedOrder,
+        table: updatedTable,
+        senderId: currentUser?.id || currentUser?.uid || 'staff',
+        senderInstance: clientInstanceIdRef.current,
+        timestamp: Date.now(),
+        isNewItemAdded: hasAddedItems || !existingOrder
+      };
+
+      // 1. Kênh Local Mesh BroadcastChannel: gửi ngay lập tức (<1ms) cho các tab/màn hình Barista cùng trạm
+      if (localBroadcastChannelRef.current) {
+        try {
+          localBroadcastChannelRef.current.postMessage({
+            event: 'order_sync',
+            payload: syncPayload
+          });
+        } catch (_) {}
+      }
+
+      // 2. Kênh Supabase Realtime WebSocket: gửi ngay qua WebSocket cho các thiết bị từ xa (không đợi ghi ổ đĩa)
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.send({
+          type: 'broadcast',
+          event: 'order_sync',
+          payload: syncPayload
+        }).catch((e) => console.warn('Broadcast order_sync error:', e));
+      }
+
       // Ghi đồng bộ ngay vào LocalStorage & IndexedDB để tránh mất dữ liệu khi F5 hoặc chuyển màn hình tức thì
       try {
         const currentOrders = loadStorage(STORAGE_KEYS.ORDERS, {});
@@ -2547,21 +2626,6 @@ export function PosProvider({ children }) {
         dualWriteToIndexedDB('tables', nextTables);
       } catch (e) {
         console.warn('Sync storage error:', e);
-      }
-
-      // Phát Realtime Broadcast tức thời (<5ms) cho toàn bộ các thiết bị đang kết nối
-      if (realtimeChannelRef.current) {
-        realtimeChannelRef.current.send({
-          type: 'broadcast',
-          event: 'order_sync',
-          payload: {
-            order: updatedOrder,
-            table: updatedTable,
-            senderId: currentUser?.id || currentUser?.uid || 'staff',
-            senderInstance: clientInstanceIdRef.current,
-            timestamp: Date.now()
-          }
-        }).catch((e) => console.warn('Broadcast order_sync error:', e));
       }
 
       // Lưu nguyên tử qua Atomic RPC

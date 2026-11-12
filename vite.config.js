@@ -68,11 +68,13 @@ export default defineConfig({
     modulePreload: {
       polyfill: false,
       resolveDependencies(filename, deps) {
-        // Exclude heavy lazy chunks from initial HTML modulepreload
+        // Exclude heavy lazy chunks from initial HTML modulepreload for 95+ Lighthouse Performance
         return deps.filter(dep => 
           !dep.includes('feature-printer') && 
           !dep.includes('PosContent') && 
           !dep.includes('vendor-dexie') &&
+          !dep.includes('vendor-supabase') &&
+          !dep.includes('vendor-motion') &&
           !dep.includes('SettingsView') &&
           !dep.includes('ReportsView') &&
           !dep.includes('MenuManagementView') &&

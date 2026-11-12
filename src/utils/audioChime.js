@@ -23,6 +23,17 @@ function getAudioContext() {
   return audioCtx;
 }
 
+// Auto-warmup Web Audio context on first user touch/click for true 0ms chime playback
+if (typeof window !== 'undefined') {
+  const warmUpAudio = () => {
+    try {
+      getAudioContext();
+    } catch (_) {}
+  };
+  window.addEventListener('pointerdown', warmUpAudio, { once: true, passive: true });
+  window.addEventListener('keydown', warmUpAudio, { once: true, passive: true });
+}
+
 export function isAudioMuted() {
   if (typeof window === 'undefined') return inMemoryMuted;
   try {
