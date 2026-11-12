@@ -152,6 +152,25 @@ export default function PosContent() {
           onLogout={logoutUser}
         />
 
+        {/* PWA Update Banner */}
+        {hasUpdate && (
+          <div className="bg-forest-800 text-white px-4 py-2 flex items-center justify-between gap-2 shadow-md z-40 text-xs shrink-0 animate-fadeIn">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+              <span className="truncate">
+                Phiên bản mới <strong>v{newVersion}</strong> đã sẵn sàng!
+              </span>
+            </div>
+            <button
+              onClick={() => setShowUpdateConfirm(true)}
+              className="shrink-0 bg-white text-forest-900 font-bold px-2.5 py-1 rounded-lg text-[11px] hover:bg-forest-50 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+            >
+              <span>Xem cập nhật</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
         {/* Main Application Content Area */}
         <main
           id="main-content"
