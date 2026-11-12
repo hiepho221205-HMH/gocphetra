@@ -69,27 +69,21 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
     <>
       <header
         data-testid="shared-page-header"
-        className="sticky top-0 z-20 header-gradient-fade px-4 pt-[max(12px,env(safe-area-inset-top))] pb-4 shrink-0 transition-all duration-200"
+        className="sticky top-0 z-20 backdrop-blur-md header-gradient-fade px-4 pt-[max(10px,env(safe-area-inset-top))] pb-2.5 shrink-0 transition-all duration-200"
       >
         <div className="flex items-center justify-between gap-3">
-          {/* Left: Big Title & Subtitle */}
+          {/* Left: Prominent Bold Page Title (Clean, Maximizing Screen Space) */}
           <div className="flex-1 min-w-0 pr-1">
             <h1
               data-testid="page-header-title"
-              className="text-[26px] sm:text-[28px] font-black text-[#214E34] tracking-tight leading-tight truncate font-sans"
+              className="text-[26px] font-black text-[#214E34] tracking-tight leading-none truncate font-sans"
             >
               {config.title}
             </h1>
-            <p
-              data-testid="page-header-subtitle"
-              className="text-[12.5px] text-gray-500 font-bold truncate mt-0.5 leading-normal"
-            >
-              {config.subtitle}
-            </p>
           </div>
 
-          {/* Right: PWA Install Button, Bluetooth Status Badge & Circular Avatar */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right: 3D Clay Capsule Dock (Bluetooth + Avatar in Unified Pill) */}
+          <div className="clay-capsule flex items-center p-1 gap-1 shrink-0">
             {isInstallable && !isInstalled && (
               <button
                 type="button"
@@ -100,20 +94,22 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
                 title="Cài đặt ứng dụng GÓC POS (PWA)"
                 aria-label="Cài đặt ứng dụng GÓC POS"
                 data-testid="header-pwa-install-button"
-                className="relative w-[38px] h-[38px] rounded-full border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 flex items-center justify-center text-[#214E34] cursor-pointer shadow-[0_4px_10px_-2px_rgba(33,78,52,0.12),inset_0_1px_2px_rgba(255,255,255,0.8)] active:scale-95 transition-all"
+                className="relative w-[30px] h-[30px] rounded-full border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 flex items-center justify-center text-[#214E34] cursor-pointer shadow-xs active:scale-95 transition-all"
               >
-                <Download className="w-[18px] h-[18px] text-[#214E34]" />
+                <Download className="w-3.5 h-3.5 text-[#214E34]" />
               </button>
             )}
 
-            <BluetoothStatusBadge />
+            <BluetoothStatusBadge compact={true} />
+
+            <div className="w-[1px] h-3.5 bg-emerald-900/10 mx-0.5" />
 
             <button
               type="button"
               onClick={handleAvatarClick}
               aria-label={`Xem hồ sơ ${displayName}`}
               data-testid="header-avatar-button"
-              className="relative shrink-0 w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-[#D4E8DB] via-[#E8F5EE] to-[#D4E8DB] ring-2 ring-[#D4E8DB]/60 hover:ring-[#214E34]/30 active:scale-95 transition-all duration-150 shadow-[0_6px_14px_-2px_rgba(160,175,200,0.35),inset_0_2px_2px_rgba(255,255,255,0.9)] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#214E34]"
+              className="relative shrink-0 w-[34px] h-[34px] rounded-full p-[1.5px] bg-gradient-to-tr from-[#D4E8DB] via-[#E8F5EE] to-[#D4E8DB] ring-1 ring-[#D4E8DB]/80 hover:ring-[#214E34]/30 active:scale-95 transition-all duration-150 shadow-[0_2px_6px_rgba(160,175,200,0.35)] cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#214E34]"
             >
               <div className="w-full h-full rounded-full overflow-hidden bg-[#EBF5ED] flex items-center justify-center">
                 {avatarUrl && !imageError ? (
@@ -125,7 +121,7 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
                   />
                 ) : (
                   <div className="w-full h-full bg-[#EBF5ED] text-[#214E34] flex items-center justify-center font-bold">
-                    <User className="w-6 h-6 text-[#214E34] stroke-[2.2]" />
+                    <User className="w-4 h-4 text-[#214E34] stroke-[2.2]" />
                   </div>
                 )}
               </div>
@@ -133,7 +129,7 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
               {/* Online status indicator dot */}
               <span
                 aria-hidden="true"
-                className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#009E78] rounded-full border-2 border-white shadow-xs"
+                className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#009E78] rounded-full border border-white shadow-xs"
               />
             </button>
           </div>

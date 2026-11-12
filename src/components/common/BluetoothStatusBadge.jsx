@@ -152,9 +152,9 @@ export default function BluetoothStatusBadge({ compact = false }) {
         title={colorTheme.ariaLabel}
         role="status"
         data-testid="header-bluetooth-button"
-        className={`relative w-[38px] h-[38px] rounded-full border flex items-center justify-center transition-all duration-150 active:scale-95 cursor-pointer shadow-[0_4px_10px_-2px_rgba(33,78,52,0.12),inset_0_1px_2px_rgba(255,255,255,0.8)] ${colorTheme.badgeBg}`}
+        className={`relative ${compact ? 'w-[32px] h-[32px]' : 'w-[38px] h-[38px]'} rounded-full border flex items-center justify-center transition-all duration-150 active:scale-95 cursor-pointer shadow-[0_4px_10px_-2px_rgba(33,78,52,0.12),inset_0_1px_2px_rgba(255,255,255,0.8)] ${colorTheme.badgeBg}`}
       >
-        <Bluetooth className={`w-[18px] h-[18px] shrink-0 ${colorTheme.iconColor}`} />
+        <Bluetooth className={`${compact ? 'w-4 h-4' : 'w-[18px] h-[18px]'} shrink-0 ${colorTheme.iconColor}`} />
         <span className="absolute top-1 right-1 flex h-2.5 w-2.5 items-center justify-center pointer-events-none">
           {colorTheme.pingAnimation && (
             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${colorTheme.dotBg}`} />
