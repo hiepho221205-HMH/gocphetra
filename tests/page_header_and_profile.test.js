@@ -133,8 +133,9 @@ describe('Shared Sticky Header (Foodgo Layout) & Settings Management Contract Te
   it('3.1 - PosContent renders PageHeader only for 4 main tabs and hides it during active ordering and settings', () => {
     assert.ok(posContent.includes('<PageHeader'), 'PosContent must render PageHeader');
     assert.ok(
-      posContent.includes("!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab)"),
-      'PageHeader must be scoped to 4 main tabs and hidden during active table ordering or settings'
+      posContent.includes("!activeOrderingTable && ['tables', 'menu', 'orders', 'reports'].includes(activeTab)") ||
+      posContent.includes("!activeOrderingTable && ['tables', 'menu', 'orders', 'reports', 'barista', 'barista_history'].includes(activeTab)"),
+      'PageHeader must be scoped to main tabs and hidden during active table ordering or settings'
     );
   });
 

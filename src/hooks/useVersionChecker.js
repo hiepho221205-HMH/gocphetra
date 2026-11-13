@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { APP_VERSION } from '../config/version';
+import { APP_VERSION } from '../config/version.js';
 
 /**
  * Compare two semver strings to determine if remote is strictly newer than local.
@@ -93,6 +93,11 @@ export function useVersionChecker() {
   }, [newVersion]);
 
   const applyUpdate = () => {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.setItem('goc_app_just_updated', 'true');
+      }
+    } catch {}
     // Force refresh from server without cache
     window.location.reload();
   };

@@ -44,7 +44,9 @@ const testFiles = [
   path.join(__dirname, 'admin_credential_management.test.js'),
   path.join(__dirname, 'order_details_kitchen_print.test.js'),
   path.join(__dirname, 'bluetooth_print_queue_and_resilience.test.js'),
-  path.join(__dirname, 'barista_kds_feature.test.js')
+  path.join(__dirname, 'barista_kds_feature.test.js'),
+  path.join(__dirname, 'page_header_and_profile.test.js'),
+  path.join(__dirname, 'persistent_session_update.test.js')
 ];
 
 console.log('\n============================================================');

@@ -101,6 +101,12 @@ import {
 import { createReceiptSnapshotRecord } from '../utils/receiptEngine';
 import { formatVND } from '../utils/currency';
 import {
+  savePersistentSession,
+  loadPersistentSession,
+  isSessionGracePeriodValid,
+  clearPersistentSession
+} from '../utils/persistentAuth';
+import {
   getVietnamTodayString,
   getVietnamDateString,
   formatShortDate
@@ -215,6 +221,26 @@ function getSynchronousCachedAuth() {
     return { session: null, user: null, authUser: null, role: null, hasToken: false };
   }
   try {
+    // 1. First priority: Check dedicated persistent session snapshot in Grace Period
+    const persistent = loadPersistentSession();
+    if (persistent && isSessionGracePeriodValid(persistent)) {
+      const role = persistent.role || 'staff';
+      const profileObj = {
+        id: persistent.userId || persistent.uid,
+        uid: persistent.userId || persistent.uid,
+        email: persistent.email || '',
+        name: persistent.name || (role === 'admin' ? 'Trần Mai' : role === 'manager' ? 'Nguyễn Văn Hùng' : role === 'barista' ? 'Phạm Minh Quân' : 'Lê Hoàng Nam'),
+        role,
+        status: 'active',
+        avatarUrl: persistent.avatarUrl || null,
+        phone: persistent.phone || '',
+        branchId: persistent.branchId || 'main'
+      };
+      const sessionObj = persistent.session || { user: profileObj, access_token: 'cached_pos_token' };
+      return { session: sessionObj, user: profileObj, authUser: sessionObj.user || profileObj, role, hasToken: true };
+    }
+
+    // 2. Second priority: Scan Supabase auth tokens
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
@@ -304,7 +330,13 @@ export function PosProvider({ children }) {
   const [session, setSession] = useState(() => initialCachedAuth.session);
   const [authUser, setAuthUser] = useState(() => initialCachedAuth.authUser);
   const [currentUserProfile, setCurrentUserProfile] = useState(() => initialCachedAuth.user);
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(() => {
+    // If we already have synchronous cached auth or persistent session, do not block or show loading
+    if (initialCachedAuth.hasToken || initialCachedAuth.user) {
+      return false;
+    }
+    return Boolean(isSupabaseConfigured && typeof window !== 'undefined');
+  });
   const [authError, setAuthError] = useState(null);
   const [loginSuccessRole, setLoginSuccessRole] = useState(null);
 
@@ -652,8 +684,9 @@ export function PosProvider({ children }) {
       // Requirement 12 & 26: If account is locked/paused/inactive, reject immediately
       const status = profile?.status || 'active';
       if (status !== 'active') {
+        clearPersistentSession();
         setLoginSuccessRole(null);
-    await signOutUser();
+        await signOutUser();
         setSession(null);
         setAuthUser(null);
         setCurrentUser(null);
@@ -707,6 +740,8 @@ export function PosProvider({ children }) {
         currentCashier: `${name} (${role.toUpperCase()})`
       }));
 
+      savePersistentSession(userObj, role, sessionObj || session);
+
       return userObj;
     } catch (err) {
       console.warn('Lỗi hydrateUserAndRole:', err);
@@ -737,11 +772,20 @@ export function PosProvider({ children }) {
           syncFromCloud(false, false);
         } catch (_) {}
       } else {
-        setSession(null);
-        setAuthUser(null);
-        setCurrentUser(null);
-        setCurrentRole(null);
-        setCurrentUserProfile(null);
+        // Grace Period: Check if persistent session snapshot is valid
+        const persistent = loadPersistentSession();
+        if (persistent && isSessionGracePeriodValid(persistent)) {
+          // Keep active cached user & role - do not wipe!
+          if (typeof navigator !== 'undefined' && navigator.onLine) {
+            supabase?.auth?.refreshSession().catch(() => {});
+          }
+        } else {
+          setSession(null);
+          setAuthUser(null);
+          setCurrentUser(null);
+          setCurrentRole(null);
+          setCurrentUserProfile(null);
+        }
       }
       setIsAuthLoading(false);
     };
@@ -787,7 +831,8 @@ export function PosProvider({ children }) {
         return;
       }
 
-      if (event === 'SIGNED_OUT' || !newSession) {
+      if (event === 'SIGNED_OUT') {
+        clearPersistentSession();
         setSession(null);
         setAuthUser(null);
         setCurrentUser(null);
@@ -810,6 +855,29 @@ export function PosProvider({ children }) {
     };
   }, []);
 
+  // Silent background token refresh every 20 minutes to keep Supabase JWT perpetually active
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || typeof window === 'undefined') return;
+    const interval = setInterval(async () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+      try {
+        const { data } = await supabase.auth.refreshSession();
+        if (data?.session && data.session.user) {
+          setSession(data.session);
+          setAuthUser(data.session.user);
+          const persistent = loadPersistentSession();
+          if (persistent) {
+            savePersistentSession(persistent, persistent.role, data.session);
+          }
+        }
+      } catch {
+        // Silent catch: temporary network glitch does not interrupt staff
+      }
+    }, 20 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const loginWithEmail = async (email, password) => {
     setAuthError(null);
     const res = await signInWithEmail(email, password);
@@ -830,6 +898,7 @@ export function PosProvider({ children }) {
     }
 
     setLoginSuccessRole(hydrated.role);
+    savePersistentSession(hydrated, hydrated.role, res.session);
     try {
       sessionStorage.setItem('goc_pos_welcome_role', hydrated.role);
     } catch (_) {}
@@ -841,6 +910,7 @@ export function PosProvider({ children }) {
   };
 
   const logoutUser = async () => {
+    clearPersistentSession();
     if (presenceChannelRef.current) {
       try {
         await presenceChannelRef.current.untrack();
@@ -1691,8 +1761,7 @@ export function PosProvider({ children }) {
     const targetName = savedProfile.name || account.name || (newRole === 'admin' ? 'Trần Mai' : newRole === 'manager' ? 'Nguyễn Văn Hùng' : newRole === 'barista' ? 'Phạm Minh Quân' : 'Lê Hoàng Nam');
     const targetAvatar = savedProfile.avatarUrl !== undefined ? savedProfile.avatarUrl : (account.avatarUrl || null);
 
-    setCurrentRole(newRole);
-    setCurrentUser({
+    const updatedDemoUser = {
       ...account,
       id: activeId,
       name: targetName,
@@ -1700,7 +1769,11 @@ export function PosProvider({ children }) {
       role: newRole,
       phone: savedProfile.phone || '',
       notes: savedProfile.notes || ''
-    });
+    };
+
+    setCurrentRole(newRole);
+    setCurrentUser(updatedDemoUser);
+    savePersistentSession(updatedDemoUser, newRole, session);
 
     setSettings((prev) => ({
       ...prev,
@@ -4631,7 +4704,7 @@ export function PosProvider({ children }) {
     session,
     authUser,
     currentUserProfile,
-    isAuthenticated: Boolean((session?.user && currentRole) || (!isSupabaseConfigured && currentUser)),
+    isAuthenticated: Boolean((session?.user && currentRole) || (currentUser && currentRole) || (!isSupabaseConfigured && currentUser)),
     isAuthLoading,
     authError,
     loginSuccessRole,

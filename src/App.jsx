@@ -32,13 +32,24 @@ function PosAppRoot() {
           navigate('/login');
         }
       } else {
-        if (currentRoute === '/login' && !loginSuccessRole) {
+        if ((currentRoute === '/login' || currentRoute === '/') && !loginSuccessRole) {
           const targetRoute = currentUser?.role === 'barista' ? '/barista' : '/tables';
           navigate(targetRoute);
         }
       }
     }
-  }, [isAuthenticated, isAuthLoading, currentRoute, navigate, loginSuccessRole]);
+  }, [isAuthenticated, isAuthLoading, currentRoute, navigate, loginSuccessRole, currentUser?.role]);
+
+  // Handle post-update landing: Always land on Barista KDS for Barista, or Tables for Cashier/Manager/Admin
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      if (sessionStorage.getItem('goc_app_just_updated') === 'true') {
+        sessionStorage.removeItem('goc_app_just_updated');
+        const defaultRoute = currentUser?.role === 'barista' ? '/barista' : '/tables';
+        navigate(defaultRoute);
+      }
+    }
+  }, [currentUser?.role, navigate]);
 
   if (isAuthLoading) {
     return (
