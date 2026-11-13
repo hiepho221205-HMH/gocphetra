@@ -5,11 +5,11 @@ import { AnimateUIProvider } from './lib/animateUi';
 import LoginPage from './components/auth/LoginPage';
 import { useVersionChecker } from './hooks/useVersionChecker';
 import { RefreshCw, X } from 'lucide-react';
+import LoginSuccessView from './components/auth/LoginSuccessView';
 
 // Code-split heavy post-auth views for instant login load and 90+ Lighthouse score
 // Routes: activeTab === 'settings', activeTab === 'tables', activeTab === 'menu', activeTab === 'orders', activeTab === 'reports'
 const PosContent = lazy(() => import('./components/pos/PosContent'));
-const LoginSuccessView = lazy(() => import('./components/auth/LoginSuccessView'));
 
 function PosAppRoot() {
   const {

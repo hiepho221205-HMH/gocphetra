@@ -254,8 +254,11 @@ export default function OrderDetailsModal({
       }
 
       // Check if kitchen ticket prompt needed
-      const itemsToPrint = computeKitchenItemsToPrint(items, order?.items || []);
-      const unprintedCount = itemsToPrint.reduce((acc, it) => acc + (it.qtyToPrint || 0), 0);
+      const printDiff = computeKitchenItemsToPrint(items, order?.items || []);
+      const itemsToPrint = Array.isArray(printDiff) ? printDiff : (printDiff?.itemsToPrint || []);
+      const unprintedCount = typeof printDiff?.totalQtyToPrint === 'number'
+        ? printDiff.totalQtyToPrint
+        : itemsToPrint.reduce((acc, it) => acc + (it.qtyToPrint || 0), 0);
 
       const kitchenConfig = settings?.storeConfig?.kitchenConfig || DEFAULT_KITCHEN_TICKET_SETTINGS;
       const shouldPrompt = kitchenConfig.autoPrintTicket !== false && unprintedCount > 0;
