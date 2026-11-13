@@ -1,13 +1,11 @@
 import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { usePos } from '../../store/PosContext';
-import { useVersionChecker } from '../../hooks/useVersionChecker';
 import { useIosKeyboardFix } from '../../hooks/useIosKeyboardFix';
 import BottomNav from '../common/BottomNav';
 import Toast from '../common/Toast';
 import PageHeader from '../common/PageHeader';
 import AccessDeniedView from '../common/AccessDeniedView';
 import AccountSuspendedBannerModal from '../auth/AccountSuspendedBannerModal';
-import { Sparkles, ArrowRight } from 'lucide-react';
 
 // Code-split heavy views and modals for optimal bundle size and Lighthouse scores
 const TableGrid = lazy(() => import('../tables/TableGrid'));
@@ -56,9 +54,7 @@ export default function PosContent() {
   }, [currentRole, activeTab, setActiveTab]);
 
   const [previousTab, setPreviousTab] = useState('tables');
-  const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
   const { isKeyboardOpen } = useIosKeyboardFix();
-  const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
 
   // Active table being viewed in ordering or action modal
   const [activeOrderingTable, setActiveOrderingTable] = useState(null);
@@ -151,25 +147,6 @@ export default function PosContent() {
           isOpen={isAccountSuspended}
           onLogout={logoutUser}
         />
-
-        {/* PWA Update Banner */}
-        {hasUpdate && (
-          <div className="bg-forest-800 text-white px-4 py-2 flex items-center justify-between gap-2 shadow-md z-40 text-xs shrink-0 animate-fadeIn">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-              <span className="truncate">
-                Phiên bản mới <strong>v{newVersion}</strong> đã sẵn sàng!
-              </span>
-            </div>
-            <button
-              onClick={() => setShowUpdateConfirm(true)}
-              className="shrink-0 bg-white text-forest-900 font-bold px-2.5 py-1 rounded-lg text-[11px] hover:bg-forest-50 transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
-            >
-              <span>Xem cập nhật</span>
-              <ArrowRight className="w-3 h-3" />
-            </button>
-          </div>
-        )}
 
         {/* Main Application Content Area */}
         <main
@@ -371,39 +348,6 @@ export default function PosContent() {
             onPaymentSuccess={handlePaymentSuccess}
           />
         </Suspense>
-
-        {/* Safe Update Confirmation Modal */}
-        {showUpdateConfirm && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-            <div className="bg-white w-full max-w-sm rounded-3xl p-5 space-y-3.5 shadow-2xl text-center border border-gray-100">
-              <div className="w-12 h-12 rounded-2xl bg-forest-100 text-forest-800 flex items-center justify-center mx-auto">
-                <Sparkles className="w-6 h-6 text-forest-700" />
-              </div>
-              <div>
-                <h3 className="font-extrabold text-forest-900 text-sm">Cập nhật ứng dụng lên v{newVersion}</h3>
-                <p className="text-gray-500 text-xs mt-1 leading-relaxed">
-                  Ứng dụng sẽ tải lại để nạp các tính năng và bản vá mới nhất. Vui lòng đảm bảo các hóa đơn đang mở đã được lưu trước khi cập nhật.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowUpdateConfirm(false)}
-                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-xs transition-colors"
-                >
-                  Để sau
-                </button>
-                <button
-                  type="button"
-                  onClick={applyUpdate}
-                  className="flex-1 py-2.5 bg-forest-800 hover:bg-forest-900 text-white rounded-xl font-bold text-xs transition-colors shadow-xs"
-                >
-                  Tải lại ngay
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

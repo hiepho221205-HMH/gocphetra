@@ -53,14 +53,11 @@ export default function BluetoothStatusBadge({ compact = false }) {
     };
   }, [isOpen]);
 
-  if (!isSupported) {
-    return null; // Gracefully hide when Web Bluetooth is not supported in environment
-  }
-
   // Determine visual color state
   // Green: Connected & idle
   // Amber: Printing, Reconnecting, Connecting, or Queue > 0
   // Red: Disconnected or Error
+  // Slate/Neutral: Browser does not support Web Bluetooth directly (e.g. iOS Safari)
   let colorTheme = {
     badgeBg: 'bg-white hover:bg-rose-50/60 border-rose-200/80 text-rose-600',
     dotBg: 'bg-rose-500',
@@ -70,7 +67,16 @@ export default function BluetoothStatusBadge({ compact = false }) {
     ariaLabel: 'Máy in Bluetooth: Chưa kết nối. Bấm để kết nối'
   };
 
-  if (isPrinting || isReconnecting || queueLength > 0) {
+  if (!isSupported) {
+    colorTheme = {
+      badgeBg: 'bg-white hover:bg-emerald-50/40 border-emerald-200/70 text-[#214E34]',
+      dotBg: 'bg-slate-400',
+      iconColor: 'text-[#214E34]',
+      pingAnimation: false,
+      label: 'Chưa hỗ trợ',
+      ariaLabel: 'Máy in Bluetooth: Trình duyệt chưa hỗ trợ Web Bluetooth (iOS Safari)'
+    };
+  } else if (isPrinting || isReconnecting || queueLength > 0) {
     colorTheme = {
       badgeBg: 'bg-amber-50/70 hover:bg-amber-100/70 border-amber-300 text-amber-700',
       dotBg: 'bg-amber-500',
@@ -180,112 +186,142 @@ export default function BluetoothStatusBadge({ compact = false }) {
             </button>
           </div>
 
-          {/* Status Details */}
-          <div className="space-y-1.5 bg-gray-50 p-2.5 rounded-xl border border-gray-100 text-[11.5px]">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500 font-semibold">Trạng thái:</span>
-              <span className="font-extrabold flex items-center gap-1">
-                {isConnected ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-700">Đã kết nối</span>
-                  </>
-                ) : isReconnecting ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 text-amber-600 animate-spin" />
-                    <span className="text-amber-700">Đang tự kết nối lại...</span>
-                  </>
-                ) : isStandbyReady ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-700">Sẵn sàng (Đã nhả máy in)</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                    <span className="text-rose-600">Chưa kết nối</span>
-                  </>
+          {/* iOS / Safari Web Bluetooth Unsupported Notice */}
+          {!isSupported ? (
+            <div className="space-y-3 pt-0.5">
+              <div className="bg-amber-50/80 border border-amber-200/80 p-3 rounded-2xl text-amber-950 text-[11.5px] leading-relaxed space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>Trình duyệt chưa hỗ trợ Web Bluetooth</span>
+                </div>
+                <p className="text-gray-600 text-[11px]">
+                  Apple Safari trên iOS chưa hỗ trợ Web Bluetooth trực tiếp. Để in hóa đơn hoặc phiếu bếp từ máy này:
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-gray-700 text-[10.5px] font-medium pt-0.5">
+                  <li>Tải ứng dụng <strong>Bluefy Web BLE Browser</strong> (miễn phí trên App Store iOS).</li>
+                  <li>Dùng thiết bị Android hoặc máy tính (Chrome/Edge) làm trạm in chính.</li>
+                  <li>Hoặc cấu hình in qua mạng LAN / Wi-Fi trong mục Cài đặt.</li>
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="w-full py-2 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs flex items-center justify-center cursor-pointer active:scale-98 transition-transform"
+              >
+                Đã hiểu
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Status Details */}
+              <div className="space-y-1.5 bg-gray-50 p-2.5 rounded-xl border border-gray-100 text-[11.5px]">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 font-semibold">Trạng thái:</span>
+                  <span className="font-extrabold flex items-center gap-1">
+                    {isConnected ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">Đã kết nối</span>
+                      </>
+                    ) : isReconnecting ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                        <span className="text-amber-700">Đang tự kết nối lại...</span>
+                      </>
+                    ) : isStandbyReady ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">Sẵn sàng (Đã nhả máy in)</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                        <span className="text-rose-600">Chưa kết nối</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+
+                {deviceName && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-semibold">Thiết bị:</span>
+                    <span className="font-bold text-gray-800 truncate max-w-[140px]">{deviceName}</span>
+                  </div>
                 )}
-              </span>
-            </div>
 
-            {deviceName && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500 font-semibold">Thiết bị:</span>
-                <span className="font-bold text-gray-800 truncate max-w-[140px]">{deviceName}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 font-semibold">Hàng đợi in:</span>
+                  <span className="font-black text-gray-900">{queueLength} lệnh</span>
+                </div>
+
+                {activeJob && (
+                  <div className="flex justify-between items-center text-[10.5px] text-amber-800 bg-amber-50/80 p-1 rounded-md">
+                    <span className="truncate">Đang in: {activeJob.title}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+                  <span className="text-gray-500 font-semibold">Chia sẻ nhiều máy:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setAutoReleaseEnabled(!isAutoRelease);
+                      showToast(
+                        !isAutoRelease
+                          ? 'Đã bật chế độ chia sẻ máy in (tự nhả sau khi in 1s)'
+                          : 'Đã tắt chế độ chia sẻ (giữ kết nối liên tục)',
+                        'info'
+                      );
+                    }}
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-black cursor-pointer transition-colors ${
+                      isAutoRelease
+                        ? 'bg-emerald-100 text-[#214E34]'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}
+                  >
+                    {isAutoRelease ? 'Đang BẬT' : 'Đang TẮT'}
+                  </button>
+                </div>
               </div>
-            )}
 
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500 font-semibold">Hàng đợi in:</span>
-              <span className="font-black text-gray-900">{queueLength} lệnh</span>
-            </div>
+              {/* Actions */}
+              <div className="space-y-2 pt-1">
+                {hasFailedJob && (
+                  <button
+                    type="button"
+                    disabled={isActionPending}
+                    onClick={handleRetry}
+                    className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98 transition-transform disabled:opacity-50"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Thử lại lệnh in gần nhất</span>
+                  </button>
+                )}
 
-            {activeJob && (
-              <div className="flex justify-between items-center text-[10.5px] text-amber-800 bg-amber-50/80 p-1 rounded-md">
-                <span className="truncate">Đang in: {activeJob.title}</span>
+                {!isConnected ? (
+                  <button
+                    type="button"
+                    disabled={isActionPending}
+                    onClick={handleConnect}
+                    className="w-full py-2 px-3 rounded-xl bg-[#214E34] hover:bg-[#1b3f2a] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98 transition-transform disabled:opacity-50"
+                  >
+                    <Bluetooth className="w-3.5 h-3.5" />
+                    <span>{isActionPending ? 'Đang kết nối...' : 'Kết nối máy in'}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleDisconnect}
+                    className="w-full py-2 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 transition-transform"
+                  >
+                    <span>Ngắt kết nối</span>
+                  </button>
+                )}
               </div>
-            )}
-
-            <div className="flex justify-between items-center pt-1 border-t border-gray-100">
-              <span className="text-gray-500 font-semibold">Chia sẻ nhiều máy:</span>
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('light');
-                  setAutoReleaseEnabled(!isAutoRelease);
-                  showToast(
-                    !isAutoRelease
-                      ? 'Đã bật chế độ chia sẻ máy in (tự nhả sau khi in 1s)'
-                      : 'Đã tắt chế độ chia sẻ (giữ kết nối liên tục)',
-                    'info'
-                  );
-                }}
-                className={`px-2 py-0.5 rounded-full text-[10px] font-black cursor-pointer transition-colors ${
-                  isAutoRelease
-                    ? 'bg-emerald-100 text-[#214E34]'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-              >
-                {isAutoRelease ? 'Đang BẬT' : 'Đang TẮT'}
-              </button>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="space-y-2 pt-1">
-            {hasFailedJob && (
-              <button
-                type="button"
-                disabled={isActionPending}
-                onClick={handleRetry}
-                className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98 transition-transform disabled:opacity-50"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Thử lại lệnh in gần nhất</span>
-              </button>
-            )}
-
-            {!isConnected ? (
-              <button
-                type="button"
-                disabled={isActionPending}
-                onClick={handleConnect}
-                className="w-full py-2 px-3 rounded-xl bg-[#214E34] hover:bg-[#1b3f2a] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98 transition-transform disabled:opacity-50"
-              >
-                <Bluetooth className="w-3.5 h-3.5" />
-                <span>{isActionPending ? 'Đang kết nối...' : 'Kết nối máy in'}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleDisconnect}
-                className="w-full py-2 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 transition-transform"
-              >
-                <span>Ngắt kết nối</span>
-              </button>
-            )}
-          </div>
+            </>
+          )}
         </div>
       )}
     </div>

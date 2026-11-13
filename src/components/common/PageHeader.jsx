@@ -84,22 +84,6 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
 
           {/* Right: 3D Clay Capsule Dock (Bluetooth + Avatar in Unified Pill) */}
           <div className="clay-capsule flex items-center p-1 gap-1 shrink-0">
-            {isInstallable && !isInstalled && (
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('medium');
-                  setShowInstallBanner(true);
-                }}
-                title="Cài đặt ứng dụng GÓC POS (PWA)"
-                aria-label="Cài đặt ứng dụng GÓC POS"
-                data-testid="header-pwa-install-button"
-                className="relative w-[30px] h-[30px] rounded-full border border-emerald-300 bg-emerald-50/80 hover:bg-emerald-100 flex items-center justify-center text-[#214E34] cursor-pointer shadow-xs active:scale-95 transition-all"
-              >
-                <Download className="w-3.5 h-3.5 text-[#214E34]" />
-              </button>
-            )}
-
             <BluetoothStatusBadge compact={true} />
 
             <div className="w-[1px] h-3.5 bg-emerald-900/10 mx-0.5" />
@@ -176,6 +160,22 @@ export default function PageHeader({ onOpenSettings, onOpenProfile }) {
 
             {/* Quick Action Buttons */}
             <div className="space-y-1.5 pt-0.5">
+              {isInstallable && !isInstalled && (
+                <button
+                  type="button"
+                  data-testid="header-pwa-install-button"
+                  onClick={() => {
+                    triggerHaptic('medium');
+                    setShowProfileMenu(false);
+                    setShowInstallBanner(true);
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#214E34] text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-[#214E34]" />
+                  <span>Cài đặt ứng dụng GÓC POS (PWA)</span>
+                </button>
+              )}
+
               {canAccessSettings && (
                 <button
                   type="button"

@@ -77,6 +77,31 @@ describe('Shared Sticky Header (Foodgo Layout) & Settings Management Contract Te
     assert.ok(bluetoothBadgeContent.includes('colorTheme.dotBg'), 'Must include LED indicator dot');
   });
 
+  it('1.7 - BluetoothStatusBadge provides resilient fallback on unsupported environments (iOS Safari) and does not return null', () => {
+    assert.ok(!bluetoothBadgeContent.includes('return null'), 'Must never return null so icon remains visible on all devices');
+    assert.ok(bluetoothBadgeContent.includes('!isSupported'), 'Must handle !isSupported state gracefully');
+    assert.ok(bluetoothBadgeContent.includes('Bluefy'), 'Must provide iOS/Bluefy guidance in popover');
+  });
+
+  it('1.8 - PageHeader capsule dock isolates Bluetooth button and Avatar; PWA install moved to profile menu', () => {
+    assert.ok(headerContent.includes('clay-capsule'), 'Must include clay-capsule container');
+    assert.ok(headerContent.includes('<BluetoothStatusBadge compact={true} />'), 'Capsule must render BluetoothStatusBadge');
+    assert.ok(headerContent.includes('header-avatar-button'), 'Capsule must render avatar button');
+    assert.ok(headerContent.includes('header-pwa-install-button'), 'PWA install button remains accessible in profile menu');
+  });
+
+  it('1.9 - Versioning and semver comparison prevents false update banners', async () => {
+    const { isNewerVersion } = await import('../src/hooks/useVersionChecker.js');
+    const versionConfig = await import('../src/config/version.js');
+    const versionJson = JSON.parse(fs.readFileSync(path.resolve('public/version.json'), 'utf8'));
+
+    assert.strictEqual(versionJson.version, versionConfig.APP_VERSION, 'public/version.json must match APP_VERSION');
+    assert.strictEqual(isNewerVersion('1.2.0', '2.0.0'), false, 'Older remote version 1.2.0 must NOT trigger update on 2.0.0');
+    assert.strictEqual(isNewerVersion('2.0.0', '2.0.0'), false, 'Equal versions must NOT trigger update');
+    assert.strictEqual(isNewerVersion('2.0.1', '2.0.0'), true, 'Higher patch version 2.0.1 must trigger update');
+    assert.strictEqual(isNewerVersion('2.1.0', '2.0.0'), true, 'Higher minor version 2.1.0 must trigger update');
+  });
+
   // =========================================================================
   // 2. Settings ManagementProfileView Component & Functionality
   // =========================================================================

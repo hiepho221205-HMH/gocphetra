@@ -4,7 +4,7 @@ import ErrorBoundary from './components/common/ErrorBoundary';
 import { AnimateUIProvider } from './lib/animateUi';
 import LoginPage from './components/auth/LoginPage';
 import { useVersionChecker } from './hooks/useVersionChecker';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, X } from 'lucide-react';
 
 // Code-split heavy post-auth views for instant login load and 90+ Lighthouse score
 // Routes: activeTab === 'settings', activeTab === 'tables', activeTab === 'menu', activeTab === 'orders', activeTab === 'reports'
@@ -23,7 +23,7 @@ function PosAppRoot() {
     logoutUser
   } = usePos();
 
-  const { hasUpdate, newVersion, applyUpdate } = useVersionChecker();
+  const { hasUpdate, newVersion, applyUpdate, dismissUpdate } = useVersionChecker();
 
   React.useEffect(() => {
     if (!isAuthLoading) {
@@ -104,23 +104,40 @@ function PosAppRoot() {
   return (
     <ErrorBoundary>
       {hasUpdate && (
-        <div
+        <aside
           role="alert"
-          className="fixed top-0 inset-x-0 z-50 bg-[#214E34] text-white px-4 py-2 flex items-center justify-between text-xs font-bold shadow-lg animate-fadeIn"
+          aria-label="Thông báo cập nhật ứng dụng"
+          className="fixed top-[max(12px,env(safe-area-inset-top,12px))] inset-x-3 sm:inset-x-auto sm:right-4 max-w-md mx-auto sm:mx-0 z-50 bg-[#214E34]/95 backdrop-blur-md text-white px-3.5 py-2.5 rounded-2xl flex items-center justify-between gap-3 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)] border border-emerald-400/30 animate-fadeIn"
         >
-          <span className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-            <span>Đã có phiên bản cập nhật mới ({newVersion})!</span>
-          </span>
-          <button
-            type="button"
-            onClick={applyUpdate}
-            className="px-3 py-1 bg-white text-[#214E34] rounded-lg font-black text-[11px] hover:bg-emerald-50 active:scale-95 cursor-pointer shadow-xs flex items-center gap-1.5 transition-transform"
-          >
-            <RefreshCw className="w-3 h-3" />
-            <span>Cập nhật ngay</span>
-          </button>
-        </div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+            </span>
+            <span className="text-xs font-bold truncate">
+              Đã có phiên bản cập nhật mới ({newVersion})!
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={applyUpdate}
+              className="px-3 py-1.5 bg-white text-[#214E34] rounded-xl font-black text-[11px] hover:bg-emerald-50 active:scale-95 cursor-pointer shadow-xs flex items-center gap-1.5 transition-transform"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Cập nhật ngay</span>
+            </button>
+            <button
+              type="button"
+              onClick={dismissUpdate}
+              title="Đóng thông báo"
+              aria-label="Đóng thông báo"
+              className="p-1 text-emerald-200 hover:text-white rounded-lg hover:bg-white/10 active:scale-90 transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </aside>
       )}
       <Suspense fallback={
         <div className="h-[100dvh] w-full bg-[#F8FAF7] flex flex-col items-center justify-center font-sans text-[#214E34]">
